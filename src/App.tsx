@@ -12,6 +12,7 @@ import Budget from "./pages/Budget";
 import Savings from "./pages/Savings";
 import Debts from "./pages/Debts";
 import Investments from "./pages/Investments";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,9 @@ const App = () => (
             } />
             <Route path="/investments" element={
               <ProtectedRoute><Investments /></ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute><Settings /></ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
           </Routes>
