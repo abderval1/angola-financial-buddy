@@ -6,14 +6,18 @@ import {
   PiggyBank,
   CreditCard,
   TrendingUp,
+  Target,
   GraduationCap,
-  Trophy,
+  Briefcase,
+  BarChart3,
   Users,
   Settings,
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Bell,
+  Flame,
+  Shield,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,6 +30,11 @@ const navigation = [
   { name: "Poupança", href: "/savings", icon: PiggyBank },
   { name: "Dívidas", href: "/debts", icon: CreditCard },
   { name: "Investimentos", href: "/investments", icon: TrendingUp },
+  { name: "Metas & FIRE", href: "/goals", icon: Target, badge: "FIRE" },
+  { name: "Educação Financeira", href: "/education", icon: GraduationCap },
+  { name: "Renda Extra", href: "/income", icon: Briefcase },
+  { name: "Análises", href: "/reports", icon: BarChart3 },
+  { name: "Comunidade", href: "/community", icon: Users },
 ];
 
 const bottomNavigation = [
@@ -70,19 +79,22 @@ export function AppSidebar() {
         <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
           <Link to="/dashboard" className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-accent">
-              <span className="font-display text-xl font-bold text-accent-foreground">K</span>
+              <span className="font-display text-xl font-bold text-sidebar-primary-foreground">K</span>
             </div>
             {!collapsed && (
-              <span className="font-display text-xl font-bold text-sidebar-foreground">
-                Kuanza
-              </span>
+              <div className="flex flex-col">
+                <span className="font-display text-xl font-bold text-sidebar-foreground">
+                  Kuanza
+                </span>
+                <span className="text-xs text-sidebar-foreground/60">Finanças Inteligentes</span>
+              </div>
             )}
           </Link>
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             onClick={() => setCollapsed(!collapsed)}
-            className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent h-8 w-8"
           >
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
@@ -97,7 +109,7 @@ export function AppSidebar() {
                 key={item.name}
                 to={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
                   isActive
                     ? "bg-sidebar-primary/10 text-sidebar-primary"
                     : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
@@ -110,9 +122,19 @@ export function AppSidebar() {
                   )}
                 />
                 {!collapsed && (
-                  <span className={cn("font-medium", isActive && "text-sidebar-primary")}>
-                    {item.name}
-                  </span>
+                  <>
+                    <span className={cn("font-medium flex-1", isActive && "text-sidebar-primary")}>
+                      {item.name}
+                    </span>
+                    {item.badge && (
+                      <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
+                )}
+                {collapsed && item.badge && (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber-500" />
                 )}
               </Link>
             );
@@ -153,16 +175,19 @@ export function AppSidebar() {
         {!collapsed && (
           <div className="border-t border-sidebar-border p-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-sidebar-accent flex items-center justify-center">
-                <span className="font-display font-semibold text-sidebar-foreground">{getUserInitials()}</span>
+              <div className="h-10 w-10 rounded-full gradient-accent flex items-center justify-center">
+                <span className="font-display font-semibold text-sidebar-primary-foreground">{getUserInitials()}</span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">
                   {getUserName()}
                 </p>
-                <p className="text-xs text-sidebar-foreground/60 truncate">
-                  {user?.email}
-                </p>
+                <div className="flex items-center gap-1">
+                  <Flame className="h-3 w-3 text-amber-500" />
+                  <p className="text-xs text-sidebar-foreground/60 truncate">
+                    Nível Iniciante
+                  </p>
+                </div>
               </div>
             </div>
           </div>

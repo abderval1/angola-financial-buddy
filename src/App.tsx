@@ -12,6 +12,11 @@ import Budget from "./pages/Budget";
 import Savings from "./pages/Savings";
 import Debts from "./pages/Debts";
 import Investments from "./pages/Investments";
+import Goals from "./pages/Goals";
+import Education from "./pages/Education";
+import Income from "./pages/Income";
+import Reports from "./pages/Reports";
+import Community from "./pages/Community";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -41,6 +46,21 @@ const App = () => (
             } />
             <Route path="/investments" element={
               <ProtectedRoute><Investments /></ProtectedRoute>
+            } />
+            <Route path="/goals" element={
+              <ProtectedRoute><Goals /></ProtectedRoute>
+            } />
+            <Route path="/education" element={
+              <ProtectedRoute><Education /></ProtectedRoute>
+            } />
+            <Route path="/income" element={
+              <ProtectedRoute><Income /></ProtectedRoute>
+            } />
+            <Route path="/reports" element={
+              <ProtectedRoute><Reports /></ProtectedRoute>
+            } />
+            <Route path="/community" element={
+              <ProtectedRoute><Community /></ProtectedRoute>
             } />
             <Route path="/settings" element={
               <ProtectedRoute><Settings /></ProtectedRoute>

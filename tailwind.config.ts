@@ -75,6 +75,7 @@ export default {
           savings: "hsl(var(--savings))",
           investment: "hsl(var(--investment))",
           debt: "hsl(var(--debt))",
+          fire: "hsl(var(--fire))",
         },
       },
       borderRadius: {

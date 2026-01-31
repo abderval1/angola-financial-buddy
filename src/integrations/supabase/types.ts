@@ -85,6 +85,111 @@ export type Database = {
           },
         ]
       }
+      challenges: {
+        Row: {
+          badge_reward: string | null
+          challenge_type: string
+          created_at: string | null
+          description: string | null
+          difficulty: string | null
+          duration_days: number
+          end_date: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          max_participants: number | null
+          points_reward: number | null
+          start_date: string | null
+          target_metric: string | null
+          target_value: number | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          badge_reward?: string | null
+          challenge_type: string
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          duration_days: number
+          end_date?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_participants?: number | null
+          points_reward?: number | null
+          start_date?: string | null
+          target_metric?: string | null
+          target_value?: number | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          badge_reward?: string | null
+          challenge_type?: string
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          duration_days?: number
+          end_date?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_participants?: number | null
+          points_reward?: number | null
+          start_date?: string | null
+          target_metric?: string | null
+          target_value?: number | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      community_posts: {
+        Row: {
+          category: string | null
+          comments_count: number | null
+          content: string
+          created_at: string | null
+          id: string
+          is_approved: boolean | null
+          is_pinned: boolean | null
+          likes_count: number | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          comments_count?: number | null
+          content: string
+          created_at?: string | null
+          id?: string
+          is_approved?: boolean | null
+          is_pinned?: boolean | null
+          likes_count?: number | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          comments_count?: number | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_approved?: boolean | null
+          is_pinned?: boolean | null
+          likes_count?: number | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       debts: {
         Row: {
           created_at: string | null
@@ -130,6 +235,138 @@ export type Database = {
         }
         Relationships: []
       }
+      educational_content: {
+        Row: {
+          category: string
+          content: string | null
+          content_type: Database["public"]["Enums"]["content_type"]
+          created_at: string | null
+          description: string | null
+          difficulty_level: string | null
+          duration_minutes: number | null
+          id: string
+          is_premium: boolean | null
+          is_published: boolean | null
+          points_reward: number | null
+          slug: string
+          tags: string[] | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+          video_url: string | null
+          view_count: number | null
+        }
+        Insert: {
+          category: string
+          content?: string | null
+          content_type: Database["public"]["Enums"]["content_type"]
+          created_at?: string | null
+          description?: string | null
+          difficulty_level?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_premium?: boolean | null
+          is_published?: boolean | null
+          points_reward?: number | null
+          slug: string
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+          video_url?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          category?: string
+          content?: string | null
+          content_type?: Database["public"]["Enums"]["content_type"]
+          created_at?: string | null
+          description?: string | null
+          difficulty_level?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_premium?: boolean | null
+          is_published?: boolean | null
+          points_reward?: number | null
+          slug?: string
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+          video_url?: string | null
+          view_count?: number | null
+        }
+        Relationships: []
+      }
+      financial_goals: {
+        Row: {
+          annual_expenses: number | null
+          color: string | null
+          created_at: string | null
+          current_amount: number | null
+          description: string | null
+          fire_type: string | null
+          goal_type: string
+          icon: string | null
+          id: string
+          is_fire_goal: boolean | null
+          monthly_contribution: number | null
+          name: string
+          notes: string | null
+          priority: Database["public"]["Enums"]["goal_priority"] | null
+          safe_withdrawal_rate: number | null
+          status: Database["public"]["Enums"]["goal_status"] | null
+          target_amount: number
+          target_date: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          annual_expenses?: number | null
+          color?: string | null
+          created_at?: string | null
+          current_amount?: number | null
+          description?: string | null
+          fire_type?: string | null
+          goal_type: string
+          icon?: string | null
+          id?: string
+          is_fire_goal?: boolean | null
+          monthly_contribution?: number | null
+          name: string
+          notes?: string | null
+          priority?: Database["public"]["Enums"]["goal_priority"] | null
+          safe_withdrawal_rate?: number | null
+          status?: Database["public"]["Enums"]["goal_status"] | null
+          target_amount: number
+          target_date?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          annual_expenses?: number | null
+          color?: string | null
+          created_at?: string | null
+          current_amount?: number | null
+          description?: string | null
+          fire_type?: string | null
+          goal_type?: string
+          icon?: string | null
+          id?: string
+          is_fire_goal?: boolean | null
+          monthly_contribution?: number | null
+          name?: string
+          notes?: string | null
+          priority?: Database["public"]["Enums"]["goal_priority"] | null
+          safe_withdrawal_rate?: number | null
+          status?: Database["public"]["Enums"]["goal_status"] | null
+          target_amount?: number
+          target_date?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       financial_profiles: {
         Row: {
           created_at: string | null
@@ -155,6 +392,96 @@ export type Database = {
           id?: string
           monthly_income?: number | null
           risk_profile?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      financial_reports: {
+        Row: {
+          created_at: string | null
+          data: Json
+          file_url: string | null
+          generated_at: string | null
+          id: string
+          period_end: string
+          period_start: string
+          report_name: string
+          report_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: Json
+          file_url?: string | null
+          generated_at?: string | null
+          id?: string
+          period_end: string
+          period_start: string
+          report_name: string
+          report_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json
+          file_url?: string | null
+          generated_at?: string | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          report_name?: string
+          report_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      income_sources: {
+        Row: {
+          business_type: Database["public"]["Enums"]["business_type"]
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          initial_investment: number | null
+          monthly_expenses: number | null
+          monthly_revenue: number | null
+          name: string
+          notes: string | null
+          start_date: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          business_type: Database["public"]["Enums"]["business_type"]
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          initial_investment?: number | null
+          monthly_expenses?: number | null
+          monthly_revenue?: number | null
+          name: string
+          notes?: string | null
+          start_date?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          business_type?: Database["public"]["Enums"]["business_type"]
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          initial_investment?: number | null
+          monthly_expenses?: number | null
+          monthly_revenue?: number | null
+          name?: string
+          notes?: string | null
+          start_date?: string | null
+          status?: string | null
           updated_at?: string | null
           user_id?: string
         }
@@ -214,6 +541,39 @@ export type Database = {
         }
         Relationships: []
       }
+      market_data_cache: {
+        Row: {
+          created_at: string | null
+          data: Json
+          data_type: string
+          expires_at: string | null
+          fetched_at: string | null
+          id: string
+          source: string
+          symbol: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data: Json
+          data_type: string
+          expires_at?: string | null
+          fetched_at?: string | null
+          id?: string
+          source: string
+          symbol?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json
+          data_type?: string
+          expires_at?: string | null
+          fetched_at?: string | null
+          id?: string
+          source?: string
+          symbol?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -243,6 +603,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      post_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          is_approved: boolean | null
+          likes_count: number | null
+          post_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          is_approved?: boolean | null
+          likes_count?: number | null
+          post_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_approved?: boolean | null
+          likes_count?: number | null
+          post_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_posts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -443,6 +844,148 @@ export type Database = {
           },
         ]
       }
+      user_challenges: {
+        Row: {
+          challenge_id: string
+          completed_at: string | null
+          current_progress: number | null
+          id: string
+          joined_at: string | null
+          notes: string | null
+          points_earned: number | null
+          status: Database["public"]["Enums"]["challenge_status"] | null
+          user_id: string
+        }
+        Insert: {
+          challenge_id: string
+          completed_at?: string | null
+          current_progress?: number | null
+          id?: string
+          joined_at?: string | null
+          notes?: string | null
+          points_earned?: number | null
+          status?: Database["public"]["Enums"]["challenge_status"] | null
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string
+          completed_at?: string | null
+          current_progress?: number | null
+          id?: string
+          joined_at?: string | null
+          notes?: string | null
+          points_earned?: number | null
+          status?: Database["public"]["Enums"]["challenge_status"] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_challenges_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_content_progress: {
+        Row: {
+          completed_at: string | null
+          content_id: string
+          created_at: string | null
+          id: string
+          is_completed: boolean | null
+          notes: string | null
+          progress_percentage: number | null
+          quiz_score: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          content_id: string
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          notes?: string | null
+          progress_percentage?: number | null
+          quiz_score?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          content_id?: string
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          notes?: string | null
+          progress_percentage?: number | null
+          quiz_score?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_content_progress_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "educational_content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_gamification: {
+        Row: {
+          challenges_completed: number | null
+          created_at: string | null
+          current_level: number | null
+          current_streak: number | null
+          goals_achieved: number | null
+          id: string
+          last_activity_at: string | null
+          lessons_completed: number | null
+          level_name: string | null
+          longest_streak: number | null
+          rank_position: number | null
+          total_points: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          challenges_completed?: number | null
+          created_at?: string | null
+          current_level?: number | null
+          current_streak?: number | null
+          goals_achieved?: number | null
+          id?: string
+          last_activity_at?: string | null
+          lessons_completed?: number | null
+          level_name?: string | null
+          longest_streak?: number | null
+          rank_position?: number | null
+          total_points?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          challenges_completed?: number | null
+          created_at?: string | null
+          current_level?: number | null
+          current_streak?: number | null
+          goals_achieved?: number | null
+          id?: string
+          last_activity_at?: string | null
+          lessons_completed?: number | null
+          level_name?: string | null
+          longest_streak?: number | null
+          rank_position?: number | null
+          total_points?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -479,6 +1022,16 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      business_type:
+        | "side_hustle"
+        | "freelance"
+        | "small_business"
+        | "investment"
+        | "passive_income"
+      challenge_status: "upcoming" | "active" | "completed" | "expired"
+      content_type: "article" | "video" | "course" | "quiz" | "calculator"
+      goal_priority: "low" | "medium" | "high" | "critical"
+      goal_status: "active" | "completed" | "paused" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -607,6 +1160,17 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      business_type: [
+        "side_hustle",
+        "freelance",
+        "small_business",
+        "investment",
+        "passive_income",
+      ],
+      challenge_status: ["upcoming", "active", "completed", "expired"],
+      content_type: ["article", "video", "course", "quiz", "calculator"],
+      goal_priority: ["low", "medium", "high", "critical"],
+      goal_status: ["active", "completed", "paused", "cancelled"],
     },
   },
 } as const
