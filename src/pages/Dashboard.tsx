@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { InvestmentRecommendations } from "@/components/dashboard/InvestmentRecommendations";
+import { SubscriptionStatus } from "@/components/subscription/SubscriptionStatus";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -508,6 +510,19 @@ export default function Dashboard() {
             <CardContent>
               <p className="text-2xl font-bold text-finance-investment mb-2">{formatCurrency(totalInvestments)}</p>
               <p className="text-sm text-muted-foreground">{investments.length} ativos</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Investment Recommendations & Subscription */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <InvestmentRecommendations />
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Sua Assinatura</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SubscriptionStatus />
             </CardContent>
           </Card>
         </div>

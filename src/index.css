@@ -2,141 +2,144 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Kuanza Finance - Premium Lilac & White Design System */
+/* Kuanza Finance - Premium Verde Escuro, Branco e Dourado Design System */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    /* Core brand colors - Elegant lilac + Pure white with HIGH CONTRAST */
-    --background: 270 15% 98%;
-    --foreground: 270 40% 12%;
-
+    /* === NOVO TEMA: Verde Escuro (#006400) + Branco (#FFFFFF) + Dourado (#FFD700) === */
+    
+    /* Core Colors - Alto Contraste */
+    --background: 0 0% 100%;
+    --foreground: 140 40% 12%;
+    
+    /* Card & Components */
     --card: 0 0% 100%;
-    --card-foreground: 270 40% 12%;
-
+    --card-foreground: 140 40% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 270 40% 12%;
-
-    /* Primary - Rich purple/lilac for trust and elegance */
-    --primary: 270 60% 50%;
+    --popover-foreground: 140 40% 12%;
+    
+    /* Primary - Verde Escuro (#006400) */
+    --primary: 120 100% 20%;
     --primary-foreground: 0 0% 100%;
-
-    /* Secondary - Light lavender with good contrast */
-    --secondary: 270 25% 94%;
-    --secondary-foreground: 270 45% 20%;
-
-    /* Muted tones - improved contrast */
-    --muted: 270 12% 94%;
-    --muted-foreground: 270 15% 40%;
-
-    /* Accent - Vibrant violet */
-    --accent: 280 70% 55%;
-    --accent-foreground: 0 0% 100%;
-
-    /* Success - Fresh teal */
-    --success: 168 76% 36%;
-    --success-foreground: 0 0% 100%;
-
-    /* Warning - Warm amber */
-    --warning: 38 92% 45%;
-    --warning-foreground: 38 92% 10%;
-
-    /* Destructive - Soft coral red */
-    --destructive: 0 70% 50%;
+    
+    /* Secondary - Verde Claro */
+    --secondary: 120 30% 94%;
+    --secondary-foreground: 120 100% 20%;
+    
+    /* Muted */
+    --muted: 120 20% 96%;
+    --muted-foreground: 140 15% 40%;
+    
+    /* Accent - Dourado (#FFD700) */
+    --accent: 51 100% 50%;
+    --accent-foreground: 140 40% 12%;
+    
+    /* Destructive - Vermelho (#FF0000) */
+    --destructive: 0 100% 50%;
     --destructive-foreground: 0 0% 100%;
-
-    --border: 270 20% 88%;
-    --input: 270 20% 88%;
-    --ring: 270 60% 50%;
-
+    
+    /* Success - Verde Sucesso (#00FF00 ajustado) */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    
+    /* Warning - Dourado */
+    --warning: 51 100% 50%;
+    --warning-foreground: 140 40% 12%;
+    
+    /* Border & Input */
+    --border: 120 20% 88%;
+    --input: 120 20% 88%;
+    --ring: 120 100% 20%;
+    
+    /* Radius */
     --radius: 0.75rem;
-
+    
     /* Custom finance colors */
-    --income: 168 76% 42%;
-    --expense: 0 65% 55%;
-    --savings: 210 85% 55%;
-    --investment: 270 60% 55%;
-    --debt: 15 85% 55%;
-    --fire: 35 95% 55%;
-
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(270 65% 55%) 0%, hsl(280 75% 60%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(168 76% 42%) 0%, hsl(175 70% 50%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(280 75% 60%) 0%, hsl(300 70% 55%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(270 50% 25%) 0%, hsl(270 65% 40%) 50%, hsl(280 60% 50%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(270 20% 98%) 100%);
+    --income: 142 76% 36%;
+    --expense: 0 84% 60%;
+    --savings: 199 89% 48%;
+    --investment: 51 100% 50%;
+    --debt: 0 72% 51%;
+    --fire: 25 95% 53%;
+    
+    /* Gradients - Verde e Dourado */
+    --gradient-primary: linear-gradient(135deg, hsl(120 100% 20%) 0%, hsl(140 80% 30%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%) 0%, hsl(160 76% 40%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(51 100% 50%) 0%, hsl(45 100% 45%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(120 100% 20% / 0.08) 0%, hsl(51 100% 50% / 0.08) 50%, hsl(142 76% 36% / 0.05) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(120 20% 98%) 100%);
     --gradient-fire: linear-gradient(135deg, hsl(35 95% 55%) 0%, hsl(25 100% 50%) 100%);
-
+    
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(270 30% 15% / 0.04);
-    --shadow-md: 0 4px 6px -1px hsl(270 30% 15% / 0.06), 0 2px 4px -2px hsl(270 30% 15% / 0.04);
-    --shadow-lg: 0 10px 15px -3px hsl(270 30% 15% / 0.08), 0 4px 6px -4px hsl(270 30% 15% / 0.04);
-    --shadow-xl: 0 20px 25px -5px hsl(270 30% 15% / 0.08), 0 8px 10px -6px hsl(270 30% 15% / 0.04);
-    --shadow-glow: 0 0 40px hsl(270 65% 55% / 0.2);
-    --shadow-glow-success: 0 0 40px hsl(168 76% 42% / 0.25);
-    --shadow-glow-accent: 0 0 40px hsl(280 75% 60% / 0.3);
-
-    /* Sidebar - Deep purple with good contrast */
-    --sidebar-background: 270 45% 16%;
+    --shadow-sm: 0 1px 2px 0 hsl(140 40% 12% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(140 40% 12% / 0.08), 0 2px 4px -2px hsl(140 40% 12% / 0.05);
+    --shadow-lg: 0 10px 15px -3px hsl(140 40% 12% / 0.1), 0 4px 6px -4px hsl(140 40% 12% / 0.05);
+    --shadow-xl: 0 20px 25px -5px hsl(140 40% 12% / 0.1), 0 8px 10px -6px hsl(140 40% 12% / 0.05);
+    --shadow-glow: 0 0 20px hsl(120 100% 20% / 0.15);
+    --shadow-glow-success: 0 0 20px hsl(142 76% 36% / 0.2);
+    --shadow-glow-accent: 0 0 20px hsl(51 100% 50% / 0.3);
+    
+    /* Sidebar - Verde Escuro */
+    --sidebar-background: 140 40% 12%;
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 280 70% 70%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 270 40% 22%;
+    --sidebar-primary: 51 100% 50%;
+    --sidebar-primary-foreground: 140 40% 12%;
+    --sidebar-accent: 140 30% 18%;
     --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 270 35% 22%;
-    --sidebar-ring: 280 70% 70%;
+    --sidebar-border: 140 30% 20%;
+    --sidebar-ring: 51 100% 50%;
   }
 
   .dark {
-    --background: 270 25% 8%;
-    --foreground: 270 15% 95%;
-
-    --card: 270 25% 12%;
-    --card-foreground: 270 15% 95%;
-
-    --popover: 270 25% 12%;
-    --popover-foreground: 270 15% 95%;
-
-    --primary: 280 70% 65%;
-    --primary-foreground: 270 30% 10%;
-
-    --secondary: 270 25% 18%;
-    --secondary-foreground: 270 15% 90%;
-
-    --muted: 270 20% 15%;
-    --muted-foreground: 270 10% 55%;
-
-    --accent: 280 75% 65%;
-    --accent-foreground: 270 30% 10%;
-
-    --success: 168 70% 50%;
-    --success-foreground: 0 0% 100%;
-
-    --warning: 38 92% 50%;
-    --warning-foreground: 38 92% 15%;
-
-    --destructive: 0 60% 55%;
+    --background: 140 40% 8%;
+    --foreground: 0 0% 95%;
+    
+    --card: 140 35% 12%;
+    --card-foreground: 0 0% 95%;
+    --popover: 140 35% 10%;
+    --popover-foreground: 0 0% 95%;
+    
+    --primary: 120 70% 45%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 140 30% 18%;
+    --secondary-foreground: 0 0% 95%;
+    
+    --muted: 140 25% 16%;
+    --muted-foreground: 140 10% 60%;
+    
+    --accent: 51 100% 50%;
+    --accent-foreground: 140 40% 12%;
+    
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-
-    --border: 270 25% 20%;
-    --input: 270 25% 20%;
-    --ring: 280 70% 65%;
-
-    --gradient-primary: linear-gradient(135deg, hsl(280 70% 65%) 0%, hsl(290 65% 60%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(270 30% 6%) 0%, hsl(270 25% 12%) 50%, hsl(270 25% 18%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(270 25% 12%) 0%, hsl(270 25% 10%) 100%);
-
-    --shadow-glow: 0 0 40px hsl(280 70% 65% / 0.2);
-
-    --sidebar-background: 270 35% 8%;
-    --sidebar-foreground: 270 15% 90%;
-    --sidebar-primary: 280 70% 65%;
-    --sidebar-primary-foreground: 270 30% 10%;
-    --sidebar-accent: 270 30% 15%;
-    --sidebar-accent-foreground: 270 15% 90%;
-    --sidebar-border: 270 30% 18%;
-    --sidebar-ring: 280 70% 65%;
+    
+    --success: 142 76% 45%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 51 100% 50%;
+    --warning-foreground: 140 40% 12%;
+    
+    --border: 140 25% 22%;
+    --input: 140 25% 22%;
+    --ring: 120 70% 45%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(120 70% 45%) 0%, hsl(140 60% 40%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(140 40% 6%) 0%, hsl(140 35% 12%) 50%, hsl(140 30% 18%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(140 35% 12%) 0%, hsl(140 35% 10%) 100%);
+    
+    --shadow-glow: 0 0 25px hsl(120 70% 45% / 0.2);
+    
+    --sidebar-background: 140 45% 6%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 51 100% 50%;
+    --sidebar-primary-foreground: 140 40% 12%;
+    --sidebar-accent: 140 35% 14%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 140 30% 18%;
+    --sidebar-ring: 51 100% 50%;
   }
 }
 

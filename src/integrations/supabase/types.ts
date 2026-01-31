@@ -315,6 +315,48 @@ export type Database = {
         }
         Relationships: []
       }
+      ebook_downloads: {
+        Row: {
+          downloaded_at: string | null
+          id: string
+          is_free_download: boolean | null
+          product_id: string | null
+          subscription_id: string | null
+          user_id: string
+        }
+        Insert: {
+          downloaded_at?: string | null
+          id?: string
+          is_free_download?: boolean | null
+          product_id?: string | null
+          subscription_id?: string | null
+          user_id: string
+        }
+        Update: {
+          downloaded_at?: string | null
+          id?: string
+          is_free_download?: boolean | null
+          product_id?: string | null
+          subscription_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ebook_downloads_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ebook_downloads_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "user_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       educational_content: {
         Row: {
           category: string
@@ -674,8 +716,10 @@ export type Database = {
           id: string
           is_featured: boolean | null
           is_published: boolean | null
+          is_subscription_included: boolean | null
           price: number
           product_type: string
+          requires_subscription: boolean | null
           title: string
           updated_at: string | null
           view_count: number | null
@@ -690,8 +734,10 @@ export type Database = {
           id?: string
           is_featured?: boolean | null
           is_published?: boolean | null
+          is_subscription_included?: boolean | null
           price?: number
           product_type: string
+          requires_subscription?: boolean | null
           title: string
           updated_at?: string | null
           view_count?: number | null
@@ -706,8 +752,10 @@ export type Database = {
           id?: string
           is_featured?: boolean | null
           is_published?: boolean | null
+          is_subscription_included?: boolean | null
           price?: number
           product_type?: string
+          requires_subscription?: boolean | null
           title?: string
           updated_at?: string | null
           view_count?: number | null
@@ -907,6 +955,42 @@ export type Database = {
           target_amount?: number
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      subscription_plans: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          ebook_limit: number
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          name: string
+          price: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          ebook_limit?: number
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          ebook_limit?: number
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price?: number
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -1217,12 +1301,70 @@ export type Database = {
         }
         Relationships: []
       }
+      user_subscriptions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          payment_method: string | null
+          payment_proof_url: string | null
+          plan_id: string | null
+          rejection_reason: string | null
+          started_at: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          payment_method?: string | null
+          payment_proof_url?: string | null
+          plan_id?: string | null
+          rejection_reason?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          payment_method?: string | null
+          payment_proof_url?: string | null
+          plan_id?: string | null
+          rejection_reason?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      can_download_free_ebook: { Args: { p_user_id: string }; Returns: boolean }
       demote_from_admin: { Args: { target_user_id: string }; Returns: boolean }
+      get_user_free_downloads: { Args: { p_user_id: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
