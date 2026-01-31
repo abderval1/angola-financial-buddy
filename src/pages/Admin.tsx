@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,14 +36,19 @@ import {
   BookOpen,
   Target,
   Medal,
-  Flag,
   TrendingUp,
   DollarSign,
-  PiggyBank,
-  CreditCard,
-  FileText,
-  RefreshCw,
   LogOut,
+  ShoppingBag,
+  Upload,
+  FileText,
+  Book,
+  Wrench,
+  Package,
+  MessageCircle,
+  Image,
+  Link as LinkIcon,
+  AlertCircle,
 } from "lucide-react";
 
 export default function Admin() {
@@ -79,6 +84,8 @@ export default function Admin() {
         { count: postsCount },
         { count: contentCount },
         { count: challengesCount },
+        { count: productsCount },
+        { count: chatMessagesCount },
       ] = await Promise.all([
         supabase.from("profiles").select("*", { count: "exact", head: true }),
         supabase.from("transactions").select("*", { count: "exact", head: true }),
@@ -86,6 +93,8 @@ export default function Admin() {
         supabase.from("community_posts").select("*", { count: "exact", head: true }),
         supabase.from("educational_content").select("*", { count: "exact", head: true }),
         supabase.from("challenges").select("*", { count: "exact", head: true }),
+        supabase.from("marketplace_products").select("*", { count: "exact", head: true }),
+        supabase.from("chat_messages").select("*", { count: "exact", head: true }),
       ]);
 
       return {
@@ -95,6 +104,8 @@ export default function Admin() {
         posts: postsCount || 0,
         content: contentCount || 0,
         challenges: challengesCount || 0,
+        products: productsCount || 0,
+        chatMessages: chatMessagesCount || 0,
       };
     },
     enabled: userRole === "admin",
@@ -119,8 +130,10 @@ export default function Admin() {
   const navItems = [
     { id: "overview", label: "Visão Geral", icon: BarChart3 },
     { id: "users", label: "Usuários", icon: Users },
+    { id: "marketplace", label: "Marketplace", icon: ShoppingBag },
     { id: "content", label: "Conteúdo Educativo", icon: GraduationCap },
     { id: "community", label: "Comunidade", icon: MessageSquare },
+    { id: "chat", label: "Chat Público", icon: MessageCircle },
     { id: "challenges", label: "Desafios", icon: Trophy },
     { id: "achievements", label: "Conquistas", icon: Medal },
     { id: "settings", label: "Configurações", icon: Settings },
@@ -163,8 +176,10 @@ export default function Admin() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full ${
-                  activeTab === item.id ? "admin-nav-item-active" : "admin-nav-item"
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === item.id 
+                    ? "bg-primary text-primary-foreground" 
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <item.icon className="h-4 w-4" />
@@ -178,8 +193,10 @@ export default function Admin() {
         <main className="flex-1 p-6">
           {activeTab === "overview" && <AdminOverview stats={stats} />}
           {activeTab === "users" && <AdminUsers />}
+          {activeTab === "marketplace" && <AdminMarketplace />}
           {activeTab === "content" && <AdminContent />}
           {activeTab === "community" && <AdminCommunity />}
+          {activeTab === "chat" && <AdminChat />}
           {activeTab === "challenges" && <AdminChallenges />}
           {activeTab === "achievements" && <AdminAchievements />}
           {activeTab === "settings" && <AdminSettings />}
@@ -198,6 +215,8 @@ function AdminOverview({ stats }: { stats: any }) {
     { label: "Posts", value: stats?.posts || 0, icon: MessageSquare, color: "text-finance-investment" },
     { label: "Conteúdos", value: stats?.content || 0, icon: BookOpen, color: "text-accent" },
     { label: "Desafios", value: stats?.challenges || 0, icon: Trophy, color: "text-finance-fire" },
+    { label: "Produtos", value: stats?.products || 0, icon: ShoppingBag, color: "text-amber-500" },
+    { label: "Mensagens Chat", value: stats?.chatMessages || 0, icon: MessageCircle, color: "text-emerald-500" },
   ];
 
   return (
@@ -207,9 +226,9 @@ function AdminOverview({ stats }: { stats: any }) {
         <p className="text-muted-foreground">Estatísticas gerais da plataforma</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat, index) => (
-          <Card key={index} className="admin-stat">
+          <Card key={index}>
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
@@ -218,7 +237,7 @@ function AdminOverview({ stats }: { stats: any }) {
                     {stat.value.toLocaleString("pt-AO")}
                   </p>
                 </div>
-                <div className={`h-12 w-12 rounded-xl bg-muted flex items-center justify-center`}>
+                <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
                   <stat.icon className={`h-6 w-6 ${stat.color}`} />
                 </div>
               </div>
@@ -289,11 +308,6 @@ function AdminUsers() {
     return user.user_roles?.[0]?.role || "user";
   };
 
-  const openDetails = (user: any) => {
-    setSelectedUser(user);
-    setDetailsOpen(true);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -356,7 +370,7 @@ function AdminUsers() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => openDetails(user)}>
+                      <Button variant="ghost" size="sm" onClick={() => { setSelectedUser(user); setDetailsOpen(true); }}>
                         <Eye className="h-4 w-4" />
                       </Button>
                       {getUserRole(user) === "admin" ? (
@@ -435,35 +449,408 @@ function AdminUsers() {
                   </p>
                 </div>
               </div>
-
-              <div className="flex gap-2">
-                {getUserRole(selectedUser) === "admin" ? (
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      demoteMutation.mutate(selectedUser.user_id);
-                      setDetailsOpen(false);
-                    }}
-                  >
-                    <UserX className="h-4 w-4 mr-2" />
-                    Remover Admin
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => {
-                      promoteMutation.mutate(selectedUser.user_id);
-                      setDetailsOpen(false);
-                    }}
-                  >
-                    <UserCheck className="h-4 w-4 mr-2" />
-                    Promover a Admin
-                  </Button>
-                )}
-              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// Marketplace Management
+function AdminMarketplace() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    product_type: "ebook" as "ebook" | "course" | "template" | "tool",
+    price: "0",
+    file_url: "",
+    cover_image_url: "",
+    is_featured: false,
+    is_published: true,
+  });
+
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ["admin-marketplace"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("marketplace_products")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const uploadFile = async (file: File, folder: string) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from("marketplace")
+      .upload(fileName, file);
+    
+    if (error) throw error;
+    
+    const { data: urlData } = supabase.storage
+      .from("marketplace")
+      .getPublicUrl(fileName);
+    
+    return urlData.publicUrl;
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: "file" | "cover") => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const folder = type === "cover" ? "covers" : "files";
+      const url = await uploadFile(file, folder);
+      
+      if (type === "cover") {
+        setFormData({ ...formData, cover_image_url: url });
+      } else {
+        setFormData({ ...formData, file_url: url });
+      }
+      toast.success("Arquivo enviado com sucesso!");
+    } catch (error) {
+      toast.error("Erro ao enviar arquivo");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const { error } = await supabase.from("marketplace_products").insert(data);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Produto criado com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ["admin-marketplace"] });
+      resetForm();
+    },
+    onError: () => toast.error("Erro ao criar produto"),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const { error } = await supabase.from("marketplace_products").update(data).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Produto atualizado!");
+      queryClient.invalidateQueries({ queryKey: ["admin-marketplace"] });
+      resetForm();
+    },
+    onError: () => toast.error("Erro ao atualizar produto"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("marketplace_products").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Produto excluído!");
+      queryClient.invalidateQueries({ queryKey: ["admin-marketplace"] });
+    },
+    onError: () => toast.error("Erro ao excluir produto"),
+  });
+
+  const resetForm = () => {
+    setDialogOpen(false);
+    setEditingProduct(null);
+    setFormData({
+      title: "",
+      description: "",
+      product_type: "ebook",
+      price: "0",
+      file_url: "",
+      cover_image_url: "",
+      is_featured: false,
+      is_published: true,
+    });
+  };
+
+  const openEdit = (product: any) => {
+    setEditingProduct(product);
+    setFormData({
+      title: product.title || "",
+      description: product.description || "",
+      product_type: product.product_type || "ebook",
+      price: product.price?.toString() || "0",
+      file_url: product.file_url || "",
+      cover_image_url: product.cover_image_url || "",
+      is_featured: product.is_featured || false,
+      is_published: product.is_published ?? true,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = () => {
+    const data = {
+      ...formData,
+      price: parseFloat(formData.price) || 0,
+    };
+
+    if (editingProduct) {
+      updateMutation.mutate({ id: editingProduct.id, data });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const getProductIcon = (type: string) => {
+    switch (type) {
+      case "ebook": return Book;
+      case "course": return GraduationCap;
+      case "template": return FileText;
+      case "tool": return Wrench;
+      default: return Package;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold">Gestão do Marketplace</h1>
+          <p className="text-muted-foreground">{products.length} produtos</p>
+        </div>
+        <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); else setDialogOpen(true); }}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Produto
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{editingProduct ? "Editar Produto" : "Novo Produto"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Título</Label>
+                <Input
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="Nome do produto"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Descrição</Label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Descrição detalhada..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select
+                    value={formData.product_type}
+                    onValueChange={(value: any) => setFormData({ ...formData, product_type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ebook">E-book</SelectItem>
+                      <SelectItem value="course">Curso</SelectItem>
+                      <SelectItem value="template">Template</SelectItem>
+                      <SelectItem value="tool">Ferramenta</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Preço (Kz)</Label>
+                  <Input
+                    type="number"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    placeholder="0 para gratuito"
+                  />
+                </div>
+              </div>
+
+              {/* Cover Image Upload */}
+              <div className="space-y-2">
+                <Label>Imagem de Capa</Label>
+                <div className="flex items-center gap-4">
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleFileUpload(e, "cover")}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => coverInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    <Image className="h-4 w-4 mr-2" />
+                    {uploading ? "Enviando..." : "Upload Capa"}
+                  </Button>
+                  {formData.cover_image_url && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <img src={formData.cover_image_url} alt="Capa" className="h-10 w-10 rounded object-cover" />
+                      <span className="truncate max-w-[150px]">Capa enviada</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* File Upload */}
+              <div className="space-y-2">
+                <Label>Arquivo do Produto</Label>
+                <div className="flex items-center gap-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => handleFileUpload(e, "file")}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {uploading ? "Enviando..." : "Upload Arquivo"}
+                  </Button>
+                  {formData.file_url && (
+                    <div className="flex items-center gap-2 text-sm text-success">
+                      <LinkIcon className="h-4 w-4" />
+                      <span>Arquivo enviado</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.is_published}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_published: checked })}
+                  />
+                  <Label>Publicado</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.is_featured}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_featured: checked })}
+                  />
+                  <Label>Destaque</Label>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={resetForm}>Cancelar</Button>
+              <Button onClick={handleSubmit} disabled={uploading}>
+                {editingProduct ? "Atualizar" : "Criar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Produto</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Preço</TableHead>
+              <TableHead>Downloads</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8">
+                  <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+                </TableCell>
+              </TableRow>
+            ) : products.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  Nenhum produto encontrado
+                </TableCell>
+              </TableRow>
+            ) : (
+              products.map((product: any) => {
+                const ProductIcon = getProductIcon(product.product_type);
+                return (
+                  <TableRow key={product.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <ProductIcon className="h-5 w-5 text-primary" />
+                        </div>
+                        <span className="font-medium">{product.title}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{product.product_type}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {product.price > 0 
+                        ? new Intl.NumberFormat("pt-AO", { style: "currency", currency: "AOA" }).format(product.price)
+                        : <Badge className="bg-success/10 text-success">Gratuito</Badge>
+                      }
+                    </TableCell>
+                    <TableCell>{product.download_count || 0}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Badge variant={product.is_published ? "default" : "secondary"}>
+                          {product.is_published ? "Publicado" : "Rascunho"}
+                        </Badge>
+                        {product.is_featured && (
+                          <Badge className="bg-amber-500/10 text-amber-500">Destaque</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(product)}>
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive"
+                          onClick={() => deleteMutation.mutate(product.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   );
 }
@@ -938,6 +1325,126 @@ function AdminCommunity() {
   );
 }
 
+// Chat Management
+function AdminChat() {
+  const [search, setSearch] = useState("");
+  const queryClient = useQueryClient();
+
+  const { data: messages = [], isLoading } = useQuery({
+    queryKey: ["admin-chat-messages"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*, profiles:user_id(name, email)")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const deleteMessage = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("chat_messages")
+        .update({ is_deleted: true })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-chat-messages"] });
+      toast.success("Mensagem removida!");
+    },
+  });
+
+  const filteredMessages = messages.filter((msg: any) =>
+    msg.content?.toLowerCase().includes(search.toLowerCase()) ||
+    msg.profiles?.name?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-display text-2xl font-bold">Moderação do Chat</h1>
+        <p className="text-muted-foreground">Últimas 100 mensagens do chat público</p>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por conteúdo ou usuário..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Usuário</TableHead>
+              <TableHead>Mensagem</TableHead>
+              <TableHead>Sala</TableHead>
+              <TableHead>Data/Hora</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8">
+                  <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+                </TableCell>
+              </TableRow>
+            ) : filteredMessages.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  Nenhuma mensagem encontrada
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredMessages.map((msg: any) => (
+                <TableRow key={msg.id} className={msg.is_deleted ? "opacity-50" : ""}>
+                  <TableCell className="font-medium">{msg.profiles?.name || "Anônimo"}</TableCell>
+                  <TableCell className="max-w-[300px] truncate">{msg.content}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{msg.room_id || "geral"}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {format(new Date(msg.created_at), "dd/MM HH:mm", { locale: pt })}
+                  </TableCell>
+                  <TableCell>
+                    {msg.is_deleted ? (
+                      <Badge variant="destructive">Removida</Badge>
+                    ) : (
+                      <Badge variant="secondary">Ativa</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {!msg.is_deleted && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => deleteMessage.mutate(msg.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
+  );
+}
+
 // Challenges Management
 function AdminChallenges() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -979,7 +1486,6 @@ function AdminChallenges() {
       queryClient.invalidateQueries({ queryKey: ["admin-challenges"] });
       resetForm();
     },
-    onError: () => toast.error("Erro ao criar desafio"),
   });
 
   const updateMutation = useMutation({
@@ -1450,7 +1956,7 @@ function AdminAchievements() {
           </div>
         ) : (
           achievements.map((achievement: any) => (
-            <Card key={achievement.id} className="admin-card">
+            <Card key={achievement.id}>
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
                   <span className="text-3xl">{achievement.icon || "🏆"}</span>
@@ -1553,7 +2059,28 @@ function AdminSettings() {
                   <p className="text-sm text-muted-foreground">Dados de mercado</p>
                 </div>
               </div>
-              <Badge variant="outline" className="text-muted-foreground">Configurar</Badge>
+              <Badge variant="outline" className="text-success">Conectado</Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Storage</CardTitle>
+            <CardDescription>Armazenamento de arquivos</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-3 rounded-lg border">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                  <Package className="h-5 w-5 text-amber-500" />
+                </div>
+                <div>
+                  <p className="font-medium">Marketplace Bucket</p>
+                  <p className="text-sm text-muted-foreground">E-books, cursos e produtos digitais</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-success">Público</Badge>
             </div>
           </CardContent>
         </Card>
