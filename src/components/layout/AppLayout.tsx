@@ -11,10 +11,14 @@ interface AppLayoutProps {
 export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
-      <AppSidebar />
-      <div className="lg:pl-64 pl-20 transition-all duration-300">
+      {/* Desktop sidebar */}
+      <div className="hidden lg:block">
+        <AppSidebar />
+      </div>
+      
+      <div className="lg:pl-64 transition-all duration-300">
         <AppHeader title={title} subtitle={subtitle} />
-        <main className="p-6">
+        <main className="p-4 sm:p-6">
           {children}
         </main>
       </div>

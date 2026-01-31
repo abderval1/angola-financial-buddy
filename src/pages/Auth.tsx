@@ -75,31 +75,31 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-12 xl:px-24 py-12">
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-12 xl:px-24 py-8 sm:py-12">
         <div className="w-full max-w-md mx-auto">
-          <Link to="/" className="inline-flex items-center gap-3 mb-8">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-accent">
-              <span className="font-display text-xl font-bold text-accent-foreground">K</span>
+          <Link to="/" className="inline-flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl gradient-accent">
+              <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">K</span>
             </div>
-            <span className="font-display text-xl font-bold text-foreground">Kuanza</span>
+            <span className="font-display text-lg sm:text-xl font-bold text-foreground">Kuanza</span>
           </Link>
 
-          <div className="mb-8">
-            <h1 className="font-display text-3xl font-bold text-foreground mb-2">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-2">
               {isLogin ? "Bem-vindo de volta" : "Crie sua conta"}
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               {isLogin ? "Entre para continuar gerindo suas finanças" : "Comece a transformar suas finanças hoje"}
             </p>
           </div>
 
-          <Button variant="outline" className="w-full h-12 mb-6" onClick={handleGoogleLogin}>
-            <Chrome className="h-5 w-5 mr-2" />
-            Continuar com Google
+          <Button variant="outline" className="w-full h-11 sm:h-12 mb-4 sm:mb-6" onClick={handleGoogleLogin}>
+            <Chrome className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+            <span className="text-sm sm:text-base">Continuar com Google</span>
           </Button>
 
-          <div className="relative mb-6">
+          <div className="relative mb-4 sm:mb-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-border" />
             </div>
@@ -108,30 +108,30 @@ export default function Auth() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
             {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome Completo</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="name" className="text-sm">Nome Completo</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input id="name" placeholder="João Silva" className="pl-10 h-12" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required={!isLogin} />
+                  <Input id="name" placeholder="João Silva" className="pl-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required={!isLogin} />
                 </div>
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="email" className="text-sm">Email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="email" type="email" placeholder="joao@exemplo.ao" className="pl-10 h-12" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
+                <Input id="email" type="email" placeholder="joao@exemplo.ao" className="pl-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="password" className="text-sm">Senha</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" className="pl-10 pr-10 h-12" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required />
+                <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" className="pl-10 pr-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -139,16 +139,16 @@ export default function Auth() {
             </div>
 
             {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="confirmPassword" className="text-sm">Confirmar Senha</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input id="confirmPassword" type="password" placeholder="••••••••" className="pl-10 h-12" value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} required={!isLogin} />
+                  <Input id="confirmPassword" type="password" placeholder="••••••••" className="pl-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} required={!isLogin} />
                 </div>
               </div>
             )}
 
-            <Button type="submit" variant="accent" className="w-full h-12" disabled={loading}>
+            <Button type="submit" variant="accent" className="w-full h-10 sm:h-12 text-sm sm:text-base" disabled={loading}>
               {loading ? (
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 border-2 border-accent-foreground/30 border-t-accent-foreground rounded-full animate-spin" />
@@ -163,7 +163,7 @@ export default function Auth() {
             </Button>
           </form>
 
-          <p className="text-center mt-6 text-muted-foreground">
+          <p className="text-center mt-4 sm:mt-6 text-sm sm:text-base text-muted-foreground">
             {isLogin ? "Não tem uma conta?" : "Já tem uma conta?"}{" "}
             <button onClick={() => setIsLogin(!isLogin)} className="text-primary font-medium hover:underline">
               {isLogin ? "Criar conta" : "Entrar"}
