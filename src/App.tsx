@@ -10,6 +10,8 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Budget from "./pages/Budget";
 import Savings from "./pages/Savings";
+import Debts from "./pages/Debts";
+import Investments from "./pages/Investments";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +34,12 @@ const App = () => (
             } />
             <Route path="/savings" element={
               <ProtectedRoute><Savings /></ProtectedRoute>
+            } />
+            <Route path="/debts" element={
+              <ProtectedRoute><Debts /></ProtectedRoute>
+            } />
+            <Route path="/investments" element={
+              <ProtectedRoute><Investments /></ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
           </Routes>

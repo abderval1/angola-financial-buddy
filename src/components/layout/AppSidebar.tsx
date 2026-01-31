@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Wallet,
@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -24,19 +26,37 @@ const navigation = [
   { name: "Poupança", href: "/savings", icon: PiggyBank },
   { name: "Dívidas", href: "/debts", icon: CreditCard },
   { name: "Investimentos", href: "/investments", icon: TrendingUp },
-  { name: "Educação", href: "/education", icon: GraduationCap },
-  { name: "Desafios", href: "/challenges", icon: Trophy },
-  { name: "Comunidade", href: "/community", icon: Users },
 ];
 
 const bottomNavigation = [
-  { name: "Notificações", href: "/notifications", icon: Bell },
   { name: "Configurações", href: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success("Sessão encerrada");
+    navigate("/");
+  };
+
+  const getUserInitials = () => {
+    if (!user?.email) return "U";
+    const name = user.user_metadata?.name || user.email;
+    const parts = name.split(" ");
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  const getUserName = () => {
+    return user?.user_metadata?.name || user?.email?.split("@")[0] || "Usuário";
+  };
 
   return (
     <aside
@@ -121,6 +141,7 @@ export function AppSidebar() {
           })}
           
           <button
+            onClick={handleSignOut}
             className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive transition-all duration-200 group"
           >
             <LogOut className="h-5 w-5 shrink-0" />
@@ -133,14 +154,14 @@ export function AppSidebar() {
           <div className="border-t border-sidebar-border p-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-sidebar-accent flex items-center justify-center">
-                <span className="font-display font-semibold text-sidebar-foreground">JD</span>
+                <span className="font-display font-semibold text-sidebar-foreground">{getUserInitials()}</span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">
-                  João Demo
+                  {getUserName()}
                 </p>
                 <p className="text-xs text-sidebar-foreground/60 truncate">
-                  joao@exemplo.ao
+                  {user?.email}
                 </p>
               </div>
             </div>
