@@ -145,6 +145,33 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          is_deleted: boolean | null
+          room_id: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          is_deleted?: boolean | null
+          room_id?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_deleted?: boolean | null
+          room_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       community_posts: {
         Row: {
           category: string | null
@@ -153,12 +180,14 @@ export type Database = {
           created_at: string | null
           id: string
           is_approved: boolean | null
+          is_discussion: boolean | null
           is_pinned: boolean | null
           likes_count: number | null
           tags: string[] | null
           title: string
           updated_at: string | null
           user_id: string
+          views_count: number | null
         }
         Insert: {
           category?: string | null
@@ -167,12 +196,14 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_approved?: boolean | null
+          is_discussion?: boolean | null
           is_pinned?: boolean | null
           likes_count?: number | null
           tags?: string[] | null
           title: string
           updated_at?: string | null
           user_id: string
+          views_count?: number | null
         }
         Update: {
           category?: string | null
@@ -181,14 +212,63 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_approved?: boolean | null
+          is_discussion?: boolean | null
           is_pinned?: boolean | null
           likes_count?: number | null
           tags?: string[] | null
           title?: string
           updated_at?: string | null
           user_id?: string
+          views_count?: number | null
         }
         Relationships: []
+      }
+      course_modules: {
+        Row: {
+          content: string | null
+          course_id: string
+          created_at: string | null
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          is_free: boolean | null
+          order_index: number | null
+          title: string
+          video_url: string | null
+        }
+        Insert: {
+          content?: string | null
+          course_id: string
+          created_at?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_free?: boolean | null
+          order_index?: number | null
+          title: string
+          video_url?: string | null
+        }
+        Update: {
+          content?: string | null
+          course_id?: string
+          created_at?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_free?: boolean | null
+          order_index?: number | null
+          title?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "educational_content"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       debts: {
         Row: {
@@ -369,27 +449,36 @@ export type Database = {
       }
       financial_profiles: {
         Row: {
+          age_range: string | null
           created_at: string | null
           financial_goals: string[] | null
           id: string
+          investment_experience: string | null
+          investment_horizon: string | null
           monthly_income: number | null
           risk_profile: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          age_range?: string | null
           created_at?: string | null
           financial_goals?: string[] | null
           id?: string
+          investment_experience?: string | null
+          investment_horizon?: string | null
           monthly_income?: number | null
           risk_profile?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          age_range?: string | null
           created_at?: string | null
           financial_goals?: string[] | null
           id?: string
+          investment_experience?: string | null
+          investment_horizon?: string | null
           monthly_income?: number | null
           risk_profile?: string | null
           updated_at?: string | null
@@ -573,6 +662,89 @@ export type Database = {
           symbol?: string | null
         }
         Relationships: []
+      }
+      marketplace_products: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          download_count: number | null
+          file_url: string | null
+          id: string
+          is_featured: boolean | null
+          is_published: boolean | null
+          price: number
+          product_type: string
+          title: string
+          updated_at: string | null
+          view_count: number | null
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          download_count?: number | null
+          file_url?: string | null
+          id?: string
+          is_featured?: boolean | null
+          is_published?: boolean | null
+          price?: number
+          product_type: string
+          title: string
+          updated_at?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          download_count?: number | null
+          file_url?: string | null
+          id?: string
+          is_featured?: boolean | null
+          is_published?: boolean | null
+          price?: number
+          product_type?: string
+          title?: string
+          updated_at?: string | null
+          view_count?: number | null
+        }
+        Relationships: []
+      }
+      marketplace_purchases: {
+        Row: {
+          id: string
+          product_id: string
+          purchase_price: number
+          purchased_at: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          purchase_price: number
+          purchased_at?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          purchase_price?: number
+          purchased_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_purchases_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -985,6 +1157,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_module_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          is_completed: boolean | null
+          module_id: string
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          module_id: string
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          module_id?: string
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_module_progress_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "course_modules"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

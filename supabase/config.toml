@@ -2,3 +2,6 @@ project_id = "ozghkltkdbmhshlenufa"
 
 [functions.market-data]
 verify_jwt = false
+
+[functions.bodiva-data]
+verify_jwt = false
