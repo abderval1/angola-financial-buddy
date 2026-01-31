@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import {
   GraduationCap,
   Play,
@@ -26,6 +27,7 @@ import {
   Wallet,
   CreditCard,
   Building,
+  CheckCircle,
 } from "lucide-react";
 
 const categories = [
@@ -35,82 +37,6 @@ const categories = [
   { value: "investing", label: "Investimentos", icon: Building },
   { value: "debt", label: "Dívidas", icon: CreditCard },
   { value: "fire", label: "FIRE", icon: Flame },
-];
-
-// Sample educational content (will be fetched from DB)
-const sampleContent = [
-  {
-    id: "1",
-    title: "Introdução à Gestão Financeira Pessoal",
-    description: "Aprenda os fundamentos da gestão do seu dinheiro de forma simples e prática.",
-    category: "budgeting",
-    content_type: "article",
-    difficulty_level: "beginner",
-    duration_minutes: 15,
-    points_reward: 10,
-    is_premium: false,
-    thumbnail_url: null,
-  },
-  {
-    id: "2",
-    title: "BODIVA: Como Investir na Bolsa de Angola",
-    description: "Guia completo para começar a investir em ações e títulos na BODIVA.",
-    category: "investing",
-    content_type: "course",
-    difficulty_level: "intermediate",
-    duration_minutes: 45,
-    points_reward: 50,
-    is_premium: true,
-    thumbnail_url: null,
-  },
-  {
-    id: "3",
-    title: "Calculadora: Quanto Poupar para a Aposentadoria",
-    description: "Ferramenta interativa para calcular suas necessidades de poupança.",
-    category: "fire",
-    content_type: "calculator",
-    difficulty_level: "beginner",
-    duration_minutes: 10,
-    points_reward: 20,
-    is_premium: false,
-    thumbnail_url: null,
-  },
-  {
-    id: "4",
-    title: "Títulos do Tesouro Angolano",
-    description: "Entenda como funcionam os títulos públicos e como investir neles.",
-    category: "investing",
-    content_type: "video",
-    difficulty_level: "intermediate",
-    duration_minutes: 25,
-    points_reward: 30,
-    is_premium: false,
-    thumbnail_url: null,
-  },
-  {
-    id: "5",
-    title: "O Método FIRE para Angolanos",
-    description: "Adapte a estratégia de independência financeira à realidade de Angola.",
-    category: "fire",
-    content_type: "course",
-    difficulty_level: "advanced",
-    duration_minutes: 60,
-    points_reward: 100,
-    is_premium: true,
-    thumbnail_url: null,
-  },
-  {
-    id: "6",
-    title: "Como Sair das Dívidas em 12 Meses",
-    description: "Estratégias práticas para eliminar suas dívidas de forma inteligente.",
-    category: "debt",
-    content_type: "article",
-    difficulty_level: "beginner",
-    duration_minutes: 20,
-    points_reward: 15,
-    is_premium: false,
-    thumbnail_url: null,
-  },
 ];
 
 const getContentIcon = (type: string) => {
@@ -142,8 +68,24 @@ const getDifficultyLabel = (level: string) => {
 
 export default function Education() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Fetch educational content from Supabase
+  const { data: contents = [], isLoading: isLoadingContent } = useQuery({
+    queryKey: ["educational-content"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("educational_content")
+        .select("*")
+        .eq("is_published", true)
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   // Fetch user progress
   const { data: progress = [] } = useQuery({
@@ -176,16 +118,101 @@ export default function Education() {
     enabled: !!user?.id,
   });
 
-  const filteredContent = sampleContent.filter(content => {
+  // Start content mutation
+  const startContentMutation = useMutation({
+    mutationFn: async (contentId: string) => {
+      const existing = progress.find(p => p.content_id === contentId);
+      if (existing) return existing;
+
+      const { data, error } = await supabase
+        .from("user_content_progress")
+        .insert({
+          user_id: user?.id,
+          content_id: contentId,
+          progress_percentage: 0,
+          is_completed: false,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-content-progress"] });
+      toast.success("Conteúdo iniciado!");
+    },
+  });
+
+  // Complete content mutation
+  const completeContentMutation = useMutation({
+    mutationFn: async (contentId: string) => {
+      const content = contents.find(c => c.id === contentId);
+      const pointsToAdd = content?.points_reward || 10;
+
+      // Update progress
+      const { error: progressError } = await supabase
+        .from("user_content_progress")
+        .upsert({
+          user_id: user?.id,
+          content_id: contentId,
+          progress_percentage: 100,
+          is_completed: true,
+          completed_at: new Date().toISOString(),
+        });
+      
+      if (progressError) throw progressError;
+
+      // Update gamification points
+      if (gamification) {
+        const { error: gamError } = await supabase
+          .from("user_gamification")
+          .update({
+            total_points: (gamification.total_points || 0) + pointsToAdd,
+            lessons_completed: (gamification.lessons_completed || 0) + 1,
+            last_activity_at: new Date().toISOString(),
+          })
+          .eq("user_id", user?.id);
+        
+        if (gamError) throw gamError;
+      }
+
+      // Increment view count
+      await supabase
+        .from("educational_content")
+        .update({ view_count: (content?.view_count || 0) + 1 })
+        .eq("id", contentId);
+    },
+    onSuccess: (_, contentId) => {
+      const content = contents.find(c => c.id === contentId);
+      queryClient.invalidateQueries({ queryKey: ["user-content-progress"] });
+      queryClient.invalidateQueries({ queryKey: ["user-gamification"] });
+      toast.success(`Parabéns! Você ganhou ${content?.points_reward || 10} pontos!`);
+    },
+    onError: () => {
+      toast.error("Erro ao completar conteúdo");
+    },
+  });
+
+  const filteredContent = contents.filter((content: any) => {
     const matchesCategory = selectedCategory === "all" || content.category === selectedCategory;
-    const matchesSearch = content.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          content.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = content.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          content.description?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
   const completedCount = progress.filter(p => p.is_completed).length;
   const totalPoints = gamification?.total_points || 0;
   const currentLevel = gamification?.current_level || 1;
+
+  const isContentCompleted = (contentId: string) => {
+    return progress.some(p => p.content_id === contentId && p.is_completed);
+  };
+
+  const getContentProgress = (contentId: string) => {
+    const p = progress.find(p => p.content_id === contentId);
+    return p?.progress_percentage || 0;
+  };
 
   return (
     <AppLayout title="Educação Financeira" subtitle="Aprenda a gerir o seu dinheiro de forma inteligente">
@@ -250,42 +277,43 @@ export default function Education() {
         </div>
 
         {/* Featured Course */}
-        <Card className="overflow-hidden border-2 border-primary/20">
-          <div className="grid md:grid-cols-2">
-            <div className="p-6 md:p-8 flex flex-col justify-center">
-              <Badge className="w-fit mb-4 badge-premium">
-                <Star className="h-3 w-3 mr-1" />
-                Curso em Destaque
-              </Badge>
-              <h2 className="text-2xl font-bold mb-2">BODIVA: Guia Completo para Investidores</h2>
-              <p className="text-muted-foreground mb-4">
-                Aprenda a investir na Bolsa de Dívida e Valores de Angola. Desde os conceitos básicos 
-                até estratégias avançadas de investimento em ações e títulos públicos.
-              </p>
-              <div className="flex items-center gap-4 mb-6">
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  <span>2 horas</span>
+        {contents.length > 0 && contents.some((c: any) => c.is_premium) && (
+          <Card className="overflow-hidden border-2 border-primary/20">
+            <div className="grid md:grid-cols-2">
+              <div className="p-6 md:p-8 flex flex-col justify-center">
+                <Badge className="w-fit mb-4 badge-premium">
+                  <Star className="h-3 w-3 mr-1" />
+                  Curso em Destaque
+                </Badge>
+                <h2 className="text-2xl font-bold mb-2">
+                  {contents.find((c: any) => c.is_premium)?.title || "Curso Premium"}
+                </h2>
+                <p className="text-muted-foreground mb-4">
+                  {contents.find((c: any) => c.is_premium)?.description || "Conteúdo exclusivo para assinantes premium."}
+                </p>
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>{contents.find((c: any) => c.is_premium)?.duration_minutes || 60} min</span>
+                  </div>
+                  <Badge className="bg-amber-500/10 text-amber-500">
+                    +{contents.find((c: any) => c.is_premium)?.points_reward || 100} pontos
+                  </Badge>
                 </div>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <BookOpen className="h-4 w-4" />
-                  <span>12 lições</span>
+                <Button className="w-fit gradient-primary">
+                  <Play className="h-4 w-4 mr-2" />
+                  Começar Curso
+                </Button>
+              </div>
+              <div className="bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center p-8">
+                <div className="text-center">
+                  <Building className="h-24 w-24 text-primary mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-primary">Investimentos em Angola</p>
                 </div>
-                <Badge className="bg-amber-500/10 text-amber-500">+200 pontos</Badge>
-              </div>
-              <Button className="w-fit gradient-primary">
-                <Play className="h-4 w-4 mr-2" />
-                Começar Curso
-              </Button>
-            </div>
-            <div className="bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center p-8">
-              <div className="text-center">
-                <Building className="h-24 w-24 text-primary mx-auto mb-4" />
-                <p className="text-lg font-semibold text-primary">Investimentos em Angola</p>
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        )}
 
         {/* Search and Filter */}
         <div className="flex flex-col md:flex-row gap-4">
@@ -316,72 +344,117 @@ export default function Education() {
           </TabsList>
 
           <TabsContent value={selectedCategory} className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredContent.map((content) => {
-                const ContentIcon = getContentIcon(content.content_type);
-                const isCompleted = progress.some(p => p.content_id === content.id && p.is_completed);
-                
-                return (
-                  <Card key={content.id} className="hover:shadow-lg transition-shadow group cursor-pointer">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${
-                          content.is_premium 
-                            ? "bg-gradient-to-br from-amber-500 to-orange-500" 
-                            : "bg-primary/10"
-                        }`}>
-                          {content.is_premium ? (
-                            <Lock className="h-6 w-6 text-white" />
+            {isLoadingContent ? (
+              <div className="flex justify-center py-12">
+                <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+              </div>
+            ) : filteredContent.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Nenhum conteúdo encontrado</h3>
+                  <p className="text-muted-foreground">
+                    {searchQuery 
+                      ? "Tente ajustar sua pesquisa" 
+                      : "Novos conteúdos serão adicionados em breve!"
+                    }
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredContent.map((content: any) => {
+                  const ContentIcon = getContentIcon(content.content_type);
+                  const isCompleted = isContentCompleted(content.id);
+                  const progressPercent = getContentProgress(content.id);
+                  
+                  return (
+                    <Card key={content.id} className="hover:shadow-lg transition-shadow group cursor-pointer">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${
+                            content.is_premium 
+                              ? "bg-gradient-to-br from-amber-500 to-orange-500" 
+                              : isCompleted
+                                ? "bg-success/20"
+                                : "bg-primary/10"
+                          }`}>
+                            {content.is_premium ? (
+                              <Lock className="h-6 w-6 text-white" />
+                            ) : isCompleted ? (
+                              <CheckCircle className="h-6 w-6 text-success" />
+                            ) : (
+                              <ContentIcon className="h-6 w-6 text-primary" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {content.is_premium && (
+                              <Badge className="badge-premium text-xs">Premium</Badge>
+                            )}
+                            <Badge className={getDifficultyColor(content.difficulty_level)}>
+                              {getDifficultyLabel(content.difficulty_level)}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <h3 className="font-semibold text-lg mb-2 group-hover:text-primary transition-colors">
+                          {content.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                          {content.description}
+                        </p>
+
+                        {progressPercent > 0 && progressPercent < 100 && (
+                          <div className="mb-4">
+                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                              <span>Progresso</span>
+                              <span>{progressPercent}%</span>
+                            </div>
+                            <Progress value={progressPercent} className="h-2" />
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-4 w-4" />
+                              <span>{content.duration_minutes || 10} min</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Star className="h-4 w-4 text-amber-500" />
+                              <span>+{content.points_reward || 10}</span>
+                            </div>
+                          </div>
+
+                          {isCompleted ? (
+                            <Badge className="bg-success/10 text-success">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Concluído
+                            </Badge>
                           ) : (
-                            <ContentIcon className={`h-6 w-6 ${isCompleted ? "text-success" : "text-primary"}`} />
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="group-hover:bg-primary/10"
+                              onClick={() => {
+                                if (progressPercent === 0) {
+                                  startContentMutation.mutate(content.id);
+                                } else {
+                                  completeContentMutation.mutate(content.id);
+                                }
+                              }}
+                            >
+                              {progressPercent > 0 ? "Concluir" : "Iniciar"}
+                              <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          {content.is_premium && (
-                            <Badge className="badge-premium text-xs">Premium</Badge>
-                          )}
-                          <Badge className={getDifficultyColor(content.difficulty_level)}>
-                            {getDifficultyLabel(content.difficulty_level)}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <h3 className="font-semibold text-lg mb-2 group-hover:text-primary transition-colors">
-                        {content.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                        {content.description}
-                      </p>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            <span>{content.duration_minutes} min</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 text-amber-500" />
-                            <span>+{content.points_reward}</span>
-                          </div>
-                        </div>
-
-                        <Button variant="ghost" size="sm" className="group-hover:bg-primary/10">
-                          {isCompleted ? "Rever" : "Iniciar"}
-                          <ChevronRight className="h-4 w-4 ml-1" />
-                        </Button>
-                      </div>
-
-                      {isCompleted && (
-                        <div className="mt-4 flex items-center gap-2 text-sm text-success">
-                          <Award className="h-4 w-4" />
-                          <span>Concluído</span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
