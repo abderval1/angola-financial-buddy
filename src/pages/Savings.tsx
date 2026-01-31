@@ -171,7 +171,7 @@ export default function Savings() {
       return;
     }
 
-    const newSavedAmount = selectedGoal.saved_amount + parseFloat(depositAmount);
+    const newSavedAmount = (selectedGoal.saved_amount || 0) + parseFloat(depositAmount);
     const isCompleted = newSavedAmount >= selectedGoal.target_amount;
 
     const { error } = await supabase
@@ -278,7 +278,7 @@ export default function Savings() {
   const totalInterest = finalBalance - totalContributed;
 
   // Stats
-  const totalSaved = goals.reduce((sum, g) => sum + g.saved_amount, 0);
+  const totalSaved = goals.reduce((sum, g) => sum + (g.saved_amount || 0), 0);
   const totalTarget = goals.reduce((sum, g) => sum + g.target_amount, 0);
   const completedGoals = goals.filter(g => g.status === 'completed').length;
   const activeGoals = goals.filter(g => g.status === 'active').length;
@@ -288,8 +288,10 @@ export default function Savings() {
     .filter(g => g.status === 'active' && g.monthly_contribution > 0)
     .map(g => ({
       goal: g.name,
-      amount: g.monthly_contribution,
-      remaining: Math.ceil((g.target_amount - g.saved_amount) / g.monthly_contribution),
+      amount: g.monthly_contribution || 0,
+      remaining: (g.monthly_contribution && g.monthly_contribution > 0) 
+        ? Math.ceil((g.target_amount - (g.saved_amount || 0)) / g.monthly_contribution) 
+        : 0,
     }));
 
   const totalMonthlyContribution = monthlySchedule.reduce((sum, s) => sum + s.amount, 0);
