@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard,
   Wallet,
@@ -17,7 +19,6 @@ import {
   ChevronRight,
   Flame,
   Shield,
-  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,24 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+
+  // Check if user is admin
+  const { data: userRole } = useQuery({
+    queryKey: ["user-role-sidebar", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user?.id)
+        .maybeSingle();
+      
+      if (error) return null;
+      return data?.role;
+    },
+    enabled: !!user?.id,
+  });
+
+  const isAdmin = userRole === "admin";
 
   const handleSignOut = async () => {
     await signOut();
@@ -143,6 +162,22 @@ export function AppSidebar() {
 
         {/* Bottom Navigation */}
         <div className="border-t border-sidebar-border px-3 py-4 space-y-1">
+          {/* Admin Link - only show if user is admin */}
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
+                location.pathname === "/admin"
+                  ? "bg-sidebar-primary/10 text-sidebar-primary"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              )}
+            >
+              <Shield className="h-5 w-5 shrink-0" />
+              {!collapsed && <span className="font-medium">Admin</span>}
+            </Link>
+          )}
+
           {bottomNavigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -185,7 +220,7 @@ export function AppSidebar() {
                 <div className="flex items-center gap-1">
                   <Flame className="h-3 w-3 text-amber-500" />
                   <p className="text-xs text-sidebar-foreground/60 truncate">
-                    Nível Iniciante
+                    {isAdmin ? "Administrador" : "Nível Iniciante"}
                   </p>
                 </div>
               </div>

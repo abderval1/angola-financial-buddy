@@ -2,142 +2,141 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Kuanza Finance - Angola Financial Platform Design System */
-/* New color palette: Deep forest green + Warm gold + Light gray */
+/* Kuanza Finance - Premium Lilac & White Design System */
 
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    /* Core brand colors - Deep forest green + Warm gold */
-    --background: 120 8% 97%;
-    --foreground: 150 25% 10%;
+    /* Core brand colors - Elegant lilac + Pure white */
+    --background: 270 20% 99%;
+    --foreground: 270 30% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 150 25% 10%;
+    --card-foreground: 270 30% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 150 25% 10%;
+    --popover-foreground: 270 30% 15%;
 
-    /* Primary - Deep forest green for trust and growth */
-    --primary: 152 45% 20%;
+    /* Primary - Rich purple/lilac for trust and elegance */
+    --primary: 270 65% 55%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Soft sage */
-    --secondary: 140 15% 92%;
-    --secondary-foreground: 150 25% 15%;
+    /* Secondary - Soft lavender */
+    --secondary: 270 30% 95%;
+    --secondary-foreground: 270 40% 25%;
 
     /* Muted tones */
-    --muted: 140 10% 95%;
-    --muted-foreground: 150 10% 45%;
+    --muted: 270 15% 96%;
+    --muted-foreground: 270 10% 45%;
 
-    /* Accent - Warm gold for prosperity */
-    --accent: 42 85% 55%;
-    --accent-foreground: 42 90% 15%;
+    /* Accent - Vibrant violet */
+    --accent: 280 75% 60%;
+    --accent-foreground: 0 0% 100%;
 
-    /* Success - Emerald green for positive */
-    --success: 160 84% 39%;
+    /* Success - Fresh teal */
+    --success: 168 76% 42%;
     --success-foreground: 0 0% 100%;
 
-    /* Warning - Warm orange */
+    /* Warning - Warm amber */
     --warning: 38 92% 50%;
     --warning-foreground: 38 92% 15%;
 
-    /* Destructive - Red for debts/negative */
-    --destructive: 0 72% 51%;
+    /* Destructive - Soft coral red */
+    --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 140 15% 88%;
-    --input: 140 15% 88%;
-    --ring: 152 45% 20%;
+    --border: 270 20% 90%;
+    --input: 270 20% 90%;
+    --ring: 270 65% 55%;
 
     --radius: 0.75rem;
 
     /* Custom finance colors */
-    --income: 160 84% 39%;
-    --expense: 0 72% 51%;
-    --savings: 200 90% 45%;
+    --income: 168 76% 42%;
+    --expense: 0 65% 55%;
+    --savings: 210 85% 55%;
     --investment: 270 60% 55%;
-    --debt: 15 90% 55%;
-    --fire: 42 85% 55%;
+    --debt: 15 85% 55%;
+    --fire: 35 95% 55%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(152 45% 20%) 0%, hsl(160 50% 30%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(160 84% 39%) 0%, hsl(160 70% 50%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(42 85% 55%) 0%, hsl(38 90% 50%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(152 50% 12%) 0%, hsl(152 45% 20%) 50%, hsl(160 40% 28%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(140 10% 98%) 100%);
-    --gradient-fire: linear-gradient(135deg, hsl(42 85% 55%) 0%, hsl(25 100% 50%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(270 65% 55%) 0%, hsl(280 75% 60%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(168 76% 42%) 0%, hsl(175 70% 50%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(280 75% 60%) 0%, hsl(300 70% 55%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(270 50% 25%) 0%, hsl(270 65% 40%) 50%, hsl(280 60% 50%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(270 20% 98%) 100%);
+    --gradient-fire: linear-gradient(135deg, hsl(35 95% 55%) 0%, hsl(25 100% 50%) 100%);
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(150 25% 10% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(150 25% 10% / 0.08), 0 2px 4px -2px hsl(150 25% 10% / 0.04);
-    --shadow-lg: 0 10px 15px -3px hsl(150 25% 10% / 0.1), 0 4px 6px -4px hsl(150 25% 10% / 0.05);
-    --shadow-xl: 0 20px 25px -5px hsl(150 25% 10% / 0.1), 0 8px 10px -6px hsl(150 25% 10% / 0.05);
-    --shadow-glow: 0 0 40px hsl(152 45% 20% / 0.2);
-    --shadow-glow-success: 0 0 40px hsl(160 84% 39% / 0.25);
-    --shadow-glow-accent: 0 0 40px hsl(42 85% 55% / 0.3);
+    --shadow-sm: 0 1px 2px 0 hsl(270 30% 15% / 0.04);
+    --shadow-md: 0 4px 6px -1px hsl(270 30% 15% / 0.06), 0 2px 4px -2px hsl(270 30% 15% / 0.04);
+    --shadow-lg: 0 10px 15px -3px hsl(270 30% 15% / 0.08), 0 4px 6px -4px hsl(270 30% 15% / 0.04);
+    --shadow-xl: 0 20px 25px -5px hsl(270 30% 15% / 0.08), 0 8px 10px -6px hsl(270 30% 15% / 0.04);
+    --shadow-glow: 0 0 40px hsl(270 65% 55% / 0.2);
+    --shadow-glow-success: 0 0 40px hsl(168 76% 42% / 0.25);
+    --shadow-glow-accent: 0 0 40px hsl(280 75% 60% / 0.3);
 
-    /* Sidebar - Dark green */
-    --sidebar-background: 152 35% 12%;
-    --sidebar-foreground: 140 10% 90%;
-    --sidebar-primary: 42 85% 55%;
-    --sidebar-primary-foreground: 152 35% 12%;
-    --sidebar-accent: 152 30% 18%;
-    --sidebar-accent-foreground: 140 10% 90%;
-    --sidebar-border: 152 25% 20%;
-    --sidebar-ring: 42 85% 55%;
+    /* Sidebar - Deep purple */
+    --sidebar-background: 270 45% 18%;
+    --sidebar-foreground: 270 15% 95%;
+    --sidebar-primary: 280 75% 65%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 270 40% 25%;
+    --sidebar-accent-foreground: 270 15% 95%;
+    --sidebar-border: 270 35% 25%;
+    --sidebar-ring: 280 75% 65%;
   }
 
   .dark {
-    --background: 152 30% 8%;
-    --foreground: 140 10% 95%;
+    --background: 270 25% 8%;
+    --foreground: 270 15% 95%;
 
-    --card: 152 30% 12%;
-    --card-foreground: 140 10% 95%;
+    --card: 270 25% 12%;
+    --card-foreground: 270 15% 95%;
 
-    --popover: 152 30% 12%;
-    --popover-foreground: 140 10% 95%;
+    --popover: 270 25% 12%;
+    --popover-foreground: 270 15% 95%;
 
-    --primary: 42 85% 55%;
-    --primary-foreground: 152 35% 10%;
+    --primary: 280 70% 65%;
+    --primary-foreground: 270 30% 10%;
 
-    --secondary: 152 25% 18%;
-    --secondary-foreground: 140 10% 90%;
+    --secondary: 270 25% 18%;
+    --secondary-foreground: 270 15% 90%;
 
-    --muted: 152 20% 15%;
-    --muted-foreground: 140 10% 55%;
+    --muted: 270 20% 15%;
+    --muted-foreground: 270 10% 55%;
 
-    --accent: 42 85% 55%;
-    --accent-foreground: 152 35% 10%;
+    --accent: 280 75% 65%;
+    --accent-foreground: 270 30% 10%;
 
-    --success: 160 75% 45%;
+    --success: 168 70% 50%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
     --warning-foreground: 38 92% 15%;
 
-    --destructive: 0 65% 50%;
+    --destructive: 0 60% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 152 25% 20%;
-    --input: 152 25% 20%;
-    --ring: 42 85% 55%;
+    --border: 270 25% 20%;
+    --input: 270 25% 20%;
+    --ring: 280 70% 65%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(42 85% 55%) 0%, hsl(38 90% 50%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(152 35% 6%) 0%, hsl(152 30% 12%) 50%, hsl(152 25% 18%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(152 30% 12%) 0%, hsl(152 30% 10%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(280 70% 65%) 0%, hsl(290 65% 60%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(270 30% 6%) 0%, hsl(270 25% 12%) 50%, hsl(270 25% 18%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(270 25% 12%) 0%, hsl(270 25% 10%) 100%);
 
-    --shadow-glow: 0 0 40px hsl(42 85% 55% / 0.2);
+    --shadow-glow: 0 0 40px hsl(280 70% 65% / 0.2);
 
-    --sidebar-background: 152 40% 6%;
-    --sidebar-foreground: 140 10% 90%;
-    --sidebar-primary: 42 85% 55%;
-    --sidebar-primary-foreground: 152 35% 10%;
-    --sidebar-accent: 152 30% 12%;
-    --sidebar-accent-foreground: 140 10% 90%;
-    --sidebar-border: 152 30% 15%;
-    --sidebar-ring: 42 85% 55%;
+    --sidebar-background: 270 35% 8%;
+    --sidebar-foreground: 270 15% 90%;
+    --sidebar-primary: 280 70% 65%;
+    --sidebar-primary-foreground: 270 30% 10%;
+    --sidebar-accent: 270 30% 15%;
+    --sidebar-accent-foreground: 270 15% 90%;
+    --sidebar-border: 270 30% 18%;
+    --sidebar-ring: 280 70% 65%;
   }
 }
 
@@ -266,6 +265,34 @@
   .level-mestre {
     background: var(--gradient-accent);
     @apply text-accent-foreground;
+  }
+
+  /* Admin specific */
+  .admin-card {
+    @apply bg-card rounded-xl border border-border p-6 transition-all duration-200;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .admin-card:hover {
+    box-shadow: var(--shadow-md);
+  }
+
+  .admin-stat {
+    @apply relative overflow-hidden rounded-xl p-5 transition-all duration-200;
+    background: var(--gradient-card);
+    border: 1px solid hsl(var(--border));
+  }
+
+  .admin-nav-item {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-muted-foreground transition-all duration-200;
+  }
+
+  .admin-nav-item:hover {
+    @apply bg-primary/5 text-primary;
+  }
+
+  .admin-nav-item-active {
+    @apply admin-nav-item bg-primary/10 text-primary font-medium;
   }
 }
 
@@ -402,7 +429,7 @@
   }
   50% {
     opacity: 0.8;
-    box-shadow: 0 0 60px hsl(152 45% 20% / 0.3);
+    box-shadow: 0 0 60px hsl(270 65% 55% / 0.3);
   }
 }
 

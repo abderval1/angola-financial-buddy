@@ -18,6 +18,7 @@ import Income from "./pages/Income";
 import Reports from "./pages/Reports";
 import Community from "./pages/Community";
 import Settings from "./pages/Settings";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,9 @@ const App = () => (
             } />
             <Route path="/settings" element={
               <ProtectedRoute><Settings /></ProtectedRoute>
+            } />
+            <Route path="/admin" element={
+              <ProtectedRoute><Admin /></ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
           </Routes>
