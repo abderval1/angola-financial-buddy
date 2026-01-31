@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Users,
@@ -29,58 +30,10 @@ import {
   ChevronRight,
   TrendingUp,
   Medal,
+  CheckCircle,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
-
-// Sample challenges
-const sampleChallenges = [
-  {
-    id: "1",
-    title: "30 Dias sem Gastos Desnecessários",
-    description: "Evite compras por impulso durante 30 dias",
-    challenge_type: "spending",
-    target_value: 30,
-    duration_days: 30,
-    points_reward: 100,
-    difficulty: "medium",
-    participants: 234,
-    icon: "🎯",
-  },
-  {
-    id: "2",
-    title: "Poupar 500.000 Kz em 3 Meses",
-    description: "Meta de poupança colaborativa",
-    challenge_type: "savings",
-    target_value: 500000,
-    duration_days: 90,
-    points_reward: 200,
-    difficulty: "hard",
-    participants: 89,
-    icon: "💰",
-  },
-  {
-    id: "3",
-    title: "Completar 10 Lições de Educação",
-    description: "Aprenda sobre finanças pessoais",
-    challenge_type: "learning",
-    target_value: 10,
-    duration_days: 14,
-    points_reward: 50,
-    difficulty: "easy",
-    participants: 567,
-    icon: "📚",
-  },
-];
-
-// Sample ranking
-const sampleRanking = [
-  { position: 1, name: "João Silva", points: 2450, level: "Mestre", avatar: "JS" },
-  { position: 2, name: "Maria Santos", points: 2180, level: "Avançado", avatar: "MS" },
-  { position: 3, name: "Pedro Costa", points: 1920, level: "Avançado", avatar: "PC" },
-  { position: 4, name: "Ana Fernandes", points: 1750, level: "Intermediário", avatar: "AF" },
-  { position: 5, name: "Carlos Oliveira", points: 1580, level: "Intermediário", avatar: "CO" },
-];
 
 export default function Community() {
   const { user } = useAuth();
@@ -105,16 +58,15 @@ export default function Community() {
     enabled: !!user?.id,
   });
 
-  // Fetch community posts
-  const { data: posts = [] } = useQuery({
-    queryKey: ["community-posts"],
+  // Fetch challenges from Supabase
+  const { data: challenges = [], isLoading: isLoadingChallenges } = useQuery({
+    queryKey: ["challenges"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("community_posts")
+        .from("challenges")
         .select("*")
-        .eq("is_approved", true)
-        .order("created_at", { ascending: false })
-        .limit(20);
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
       
       if (error) throw error;
       return data || [];
@@ -134,6 +86,101 @@ export default function Community() {
       return data || [];
     },
     enabled: !!user?.id,
+  });
+
+  // Fetch ranking from user_gamification
+  const { data: ranking = [], isLoading: isLoadingRanking } = useQuery({
+    queryKey: ["gamification-ranking"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_gamification")
+        .select("*, profiles(name, email)")
+        .order("total_points", { ascending: false })
+        .limit(20);
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch community posts
+  const { data: posts = [], isLoading: isLoadingPosts } = useQuery({
+    queryKey: ["community-posts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("community_posts")
+        .select("*, profiles(name)")
+        .eq("is_approved", true)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Join challenge mutation
+  const joinChallengeMutation = useMutation({
+    mutationFn: async (challengeId: string) => {
+      const { error } = await supabase
+        .from("user_challenges")
+        .insert({
+          user_id: user?.id,
+          challenge_id: challengeId,
+          status: "active",
+          current_progress: 0,
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-challenges"] });
+      toast.success("Você entrou no desafio!");
+    },
+    onError: () => {
+      toast.error("Erro ao entrar no desafio");
+    },
+  });
+
+  // Complete challenge mutation
+  const completeChallengeMutation = useMutation({
+    mutationFn: async (userChallengeId: string) => {
+      const userChallenge = userChallenges.find(uc => uc.id === userChallengeId);
+      const challenge = userChallenge?.challenges;
+      const pointsToAdd = challenge?.points_reward || 50;
+
+      // Update user challenge status
+      const { error: ucError } = await supabase
+        .from("user_challenges")
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          current_progress: 100,
+          points_earned: pointsToAdd,
+        })
+        .eq("id", userChallengeId);
+      
+      if (ucError) throw ucError;
+
+      // Update gamification
+      if (gamification) {
+        const { error: gamError } = await supabase
+          .from("user_gamification")
+          .update({
+            total_points: (gamification.total_points || 0) + pointsToAdd,
+            challenges_completed: (gamification.challenges_completed || 0) + 1,
+            last_activity_at: new Date().toISOString(),
+          })
+          .eq("user_id", user?.id);
+        
+        if (gamError) throw gamError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-challenges"] });
+      queryClient.invalidateQueries({ queryKey: ["user-gamification"] });
+      toast.success("Parabéns! Desafio concluído!");
+    },
   });
 
   // Create post mutation
@@ -158,6 +205,21 @@ export default function Community() {
     },
   });
 
+  // Like post mutation
+  const likePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      const post = posts.find((p: any) => p.id === postId);
+      const { error } = await supabase
+        .from("community_posts")
+        .update({ likes_count: (post?.likes_count || 0) + 1 })
+        .eq("id", postId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["community-posts"] });
+    },
+  });
+
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case "easy": return "bg-success/10 text-success";
@@ -176,12 +238,36 @@ export default function Community() {
     }
   };
 
-  const getLevelColor = (level: string) => {
-    switch (level) {
-      case "Mestre": return "text-amber-500";
-      case "Avançado": return "text-purple-500";
-      case "Intermediário": return "text-blue-500";
-      default: return "text-muted-foreground";
+  const getLevelName = (level: number) => {
+    if (level >= 10) return "Mestre";
+    if (level >= 7) return "Avançado";
+    if (level >= 4) return "Intermediário";
+    return "Iniciante";
+  };
+
+  const getLevelColor = (level: number) => {
+    if (level >= 10) return "text-amber-500";
+    if (level >= 7) return "text-purple-500";
+    if (level >= 4) return "text-blue-500";
+    return "text-muted-foreground";
+  };
+
+  const isUserInChallenge = (challengeId: string) => {
+    return userChallenges.some(uc => uc.challenge_id === challengeId);
+  };
+
+  const getUserChallengeForChallenge = (challengeId: string) => {
+    return userChallenges.find(uc => uc.challenge_id === challengeId);
+  };
+
+  const getChallengeIcon = (type: string) => {
+    switch (type) {
+      case "savings": return "💰";
+      case "budget": return "📊";
+      case "investment": return "📈";
+      case "learning": return "📚";
+      case "debt": return "💳";
+      default: return "🎯";
     }
   };
 
@@ -266,45 +352,91 @@ export default function Community() {
 
           {/* Challenges Tab */}
           <TabsContent value="challenges" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sampleChallenges.map((challenge) => (
-                <Card key={challenge.id} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="text-4xl">{challenge.icon}</div>
-                      <Badge className={getDifficultyColor(challenge.difficulty)}>
-                        {getDifficultyLabel(challenge.difficulty)}
-                      </Badge>
-                    </div>
+            {isLoadingChallenges ? (
+              <div className="flex justify-center py-12">
+                <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+              </div>
+            ) : challenges.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Nenhum desafio disponível</h3>
+                  <p className="text-muted-foreground">Novos desafios serão adicionados em breve!</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {challenges.map((challenge: any) => {
+                  const userChallenge = getUserChallengeForChallenge(challenge.id);
+                  const isJoined = !!userChallenge;
+                  const isCompleted = userChallenge?.status === "completed";
 
-                    <h3 className="font-semibold text-lg mb-2">{challenge.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-4">{challenge.description}</p>
+                  return (
+                    <Card key={challenge.id} className="hover:shadow-lg transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="text-4xl">{getChallengeIcon(challenge.challenge_type)}</div>
+                          <Badge className={getDifficultyColor(challenge.difficulty)}>
+                            {getDifficultyLabel(challenge.difficulty)}
+                          </Badge>
+                        </div>
 
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span>{challenge.participants} participantes</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Clock className="h-4 w-4" />
-                        <span>{challenge.duration_days} dias</span>
-                      </div>
-                    </div>
+                        <h3 className="font-semibold text-lg mb-2">{challenge.title}</h3>
+                        <p className="text-sm text-muted-foreground mb-4">{challenge.description}</p>
 
-                    <div className="flex items-center justify-between">
-                      <Badge className="bg-amber-500/10 text-amber-500">
-                        <Star className="h-3 w-3 mr-1" />
-                        +{challenge.points_reward} pts
-                      </Badge>
-                      <Button size="sm" className="gradient-primary">
-                        Participar
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                        {isJoined && !isCompleted && (
+                          <div className="mb-4">
+                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                              <span>Progresso</span>
+                              <span>{userChallenge.current_progress || 0}%</span>
+                            </div>
+                            <Progress value={userChallenge.current_progress || 0} className="h-2" />
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="h-4 w-4" />
+                            <span>{challenge.duration_days} dias</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <Badge className="bg-amber-500/10 text-amber-500">
+                            <Star className="h-3 w-3 mr-1" />
+                            +{challenge.points_reward} pts
+                          </Badge>
+                          
+                          {isCompleted ? (
+                            <Badge className="bg-success/10 text-success">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Concluído
+                            </Badge>
+                          ) : isJoined ? (
+                            <Button 
+                              size="sm" 
+                              onClick={() => completeChallengeMutation.mutate(userChallenge.id)}
+                            >
+                              Concluir
+                              <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
+                          ) : (
+                            <Button 
+                              size="sm" 
+                              className="gradient-primary"
+                              onClick={() => joinChallengeMutation.mutate(challenge.id)}
+                            >
+                              Participar
+                              <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
 
           {/* Ranking Tab */}
@@ -313,44 +445,64 @@ export default function Community() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-amber-500" />
-                  Ranking Mensal
+                  Ranking Geral
                 </CardTitle>
                 <CardDescription>Os melhores poupadores de Angola</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {sampleRanking.map((user, index) => (
-                    <div
-                      key={user.position}
-                      className={`flex items-center gap-4 p-4 rounded-lg ${
-                        index < 3 ? "bg-amber-500/5 border border-amber-500/20" : "bg-muted/50"
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                        index === 0 ? "bg-amber-500 text-white" :
-                        index === 1 ? "bg-gray-400 text-white" :
-                        index === 2 ? "bg-amber-700 text-white" :
-                        "bg-muted text-muted-foreground"
-                      }`}>
-                        {index < 3 ? <Medal className="h-4 w-4" /> : user.position}
-                      </div>
+                {isLoadingRanking ? (
+                  <div className="flex justify-center py-8">
+                    <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  </div>
+                ) : ranking.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Nenhum usuário no ranking ainda</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {ranking.map((userRank: any, index: number) => (
+                      <div
+                        key={userRank.id}
+                        className={`flex items-center gap-4 p-4 rounded-lg ${
+                          index < 3 ? "bg-amber-500/5 border border-amber-500/20" : "bg-muted/50"
+                        } ${userRank.user_id === user?.id ? "ring-2 ring-primary" : ""}`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                          index === 0 ? "bg-amber-500 text-white" :
+                          index === 1 ? "bg-gray-400 text-white" :
+                          index === 2 ? "bg-amber-700 text-white" :
+                          "bg-muted text-muted-foreground"
+                        }`}>
+                          {index < 3 ? <Medal className="h-4 w-4" /> : index + 1}
+                        </div>
 
-                      <Avatar>
-                        <AvatarFallback>{user.avatar}</AvatarFallback>
-                      </Avatar>
+                        <Avatar>
+                          <AvatarFallback>
+                            {userRank.profiles?.name?.substring(0, 2).toUpperCase() || "U"}
+                          </AvatarFallback>
+                        </Avatar>
 
-                      <div className="flex-1">
-                        <p className="font-medium">{user.name}</p>
-                        <p className={`text-sm ${getLevelColor(user.level)}`}>{user.level}</p>
-                      </div>
+                        <div className="flex-1">
+                          <p className="font-medium">
+                            {userRank.profiles?.name || "Usuário"}
+                            {userRank.user_id === user?.id && (
+                              <Badge variant="outline" className="ml-2">Você</Badge>
+                            )}
+                          </p>
+                          <p className={`text-sm ${getLevelColor(userRank.current_level || 1)}`}>
+                            {userRank.level_name || getLevelName(userRank.current_level || 1)}
+                          </p>
+                        </div>
 
-                      <div className="text-right">
-                        <p className="font-bold text-amber-500">{user.points.toLocaleString()}</p>
-                        <p className="text-xs text-muted-foreground">pontos</p>
+                        <div className="text-right">
+                          <p className="font-bold text-amber-500">{(userRank.total_points || 0).toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground">pontos</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -387,6 +539,23 @@ export default function Community() {
                         />
                       </div>
                       <div className="space-y-2">
+                        <Label>Categoria</Label>
+                        <Select 
+                          value={postContent.category} 
+                          onValueChange={(value) => setPostContent(prev => ({ ...prev, category: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="tips">Dicas</SelectItem>
+                            <SelectItem value="success">Histórias de Sucesso</SelectItem>
+                            <SelectItem value="question">Perguntas</SelectItem>
+                            <SelectItem value="discussion">Discussão</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
                         <Label>Conteúdo</Label>
                         <Textarea
                           value={postContent.content}
@@ -404,7 +573,11 @@ export default function Community() {
                 </Dialog>
               </div>
 
-              {posts.length === 0 ? (
+              {isLoadingPosts ? (
+                <div className="flex justify-center py-8">
+                  <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : posts.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <MessageCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -413,16 +586,19 @@ export default function Community() {
                   </CardContent>
                 </Card>
               ) : (
-                posts.map((post) => (
+                posts.map((post: any) => (
                   <Card key={post.id}>
                     <CardContent className="p-6">
                       <div className="flex items-start gap-4">
                         <Avatar>
-                          <AvatarFallback>U</AvatarFallback>
+                          <AvatarFallback>
+                            {post.profiles?.name?.substring(0, 2).toUpperCase() || "U"}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="font-medium">Usuário</span>
+                            <span className="font-medium">{post.profiles?.name || "Usuário"}</span>
+                            <Badge variant="outline">{post.category}</Badge>
                             <span className="text-sm text-muted-foreground">
                               {formatDistanceToNow(new Date(post.created_at || ""), { addSuffix: true, locale: pt })}
                             </span>
@@ -431,7 +607,12 @@ export default function Community() {
                           <p className="text-muted-foreground">{post.content}</p>
                           
                           <div className="flex items-center gap-4 mt-4">
-                            <Button variant="ghost" size="sm" className="text-muted-foreground">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => likePostMutation.mutate(post.id)}
+                            >
                               <Heart className="h-4 w-4 mr-1" />
                               {post.likes_count || 0}
                             </Button>

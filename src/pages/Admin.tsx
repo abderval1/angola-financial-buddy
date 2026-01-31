@@ -233,6 +233,8 @@ function AdminOverview({ stats }: { stats: any }) {
 // Users Management
 function AdminUsers() {
   const [search, setSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: users = [], isLoading } = useQuery({
@@ -248,10 +250,49 @@ function AdminUsers() {
     },
   });
 
+  const promoteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.rpc("promote_to_admin", { target_user_id: userId });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Usuário promovido a administrador!");
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao promover usuário");
+    },
+  });
+
+  const demoteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.rpc("demote_from_admin", { target_user_id: userId });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Privilégios de admin removidos!");
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao remover privilégios");
+    },
+  });
+
   const filteredUsers = users.filter((user: any) =>
     user.name?.toLowerCase().includes(search.toLowerCase()) ||
     user.email?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const getUserRole = (user: any) => {
+    return user.user_roles?.[0]?.role || "user";
+  };
+
+  const openDetails = (user: any) => {
+    setSelectedUser(user);
+    setDetailsOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -306,17 +347,40 @@ function AdminUsers() {
                   <TableCell>{user.email || "-"}</TableCell>
                   <TableCell>{user.phone || "-"}</TableCell>
                   <TableCell>
-                    <Badge variant={user.user_roles?.[0]?.role === "admin" ? "default" : "secondary"}>
-                      {user.user_roles?.[0]?.role || "user"}
+                    <Badge variant={getUserRole(user) === "admin" ? "default" : "secondary"}>
+                      {getUserRole(user)}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     {user.created_at ? format(new Date(user.created_at), "dd/MM/yyyy", { locale: pt }) : "-"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => openDetails(user)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {getUserRole(user) === "admin" ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive"
+                          onClick={() => demoteMutation.mutate(user.user_id)}
+                          disabled={demoteMutation.isPending}
+                        >
+                          <UserX className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-success"
+                          onClick={() => promoteMutation.mutate(user.user_id)}
+                          disabled={promoteMutation.isPending}
+                        >
+                          <UserCheck className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -324,6 +388,82 @@ function AdminUsers() {
           </TableBody>
         </Table>
       </Card>
+
+      {/* User Details Dialog */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Usuário</DialogTitle>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-6 py-4">
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center">
+                  <span className="text-2xl font-bold text-primary">
+                    {selectedUser.name?.substring(0, 2).toUpperCase() || "U"}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold">{selectedUser.name || "Sem nome"}</h3>
+                  <p className="text-muted-foreground">{selectedUser.email}</p>
+                  <Badge variant={getUserRole(selectedUser) === "admin" ? "default" : "secondary"} className="mt-1">
+                    {getUserRole(selectedUser)}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">Telefone</p>
+                  <p className="font-medium">{selectedUser.phone || "Não informado"}</p>
+                </div>
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">Idioma</p>
+                  <p className="font-medium">{selectedUser.language || "pt"}</p>
+                </div>
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">Moeda</p>
+                  <p className="font-medium">{selectedUser.currency || "AOA"}</p>
+                </div>
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">Data de Cadastro</p>
+                  <p className="font-medium">
+                    {selectedUser.created_at 
+                      ? format(new Date(selectedUser.created_at), "dd/MM/yyyy HH:mm", { locale: pt })
+                      : "-"
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                {getUserRole(selectedUser) === "admin" ? (
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      demoteMutation.mutate(selectedUser.user_id);
+                      setDetailsOpen(false);
+                    }}
+                  >
+                    <UserX className="h-4 w-4 mr-2" />
+                    Remover Admin
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      promoteMutation.mutate(selectedUser.user_id);
+                      setDetailsOpen(false);
+                    }}
+                  >
+                    <UserCheck className="h-4 w-4 mr-2" />
+                    Promover a Admin
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
