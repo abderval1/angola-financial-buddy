@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Link, useSearchParams } from "react-router-dom";
+import { AdminSubscriptions } from "@/components/admin/AdminSubscriptions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -130,6 +131,7 @@ export default function Admin() {
   const navItems = [
     { id: "overview", label: "Visão Geral", icon: BarChart3 },
     { id: "users", label: "Usuários", icon: Users },
+    { id: "subscriptions", label: "Assinaturas", icon: DollarSign },
     { id: "marketplace", label: "Marketplace", icon: ShoppingBag },
     { id: "content", label: "Conteúdo Educativo", icon: GraduationCap },
     { id: "community", label: "Comunidade", icon: MessageSquare },
@@ -193,6 +195,7 @@ export default function Admin() {
         <main className="flex-1 p-6">
           {activeTab === "overview" && <AdminOverview stats={stats} />}
           {activeTab === "users" && <AdminUsers />}
+          {activeTab === "subscriptions" && <AdminSubscriptions />}
           {activeTab === "marketplace" && <AdminMarketplace />}
           {activeTab === "content" && <AdminContent />}
           {activeTab === "community" && <AdminCommunity />}
@@ -475,6 +478,8 @@ function AdminMarketplace() {
     cover_image_url: "",
     is_featured: false,
     is_published: true,
+    is_subscription_included: false,
+    requires_subscription: false,
   });
 
   const { data: products = [], isLoading } = useQuery({
@@ -579,6 +584,8 @@ function AdminMarketplace() {
       cover_image_url: "",
       is_featured: false,
       is_published: true,
+      is_subscription_included: false,
+      requires_subscription: false,
     });
   };
 
@@ -593,6 +600,8 @@ function AdminMarketplace() {
       cover_image_url: product.cover_image_url || "",
       is_featured: product.is_featured || false,
       is_published: product.is_published ?? true,
+      is_subscription_included: product.is_subscription_included || false,
+      requires_subscription: product.requires_subscription || false,
     });
     setDialogOpen(true);
   };
@@ -758,6 +767,23 @@ function AdminMarketplace() {
                     onCheckedChange={(checked) => setFormData({ ...formData, is_featured: checked })}
                   />
                   <Label>Destaque</Label>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.is_subscription_included}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_subscription_included: checked })}
+                  />
+                  <Label>Incluído na Assinatura</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.requires_subscription}
+                    onCheckedChange={(checked) => setFormData({ ...formData, requires_subscription: checked })}
+                  />
+                  <Label>Requer Assinatura</Label>
                 </div>
               </div>
             </div>
