@@ -8,47 +8,47 @@
 
 @layer base {
   :root {
-    /* Core brand colors - Elegant lilac + Pure white */
-    --background: 270 20% 99%;
-    --foreground: 270 30% 15%;
+    /* Core brand colors - Elegant lilac + Pure white with HIGH CONTRAST */
+    --background: 270 15% 98%;
+    --foreground: 270 40% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 270 30% 15%;
+    --card-foreground: 270 40% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 270 30% 15%;
+    --popover-foreground: 270 40% 12%;
 
     /* Primary - Rich purple/lilac for trust and elegance */
-    --primary: 270 65% 55%;
+    --primary: 270 60% 50%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Soft lavender */
-    --secondary: 270 30% 95%;
-    --secondary-foreground: 270 40% 25%;
+    /* Secondary - Light lavender with good contrast */
+    --secondary: 270 25% 94%;
+    --secondary-foreground: 270 45% 20%;
 
-    /* Muted tones */
-    --muted: 270 15% 96%;
-    --muted-foreground: 270 10% 45%;
+    /* Muted tones - improved contrast */
+    --muted: 270 12% 94%;
+    --muted-foreground: 270 15% 40%;
 
     /* Accent - Vibrant violet */
-    --accent: 280 75% 60%;
+    --accent: 280 70% 55%;
     --accent-foreground: 0 0% 100%;
 
     /* Success - Fresh teal */
-    --success: 168 76% 42%;
+    --success: 168 76% 36%;
     --success-foreground: 0 0% 100%;
 
     /* Warning - Warm amber */
-    --warning: 38 92% 50%;
-    --warning-foreground: 38 92% 15%;
+    --warning: 38 92% 45%;
+    --warning-foreground: 38 92% 10%;
 
     /* Destructive - Soft coral red */
-    --destructive: 0 65% 55%;
+    --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 270 20% 90%;
-    --input: 270 20% 90%;
-    --ring: 270 65% 55%;
+    --border: 270 20% 88%;
+    --input: 270 20% 88%;
+    --ring: 270 60% 50%;
 
     --radius: 0.75rem;
 
@@ -77,15 +77,15 @@
     --shadow-glow-success: 0 0 40px hsl(168 76% 42% / 0.25);
     --shadow-glow-accent: 0 0 40px hsl(280 75% 60% / 0.3);
 
-    /* Sidebar - Deep purple */
-    --sidebar-background: 270 45% 18%;
-    --sidebar-foreground: 270 15% 95%;
-    --sidebar-primary: 280 75% 65%;
+    /* Sidebar - Deep purple with good contrast */
+    --sidebar-background: 270 45% 16%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 280 70% 70%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 270 40% 25%;
-    --sidebar-accent-foreground: 270 15% 95%;
-    --sidebar-border: 270 35% 25%;
-    --sidebar-ring: 280 75% 65%;
+    --sidebar-accent: 270 40% 22%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 270 35% 22%;
+    --sidebar-ring: 280 70% 70%;
   }
 
   .dark {

@@ -1,6 +1,7 @@
 import { Bell, Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UserProfileDropdown } from "@/components/profile/UserProfileDropdown";
 
 interface AppHeaderProps {
   title?: string;
@@ -46,12 +47,8 @@ export function AppHeader({ title = "Dashboard", subtitle, onMenuClick }: AppHea
           </span>
         </Button>
 
-        {/* User Avatar */}
-        <button className="flex items-center gap-3 rounded-lg p-2 hover:bg-secondary transition-colors">
-          <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-            <span className="text-sm font-semibold text-primary-foreground">JD</span>
-          </div>
-        </button>
+        {/* User Profile Dropdown */}
+        <UserProfileDropdown />
       </div>
     </header>
   );

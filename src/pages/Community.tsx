@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PublicChat } from "@/components/community/PublicChat";
 import { toast } from "sonner";
 import {
   Users,
@@ -21,16 +22,16 @@ import {
   Flame,
   MessageCircle,
   Heart,
-  Share2,
   Plus,
   Star,
   Target,
   Award,
   Clock,
   ChevronRight,
-  TrendingUp,
   Medal,
   CheckCircle,
+  BookOpen,
+  Edit,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -38,7 +39,7 @@ import { pt } from "date-fns/locale";
 export default function Community() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [selectedTab, setSelectedTab] = useState("challenges");
+  const [selectedTab, setSelectedTab] = useState("chat");
   const [isPostDialogOpen, setIsPostDialogOpen] = useState(false);
   const [postContent, setPostContent] = useState({ title: "", content: "", category: "tips" });
 
@@ -92,14 +93,27 @@ export default function Community() {
   const { data: ranking = [], isLoading: isLoadingRanking } = useQuery({
     queryKey: ["gamification-ranking"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: gamData, error } = await supabase
         .from("user_gamification")
-        .select("*, profiles(name, email)")
+        .select("*")
         .order("total_points", { ascending: false })
         .limit(20);
       
       if (error) throw error;
-      return data || [];
+
+      // Fetch profiles separately
+      const userIds = gamData?.map(g => g.user_id) || [];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, name, email")
+        .in("user_id", userIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+      
+      return (gamData || []).map(g => ({
+        ...g,
+        profile_name: profileMap.get(g.user_id)?.name || profileMap.get(g.user_id)?.email?.split("@")[0] || "Usuário",
+      }));
     },
   });
 
@@ -107,15 +121,28 @@ export default function Community() {
   const { data: posts = [], isLoading: isLoadingPosts } = useQuery({
     queryKey: ["community-posts"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: postsData, error } = await supabase
         .from("community_posts")
-        .select("*, profiles(name)")
+        .select("*")
         .eq("is_approved", true)
         .order("created_at", { ascending: false })
         .limit(20);
       
       if (error) throw error;
-      return data || [];
+
+      // Fetch profiles
+      const userIds = [...new Set(postsData?.map(p => p.user_id) || [])];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, name")
+        .in("user_id", userIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+
+      return (postsData || []).map(p => ({
+        ...p,
+        author_name: profileMap.get(p.user_id)?.name || "Usuário",
+      }));
     },
   });
 
@@ -149,7 +176,6 @@ export default function Community() {
       const challenge = userChallenge?.challenges;
       const pointsToAdd = challenge?.points_reward || 50;
 
-      // Update user challenge status
       const { error: ucError } = await supabase
         .from("user_challenges")
         .update({
@@ -162,7 +188,6 @@ export default function Community() {
       
       if (ucError) throw ucError;
 
-      // Update gamification
       if (gamification) {
         const { error: gamError } = await supabase
           .from("user_gamification")
@@ -191,6 +216,7 @@ export default function Community() {
         title: post.title,
         content: post.content,
         category: post.category,
+        is_discussion: true,
       });
       if (error) throw error;
     },
@@ -223,7 +249,7 @@ export default function Community() {
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case "easy": return "bg-success/10 text-success";
-      case "medium": return "bg-amber-500/10 text-amber-500";
+      case "medium": return "bg-amber-500/10 text-amber-600";
       case "hard": return "bg-destructive/10 text-destructive";
       default: return "bg-muted text-muted-foreground";
     }
@@ -236,20 +262,6 @@ export default function Community() {
       case "hard": return "Difícil";
       default: return difficulty;
     }
-  };
-
-  const getLevelName = (level: number) => {
-    if (level >= 10) return "Mestre";
-    if (level >= 7) return "Avançado";
-    if (level >= 4) return "Intermediário";
-    return "Iniciante";
-  };
-
-  const getLevelColor = (level: number) => {
-    if (level >= 10) return "text-amber-500";
-    if (level >= 7) return "text-purple-500";
-    if (level >= 4) return "text-blue-500";
-    return "text-muted-foreground";
   };
 
   const isUserInChallenge = (challengeId: string) => {
@@ -272,7 +284,7 @@ export default function Community() {
   };
 
   return (
-    <AppLayout title="Comunidade & Desafios" subtitle="Conecte-se com outros angolanos na jornada financeira">
+    <AppLayout title="Comunidade" subtitle="Conecte-se com outros angolanos na jornada financeira">
       <div className="space-y-6">
         {/* User Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -283,7 +295,7 @@ export default function Community() {
                   <Trophy className="h-5 w-5 text-amber-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{gamification?.total_points || 0}</p>
+                  <p className="text-2xl font-bold text-foreground">{gamification?.total_points || 0}</p>
                   <p className="text-sm text-muted-foreground">Pontos Totais</p>
                 </div>
               </div>
@@ -297,7 +309,7 @@ export default function Community() {
                   <Award className="h-5 w-5 text-purple-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">Nível {gamification?.current_level || 1}</p>
+                  <p className="text-2xl font-bold text-foreground">Nível {gamification?.current_level || 1}</p>
                   <p className="text-sm text-muted-foreground">{gamification?.level_name || "Iniciante"}</p>
                 </div>
               </div>
@@ -311,7 +323,7 @@ export default function Community() {
                   <Target className="h-5 w-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{gamification?.challenges_completed || 0}</p>
+                  <p className="text-2xl font-bold text-foreground">{gamification?.challenges_completed || 0}</p>
                   <p className="text-sm text-muted-foreground">Desafios Completos</p>
                 </div>
               </div>
@@ -325,7 +337,7 @@ export default function Community() {
                   <Flame className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{gamification?.current_streak || 0} dias</p>
+                  <p className="text-2xl font-bold text-foreground">{gamification?.current_streak || 0} dias</p>
                   <p className="text-sm text-muted-foreground">Sequência Atual</p>
                 </div>
               </div>
@@ -335,7 +347,15 @@ export default function Community() {
 
         {/* Tabs */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList>
+          <TabsList className="bg-secondary/50">
+            <TabsTrigger value="chat" className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4" />
+              Chat
+            </TabsTrigger>
+            <TabsTrigger value="discussions" className="flex items-center gap-2">
+              <Edit className="h-4 w-4" />
+              Discussões
+            </TabsTrigger>
             <TabsTrigger value="challenges" className="flex items-center gap-2">
               <Target className="h-4 w-4" />
               Desafios
@@ -344,11 +364,179 @@ export default function Community() {
               <Trophy className="h-4 w-4" />
               Ranking
             </TabsTrigger>
-            <TabsTrigger value="feed" className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4" />
-              Feed
-            </TabsTrigger>
           </TabsList>
+
+          {/* Chat Tab */}
+          <TabsContent value="chat" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <PublicChat />
+              </div>
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Users className="h-5 w-5 text-primary" />
+                      Regras do Chat
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm text-muted-foreground">
+                    <p>• Seja respeitoso com todos os membros</p>
+                    <p>• Não partilhe informações pessoais sensíveis</p>
+                    <p>• Foque em temas de finanças e investimentos</p>
+                    <p>• Ajude outros membros sempre que possível</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Star className="h-5 w-5 text-amber-500" />
+                      Top Membros
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {ranking.slice(0, 5).map((r: any, index: number) => (
+                        <div key={r.id} className="flex items-center gap-3">
+                          <span className="font-bold text-lg w-6">
+                            {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `${index + 1}`}
+                          </span>
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                              {r.profile_name?.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate text-foreground">{r.profile_name}</p>
+                            <p className="text-xs text-muted-foreground">{r.total_points} pts</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Discussions Tab */}
+          <TabsContent value="discussions" className="mt-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-foreground">Discussões da Comunidade</h3>
+              <Dialog open={isPostDialogOpen} onOpenChange={setIsPostDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gradient-primary">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Discussão
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Criar Nova Discussão</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Título</Label>
+                      <Input
+                        placeholder="Título da discussão..."
+                        value={postContent.title}
+                        onChange={(e) => setPostContent({ ...postContent, title: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Categoria</Label>
+                      <Select
+                        value={postContent.category}
+                        onValueChange={(value) => setPostContent({ ...postContent, category: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="tips">Dicas</SelectItem>
+                          <SelectItem value="question">Pergunta</SelectItem>
+                          <SelectItem value="success">Caso de Sucesso</SelectItem>
+                          <SelectItem value="discussion">Discussão</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Conteúdo</Label>
+                      <Textarea
+                        placeholder="Escreva sua discussão..."
+                        rows={5}
+                        value={postContent.content}
+                        onChange={(e) => setPostContent({ ...postContent, content: e.target.value })}
+                      />
+                    </div>
+                    <Button
+                      className="w-full"
+                      onClick={() => createPostMutation.mutate(postContent)}
+                      disabled={!postContent.title || !postContent.content || createPostMutation.isPending}
+                    >
+                      {createPostMutation.isPending ? "Publicando..." : "Publicar"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {isLoadingPosts ? (
+              <div className="flex justify-center py-12">
+                <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+              </div>
+            ) : posts.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2 text-foreground">Nenhuma discussão ainda</h3>
+                  <p className="text-muted-foreground">Seja o primeiro a iniciar uma discussão!</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {posts.map((post: any) => (
+                  <Card key={post.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="secondary" className="text-xs">
+                              {post.category === "tips" ? "Dicas" :
+                               post.category === "question" ? "Pergunta" :
+                               post.category === "success" ? "Sucesso" : "Discussão"}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: pt })}
+                            </span>
+                          </div>
+                          <h4 className="font-semibold text-lg mb-2 text-foreground">{post.title}</h4>
+                          <p className="text-muted-foreground line-clamp-2">{post.content}</p>
+                          <div className="flex items-center gap-4 mt-3">
+                            <span className="text-sm text-muted-foreground">por {post.author_name}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => likePostMutation.mutate(post.id)}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <Heart className="h-4 w-4 mr-1" />
+                              {post.likes_count || 0}
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-muted-foreground">
+                              <MessageCircle className="h-4 w-4 mr-1" />
+                              {post.comments_count || 0}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
           {/* Challenges Tab */}
           <TabsContent value="challenges" className="mt-6">
@@ -360,7 +548,7 @@ export default function Community() {
               <Card>
                 <CardContent className="py-12 text-center">
                   <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhum desafio disponível</h3>
+                  <h3 className="text-lg font-semibold mb-2 text-foreground">Nenhum desafio disponível</h3>
                   <p className="text-muted-foreground">Novos desafios serão adicionados em breve!</p>
                 </CardContent>
               </Card>
@@ -381,7 +569,7 @@ export default function Community() {
                           </Badge>
                         </div>
 
-                        <h3 className="font-semibold text-lg mb-2">{challenge.title}</h3>
+                        <h3 className="font-semibold text-lg mb-2 text-foreground">{challenge.title}</h3>
                         <p className="text-sm text-muted-foreground mb-4">{challenge.description}</p>
 
                         {isJoined && !isCompleted && (
@@ -402,7 +590,7 @@ export default function Community() {
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <Badge className="bg-amber-500/10 text-amber-500">
+                          <Badge className="bg-amber-500/10 text-amber-600">
                             <Star className="h-3 w-3 mr-1" />
                             +{challenge.points_reward} pts
                           </Badge>
@@ -460,44 +648,51 @@ export default function Community() {
                     <p>Nenhum usuário no ranking ainda</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {ranking.map((userRank: any, index: number) => (
+                  <div className="space-y-3">
+                    {ranking.map((r: any, index: number) => (
                       <div
-                        key={userRank.id}
-                        className={`flex items-center gap-4 p-4 rounded-lg ${
-                          index < 3 ? "bg-amber-500/5 border border-amber-500/20" : "bg-muted/50"
-                        } ${userRank.user_id === user?.id ? "ring-2 ring-primary" : ""}`}
+                        key={r.id}
+                        className={`flex items-center gap-4 p-4 rounded-xl transition-colors ${
+                          r.user_id === user?.id 
+                            ? "bg-primary/10 border-2 border-primary/20" 
+                            : "bg-muted/50"
+                        }`}
                       >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                          index === 0 ? "bg-amber-500 text-white" :
-                          index === 1 ? "bg-gray-400 text-white" :
-                          index === 2 ? "bg-amber-700 text-white" :
-                          "bg-muted text-muted-foreground"
-                        }`}>
-                          {index < 3 ? <Medal className="h-4 w-4" /> : index + 1}
+                        <div className="w-10 h-10 flex items-center justify-center">
+                          {index === 0 ? (
+                            <span className="text-2xl">🥇</span>
+                          ) : index === 1 ? (
+                            <span className="text-2xl">🥈</span>
+                          ) : index === 2 ? (
+                            <span className="text-2xl">🥉</span>
+                          ) : (
+                            <span className="text-lg font-bold text-muted-foreground">
+                              {index + 1}
+                            </span>
+                          )}
                         </div>
 
-                        <Avatar>
-                          <AvatarFallback>
-                            {userRank.profiles?.name?.substring(0, 2).toUpperCase() || "U"}
+                        <Avatar className="h-12 w-12">
+                          <AvatarFallback className="bg-primary/20 text-primary font-semibold">
+                            {r.profile_name?.substring(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
 
                         <div className="flex-1">
-                          <p className="font-medium">
-                            {userRank.profiles?.name || "Usuário"}
-                            {userRank.user_id === user?.id && (
-                              <Badge variant="outline" className="ml-2">Você</Badge>
-                            )}
-                          </p>
-                          <p className={`text-sm ${getLevelColor(userRank.current_level || 1)}`}>
-                            {userRank.level_name || getLevelName(userRank.current_level || 1)}
+                          <p className="font-semibold text-foreground">{r.profile_name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Nível {r.current_level || 1} • {r.level_name || "Iniciante"}
                           </p>
                         </div>
 
                         <div className="text-right">
-                          <p className="font-bold text-amber-500">{(userRank.total_points || 0).toLocaleString()}</p>
+                          <p className="font-bold text-lg text-foreground">{r.total_points || 0}</p>
                           <p className="text-xs text-muted-foreground">pontos</p>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <Flame className="h-4 w-4 text-amber-500" />
+                          <span className="text-sm font-medium text-foreground">{r.current_streak || 0}</span>
                         </div>
                       </div>
                     ))}
@@ -505,133 +700,6 @@ export default function Community() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-
-          {/* Feed Tab */}
-          <TabsContent value="feed" className="mt-6">
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Dialog open={isPostDialogOpen} onOpenChange={setIsPostDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="gradient-primary">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Criar Post
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Criar Post</DialogTitle>
-                    </DialogHeader>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        createPostMutation.mutate(postContent);
-                      }}
-                      className="space-y-4"
-                    >
-                      <div className="space-y-2">
-                        <Label>Título</Label>
-                        <Input
-                          value={postContent.title}
-                          onChange={(e) => setPostContent(prev => ({ ...prev, title: e.target.value }))}
-                          placeholder="Ex: Dica de poupança"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Categoria</Label>
-                        <Select 
-                          value={postContent.category} 
-                          onValueChange={(value) => setPostContent(prev => ({ ...prev, category: value }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="tips">Dicas</SelectItem>
-                            <SelectItem value="success">Histórias de Sucesso</SelectItem>
-                            <SelectItem value="question">Perguntas</SelectItem>
-                            <SelectItem value="discussion">Discussão</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Conteúdo</Label>
-                        <Textarea
-                          value={postContent.content}
-                          onChange={(e) => setPostContent(prev => ({ ...prev, content: e.target.value }))}
-                          placeholder="Partilhe sua experiência..."
-                          rows={4}
-                          required
-                        />
-                      </div>
-                      <Button type="submit" className="w-full gradient-primary" disabled={createPostMutation.isPending}>
-                        {createPostMutation.isPending ? "Publicando..." : "Publicar"}
-                      </Button>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              </div>
-
-              {isLoadingPosts ? (
-                <div className="flex justify-center py-8">
-                  <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-                </div>
-              ) : posts.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <MessageCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Nenhum post ainda</h3>
-                    <p className="text-muted-foreground">Seja o primeiro a partilhar uma dica!</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                posts.map((post: any) => (
-                  <Card key={post.id}>
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        <Avatar>
-                          <AvatarFallback>
-                            {post.profiles?.name?.substring(0, 2).toUpperCase() || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="font-medium">{post.profiles?.name || "Usuário"}</span>
-                            <Badge variant="outline">{post.category}</Badge>
-                            <span className="text-sm text-muted-foreground">
-                              {formatDistanceToNow(new Date(post.created_at || ""), { addSuffix: true, locale: pt })}
-                            </span>
-                          </div>
-                          <h3 className="font-semibold mb-2">{post.title}</h3>
-                          <p className="text-muted-foreground">{post.content}</p>
-                          
-                          <div className="flex items-center gap-4 mt-4">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-muted-foreground hover:text-destructive"
-                              onClick={() => likePostMutation.mutate(post.id)}
-                            >
-                              <Heart className="h-4 w-4 mr-1" />
-                              {post.likes_count || 0}
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-muted-foreground">
-                              <MessageCircle className="h-4 w-4 mr-1" />
-                              {post.comments_count || 0}
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-muted-foreground">
-                              <Share2 className="h-4 w-4 mr-1" />
-                              Partilhar
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
           </TabsContent>
         </Tabs>
       </div>

@@ -17,6 +17,7 @@ import Education from "./pages/Education";
 import Income from "./pages/Income";
 import Reports from "./pages/Reports";
 import Community from "./pages/Community";
+import Marketplace from "./pages/Marketplace";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
@@ -62,6 +63,9 @@ const App = () => (
             } />
             <Route path="/community" element={
               <ProtectedRoute><Community /></ProtectedRoute>
+            } />
+            <Route path="/marketplace" element={
+              <ProtectedRoute><Marketplace /></ProtectedRoute>
             } />
             <Route path="/settings" element={
               <ProtectedRoute><Settings /></ProtectedRoute>
