@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
   ShoppingBag,
@@ -23,7 +24,11 @@ import {
   ShoppingCart,
   CheckCircle,
   Package,
+  Crown,
+  Lock,
+  AlertTriangle,
 } from "lucide-react";
+import { SubscriptionPlans } from "@/components/subscription/SubscriptionPlans";
 
 const PRODUCT_TYPES = [
   { value: "all", label: "Todos", icon: Package },
@@ -47,6 +52,7 @@ export default function Marketplace() {
   const [selectedType, setSelectedType] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
 
   // Fetch products
   const { data: products = [], isLoading } = useQuery({
@@ -78,10 +84,99 @@ export default function Marketplace() {
     enabled: !!user?.id,
   });
 
-  // Purchase mutation
+  // Fetch user active subscription
+  const { data: activeSubscription } = useQuery({
+    queryKey: ["user-subscription", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_subscriptions")
+        .select("*, subscription_plans(*)")
+        .eq("user_id", user?.id)
+        .eq("status", "active")
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Fetch user free downloads count
+  const { data: freeDownloadsCount = 0 } = useQuery({
+    queryKey: ["user-free-downloads", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .rpc("get_user_free_downloads", { p_user_id: user?.id });
+      
+      if (error) throw error;
+      return data || 0;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Check if user can download
+  const { data: canDownload } = useQuery({
+    queryKey: ["can-download", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .rpc("can_download_free_ebook", { p_user_id: user?.id });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const ebookLimit = activeSubscription?.subscription_plans?.ebook_limit || 0;
+
+  // Download ebook mutation (for subscription included ebooks)
+  const downloadMutation = useMutation({
+    mutationFn: async (product: any) => {
+      // Check if can download
+      const { data: canDL, error: checkError } = await supabase
+        .rpc("can_download_free_ebook", { p_user_id: user?.id });
+      
+      if (checkError) throw checkError;
+      
+      if (!canDL) {
+        throw new Error("Você atingiu o limite de downloads do seu plano. Faça upgrade para baixar mais ebooks.");
+      }
+
+      // Register download
+      const { error } = await supabase.from("ebook_downloads").insert({
+        user_id: user?.id,
+        product_id: product.id,
+        is_free_download: true,
+        subscription_id: activeSubscription?.id,
+      });
+      
+      if (error) throw error;
+
+      // Increment download count on product
+      await supabase
+        .from("marketplace_products")
+        .update({ download_count: (product.download_count || 0) + 1 })
+        .eq("id", product.id);
+    },
+    onSuccess: (_, product) => {
+      queryClient.invalidateQueries({ queryKey: ["user-free-downloads"] });
+      queryClient.invalidateQueries({ queryKey: ["can-download"] });
+      queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
+      toast.success("Download registrado! Abrindo arquivo...");
+      // Open file
+      if (product.file_url) {
+        window.open(product.file_url, "_blank");
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao baixar ebook");
+    },
+  });
+
+  // Purchase mutation (for paid products)
   const purchaseMutation = useMutation({
     mutationFn: async (product: any) => {
-      // For free products, just register the purchase
       const { error } = await supabase.from("marketplace_purchases").insert({
         user_id: user?.id,
         product_id: product.id,
@@ -107,6 +202,21 @@ export default function Marketplace() {
     },
   });
 
+  // Check if user has already downloaded an ebook (subscription)
+  const { data: downloads = [] } = useQuery({
+    queryKey: ["user-downloads"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ebook_downloads")
+        .select("product_id")
+        .eq("user_id", user?.id);
+      
+      if (error) throw error;
+      return data?.map(d => d.product_id) || [];
+    },
+    enabled: !!user?.id,
+  });
+
   const filteredProducts = products.filter((product: any) => {
     const matchesType = selectedType === "all" || product.product_type === selectedType;
     const matchesSearch = 
@@ -116,6 +226,7 @@ export default function Marketplace() {
   });
 
   const isPurchased = (productId: string) => purchases.includes(productId);
+  const isDownloaded = (productId: string) => downloads.includes(productId);
 
   const getProductIcon = (type: string) => {
     switch (type) {
@@ -132,11 +243,84 @@ export default function Marketplace() {
     return found?.label || type;
   };
 
+  const handleDownload = (product: any) => {
+    if (product.is_subscription_included && activeSubscription) {
+      downloadMutation.mutate(product);
+    } else if (product.file_url) {
+      window.open(product.file_url, "_blank");
+    }
+  };
+
   return (
     <AppLayout title="Marketplace" subtitle="Ebooks, cursos e ferramentas para sua jornada financeira">
       <div className="space-y-6">
+        {/* Subscription Status Banner */}
+        {activeSubscription ? (
+          <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-accent/5">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Crown className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      Plano {activeSubscription.subscription_plans?.name}
+                      <Badge className="bg-primary/10 text-primary">Ativo</Badge>
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Você baixou {freeDownloadsCount} de {ebookLimit} ebooks gratuitos
+                    </p>
+                  </div>
+                </div>
+                <div className="flex-1 max-w-xs">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Downloads usados</span>
+                    <span className="font-medium">{freeDownloadsCount}/{ebookLimit}</span>
+                  </div>
+                  <Progress 
+                    value={(freeDownloadsCount / ebookLimit) * 100} 
+                    className="h-2"
+                  />
+                  {freeDownloadsCount >= ebookLimit && (
+                    <p className="text-xs text-amber-500 mt-1 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Limite atingido
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-accent/30 bg-gradient-to-r from-accent/5 to-primary/5">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-full bg-accent/20 flex items-center justify-center">
+                    <Lock className="h-6 w-6 text-accent" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Assine para Desbloquear Ebooks Grátis</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Tenha acesso a ebooks exclusivos incluídos na sua assinatura
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  className="gradient-primary"
+                  onClick={() => setShowSubscriptionDialog(true)}
+                >
+                  <Crown className="h-4 w-4 mr-2" />
+                  Ver Planos
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -145,7 +329,7 @@ export default function Marketplace() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{products.length}</p>
-                  <p className="text-sm text-muted-foreground">Produtos Disponíveis</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Produtos</p>
                 </div>
               </div>
             </CardContent>
@@ -158,8 +342,8 @@ export default function Marketplace() {
                   <Download className="h-5 w-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{purchases.length}</p>
-                  <p className="text-sm text-muted-foreground">Suas Aquisições</p>
+                  <p className="text-2xl font-bold">{purchases.length + downloads.length}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Aquisições</p>
                 </div>
               </div>
             </CardContent>
@@ -173,9 +357,9 @@ export default function Marketplace() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {products.filter((p: any) => p.product_type === "ebook").length}
+                    {products.filter((p: any) => p.is_subscription_included).length}
                   </p>
-                  <p className="text-sm text-muted-foreground">E-books</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Incluídos</p>
                 </div>
               </div>
             </CardContent>
@@ -191,7 +375,7 @@ export default function Marketplace() {
                   <p className="text-2xl font-bold">
                     {products.filter((p: any) => p.product_type === "course").length}
                   </p>
-                  <p className="text-sm text-muted-foreground">Cursos</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Cursos</p>
                 </div>
               </div>
             </CardContent>
@@ -246,6 +430,8 @@ export default function Marketplace() {
                 {filteredProducts.map((product: any) => {
                   const ProductIcon = getProductIcon(product.product_type);
                   const owned = isPurchased(product.id);
+                  const downloaded = isDownloaded(product.id);
+                  const isSubscriptionProduct = product.is_subscription_included;
 
                   return (
                     <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-all group">
@@ -266,8 +452,14 @@ export default function Marketplace() {
                             Destaque
                           </Badge>
                         )}
-                        {owned && (
-                          <Badge className="absolute top-3 right-3 bg-success/90 text-white">
+                        {isSubscriptionProduct && (
+                          <Badge className="absolute top-3 right-3 bg-accent/90 text-accent-foreground">
+                            <Crown className="h-3 w-3 mr-1" />
+                            Assinatura
+                          </Badge>
+                        )}
+                        {(owned || downloaded) && (
+                          <Badge className="absolute bottom-3 right-3 bg-success/90 text-white">
                             <CheckCircle className="h-3 w-3 mr-1" />
                             Adquirido
                           </Badge>
@@ -298,7 +490,12 @@ export default function Marketplace() {
 
                         <div className="flex items-center justify-between">
                           <div>
-                            {product.price > 0 ? (
+                            {isSubscriptionProduct ? (
+                              <Badge className="bg-accent/10 text-accent">
+                                <Crown className="h-3 w-3 mr-1" />
+                                Incluído
+                              </Badge>
+                            ) : product.price > 0 ? (
                               <p className="text-xl font-bold text-primary">
                                 {formatCurrency(product.price)}
                               </p>
@@ -307,13 +504,46 @@ export default function Marketplace() {
                             )}
                           </div>
 
-                          {owned ? (
-                            <Button size="sm" variant="outline" asChild>
-                              <a href={product.file_url} target="_blank" rel="noopener noreferrer">
-                                <Download className="h-4 w-4 mr-2" />
-                                Baixar
-                              </a>
+                          {owned || downloaded ? (
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => handleDownload(product)}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Baixar
                             </Button>
+                          ) : isSubscriptionProduct ? (
+                            activeSubscription && canDownload ? (
+                              <Button 
+                                size="sm" 
+                                className="gradient-primary"
+                                onClick={() => downloadMutation.mutate(product)}
+                                disabled={downloadMutation.isPending}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                {downloadMutation.isPending ? "..." : "Baixar"}
+                              </Button>
+                            ) : activeSubscription && !canDownload ? (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="text-amber-500 border-amber-500/30"
+                                disabled
+                              >
+                                <Lock className="h-4 w-4 mr-2" />
+                                Limite
+                              </Button>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => setShowSubscriptionDialog(true)}
+                              >
+                                <Lock className="h-4 w-4 mr-2" />
+                                Assinar
+                              </Button>
+                            )
                           ) : (
                             <Dialog>
                               <DialogTrigger asChild>
@@ -378,6 +608,19 @@ export default function Marketplace() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Subscription Plans Dialog */}
+      <Dialog open={showSubscriptionDialog} onOpenChange={setShowSubscriptionDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Crown className="h-5 w-5 text-accent" />
+              Escolha seu Plano
+            </DialogTitle>
+          </DialogHeader>
+          <SubscriptionPlans onSuccess={() => setShowSubscriptionDialog(false)} />
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
