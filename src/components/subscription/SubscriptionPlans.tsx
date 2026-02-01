@@ -19,7 +19,11 @@ interface Plan {
   is_active: boolean;
 }
 
-export function SubscriptionPlans() {
+interface SubscriptionPlansProps {
+  onSuccess?: () => void;
+}
+
+export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
@@ -89,6 +93,7 @@ export function SubscriptionPlans() {
       queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
       setDialogOpen(false);
       setSelectedPlan(null);
+      onSuccess?.();
     },
     onError: () => {
       toast.error("Erro ao enviar assinatura");
