@@ -794,6 +794,60 @@ export type Database = {
           },
         ]
       }
+      news: {
+        Row: {
+          category: string
+          content: string | null
+          created_at: string
+          fetched_at: string | null
+          id: string
+          image_url: string | null
+          is_approved: boolean | null
+          is_featured: boolean | null
+          published_at: string | null
+          source: string
+          summary: string | null
+          title: string
+          updated_at: string
+          url: string | null
+          views_count: number | null
+        }
+        Insert: {
+          category?: string
+          content?: string | null
+          created_at?: string
+          fetched_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_approved?: boolean | null
+          is_featured?: boolean | null
+          published_at?: string | null
+          source: string
+          summary?: string | null
+          title: string
+          updated_at?: string
+          url?: string | null
+          views_count?: number | null
+        }
+        Update: {
+          category?: string
+          content?: string | null
+          created_at?: string
+          fetched_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_approved?: boolean | null
+          is_featured?: boolean | null
+          published_at?: string | null
+          source?: string
+          summary?: string | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+          views_count?: number | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -1276,6 +1330,35 @@ export type Database = {
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "course_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_news_favorites: {
+        Row: {
+          created_at: string
+          id: string
+          news_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          news_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          news_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_news_favorites_news_id_fkey"
+            columns: ["news_id"]
+            isOneToOne: false
+            referencedRelation: "news"
             referencedColumns: ["id"]
           },
         ]
