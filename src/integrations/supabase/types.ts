@@ -1664,6 +1664,41 @@ export type Database = {
           },
         ]
       }
+      user_product_follows: {
+        Row: {
+          created_at: string
+          id: string
+          lowest_price_seen: number | null
+          product_id: string | null
+          product_name: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lowest_price_seen?: number | null
+          product_id?: string | null
+          product_name?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lowest_price_seen?: number | null
+          product_id?: string | null
+          product_name?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_product_follows_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "price_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_quiz_attempts: {
         Row: {
           answers: Json | null
