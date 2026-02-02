@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,18 +18,13 @@ import {
   ChevronRight,
   CheckCircle,
   Circle,
-  Play,
   BookOpen,
   Clock,
   Award,
   Lock,
   X,
-  Video,
-  Youtube,
   HelpCircle,
   RotateCcw,
-  Download,
-  Share2,
 } from "lucide-react";
 
 interface CourseViewerProps {
@@ -166,23 +160,6 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
     enabled: isOpen && !!user?.id && !!courseId,
   });
 
-  // Fetch course progress
-  const { data: courseProgress } = useQuery({
-    queryKey: ["user-content-progress", courseId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_content_progress")
-        .select("*")
-        .eq("user_id", user?.id)
-        .eq("content_id", courseId)
-        .maybeSingle();
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: isOpen && !!user?.id && !!courseId,
-  });
-
   // Complete module mutation
   const completeModuleMutation = useMutation({
     mutationFn: async (moduleId: string) => {
@@ -199,7 +176,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user-module-progress", courseId] });
-      toast.success("Módulo concluído!");
+      toast.success("Módulo concluído! Próximo módulo desbloqueado.");
     },
   });
 
@@ -361,18 +338,15 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
     }
   }, [existingCertificate]);
 
-  const handleGoToNext = () => {
-    if (!isModuleCompleted(currentModule.id)) {
-      completeModuleMutation.mutate(currentModule.id);
-    }
-    if (currentModuleIndex < modules.length - 1) {
-      setCurrentModuleIndex(prev => prev + 1);
-    }
-  };
-
   const handleFinishModule = () => {
     if (!isModuleCompleted(currentModule.id)) {
       completeModuleMutation.mutate(currentModule.id);
+    }
+  };
+
+  const handleGoToNextModule = () => {
+    if (currentModuleIndex < modules.length - 1) {
+      setCurrentModuleIndex(prev => prev + 1);
     }
   };
 
@@ -427,63 +401,65 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl h-[95vh] p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-6xl h-[95vh] p-0 gap-0 flex flex-col overflow-hidden">
         {showCertificate ? (
           // Certificate View
-          <div className="flex flex-col items-center justify-center h-full p-8 bg-gradient-to-br from-primary/5 to-accent/5">
-            <div className="w-full max-w-2xl p-8 border-4 border-primary rounded-xl bg-card shadow-2xl">
-              <div className="text-center space-y-6">
-                <Award className="h-20 w-20 text-primary mx-auto" />
-                <div>
-                  <p className="text-sm text-muted-foreground uppercase tracking-wider">Certificado de Conclusão</p>
-                  <h1 className="text-3xl font-bold mt-2">Parabéns!</h1>
-                </div>
-                
-                <div className="py-6 border-y">
-                  <p className="text-muted-foreground">Este certificado atesta que</p>
-                  <p className="text-2xl font-bold text-primary mt-2">
-                    {user?.user_metadata?.name || user?.email?.split("@")[0]}
-                  </p>
-                  <p className="text-muted-foreground mt-4">concluiu com sucesso o curso</p>
-                  <p className="text-xl font-semibold mt-2">{course?.title}</p>
-                </div>
-
-                <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>{course?.duration_minutes || 60} minutos</span>
+          <div className="flex-1 overflow-y-auto">
+            <div className="flex flex-col items-center justify-center min-h-full p-8 bg-gradient-to-br from-primary/5 to-accent/5">
+              <div className="w-full max-w-2xl p-8 border-4 border-primary rounded-xl bg-card shadow-2xl">
+                <div className="text-center space-y-6">
+                  <Award className="h-20 w-20 text-primary mx-auto" />
+                  <div>
+                    <p className="text-sm text-muted-foreground uppercase tracking-wider">Certificado de Conclusão</p>
+                    <h1 className="text-3xl font-bold mt-2">Parabéns!</h1>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4" />
-                    <span>{modules.length} módulos</span>
+                  
+                  <div className="py-6 border-y">
+                    <p className="text-muted-foreground">Este certificado atesta que</p>
+                    <p className="text-2xl font-bold text-primary mt-2">
+                      {user?.user_metadata?.name || user?.email?.split("@")[0]}
+                    </p>
+                    <p className="text-muted-foreground mt-4">concluiu com sucesso o curso</p>
+                    <p className="text-xl font-semibold mt-2">{course?.title}</p>
                   </div>
-                </div>
 
-                <div className="pt-4">
-                  <p className="text-xs text-muted-foreground">Certificado Nº</p>
-                  <p className="font-mono text-sm font-semibold">{certificateNumber || existingCertificate?.certificate_number}</p>
-                </div>
+                  <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      <span>{course?.duration_minutes || 60} minutos</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4" />
+                      <span>{modules.length} módulos</span>
+                    </div>
+                  </div>
 
-                <Badge className="bg-primary text-primary-foreground text-lg px-6 py-2">
-                  +{course?.points_reward || 50} Pontos Kuanza
-                </Badge>
+                  <div className="pt-4">
+                    <p className="text-xs text-muted-foreground">Certificado Nº</p>
+                    <p className="font-mono text-sm font-semibold">{certificateNumber || existingCertificate?.certificate_number}</p>
+                  </div>
+
+                  <Badge className="bg-primary text-primary-foreground text-lg px-6 py-2">
+                    +{course?.points_reward || 50} Pontos Kuanza
+                  </Badge>
+                </div>
               </div>
-            </div>
 
-            <div className="flex gap-4 mt-8">
-              <Button variant="outline" onClick={() => setShowCertificate(false)}>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Voltar ao Curso
-              </Button>
-              <Button onClick={onClose}>
-                Fechar
-              </Button>
+              <div className="flex gap-4 mt-8">
+                <Button variant="outline" onClick={() => setShowCertificate(false)}>
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Voltar ao Curso
+                </Button>
+                <Button onClick={onClose}>
+                  Fechar
+                </Button>
+              </div>
             </div>
           </div>
         ) : showQuiz ? (
           // Quiz View
           <div className="flex flex-col h-full">
-            <div className="p-4 border-b flex items-center justify-between bg-muted/30">
+            <div className="p-4 border-b flex items-center justify-between bg-muted/30 shrink-0">
               <div>
                 <h2 className="font-semibold text-lg">{finalQuiz?.title || "Quiz Final"}</h2>
                 <p className="text-sm text-muted-foreground">
@@ -495,7 +471,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
               </Button>
             </div>
 
-            <ScrollArea className="flex-1 p-6">
+            <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-2xl mx-auto space-y-6">
                 {quizSubmitted ? (
                   // Quiz Results
@@ -591,7 +567,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                         </Card>
                     ))}
 
-                    <div className="flex justify-center pt-4">
+                    <div className="flex justify-center pt-4 pb-8">
                       <Button 
                         size="lg"
                         onClick={() => submitQuizMutation.mutate()}
@@ -604,14 +580,14 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                   </>
                 )}
               </div>
-            </ScrollArea>
+            </div>
           </div>
         ) : (
           // Course Content View
           <div className="flex h-full">
             {/* Sidebar - Module List */}
             <div className="w-80 border-r bg-muted/30 flex flex-col shrink-0">
-              <div className="p-4 border-b">
+              <div className="p-4 border-b shrink-0">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold truncate pr-2">{course?.title}</h3>
                   <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0">
@@ -625,12 +601,12 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                   </div>
                   <Progress value={progressPercentage} className="h-2" />
                   <p className="text-xs text-muted-foreground">
-                    {completedModulesCount} de {modules.length} módulos
+                    {completedModulesCount} de {modules.length} módulos concluídos
                   </p>
                 </div>
               </div>
 
-              <ScrollArea className="flex-1 p-4">
+              <div className="flex-1 overflow-y-auto p-4">
                 <div className="space-y-2">
                   {modules.map((mod, index) => {
                     const completed = isModuleCompleted(mod.id);
@@ -705,7 +681,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                           <div>
                             <p className="font-medium text-sm">Quiz Final</p>
                             <p className="text-xs text-muted-foreground">
-                              {hasPassedQuiz ? "Aprovado ✓" : `Mínimo ${finalQuiz.passing_score}%`}
+                              {hasPassedQuiz ? "Aprovado ✓" : allModulesCompleted ? `Mínimo ${finalQuiz.passing_score}%` : "Complete todos os módulos"}
                             </p>
                           </div>
                         </div>
@@ -739,7 +715,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                     </button>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
             </div>
 
             {/* Main Content */}
@@ -765,8 +741,9 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                     )}
                   </div>
 
-                  <ScrollArea className="flex-1 p-6">
-                    <div className="max-w-4xl mx-auto space-y-6">
+                  {/* SCROLLABLE CONTENT AREA */}
+                  <div className="flex-1 overflow-y-auto p-6">
+                    <div className="max-w-4xl mx-auto space-y-6 pb-8">
                       {/* Video/YouTube Content */}
                       {currentModule.video_url && (
                         <div className="mb-6">
@@ -805,9 +782,9 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                         </div>
                       )}
                     </div>
-                  </ScrollArea>
+                  </div>
 
-                  {/* Footer Navigation */}
+                  {/* Footer Navigation - FIXED AT BOTTOM */}
                   <div className="p-4 border-t bg-muted/30 shrink-0">
                     <div className="flex items-center justify-between">
                       <Button
@@ -820,45 +797,53 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                       </Button>
 
                       <div className="flex gap-2">
+                        {/* FINISH MODULE BUTTON - Only shows if module not completed */}
                         {!isModuleCompleted(currentModule.id) && (
                           <Button
-                            variant="outline"
                             onClick={handleFinishModule}
                             disabled={completeModuleMutation.isPending}
+                            className="bg-success hover:bg-success/90"
                           >
                             <CheckCircle className="h-4 w-4 mr-2" />
-                            Concluir Módulo
+                            {completeModuleMutation.isPending ? "Finalizando..." : "Finalizar Módulo"}
                           </Button>
                         )}
 
-                        {!isLastModule ? (
-                          <Button
-                            onClick={handleGoToNext}
-                            disabled={!isModuleCompleted(currentModule.id) && !currentModule.is_free}
-                          >
-                            Próximo
+                        {/* NEXT MODULE BUTTON - Only shows after completing current */}
+                        {isModuleCompleted(currentModule.id) && !isLastModule && (
+                          <Button onClick={handleGoToNextModule}>
+                            Próximo Módulo
                             <ChevronRight className="h-4 w-4 ml-2" />
                           </Button>
-                        ) : allModulesCompleted && hasFinalQuiz && !hasPassedQuiz ? (
-                          <Button className="gradient-primary" onClick={handleStartQuiz}>
+                        )}
+
+                        {/* QUIZ BUTTON - After last module completed */}
+                        {isLastModule && isModuleCompleted(currentModule.id) && hasFinalQuiz && !hasPassedQuiz && (
+                          <Button className="bg-primary" onClick={handleStartQuiz}>
                             <HelpCircle className="h-4 w-4 mr-2" />
                             Fazer Quiz Final
                           </Button>
-                        ) : allModulesCompleted && !hasFinalQuiz && !hasCertificate ? (
+                        )}
+
+                        {/* CERTIFICATE BUTTON - If no quiz required or already passed */}
+                        {isLastModule && isModuleCompleted(currentModule.id) && !hasFinalQuiz && !hasCertificate && (
                           <Button 
-                            className="gradient-primary"
+                            className="bg-primary"
                             onClick={() => generateCertificateMutation.mutate()}
                             disabled={generateCertificateMutation.isPending}
                           >
                             <Award className="h-4 w-4 mr-2" />
                             Obter Certificado
                           </Button>
-                        ) : hasCertificate || hasPassedQuiz ? (
-                          <Button onClick={() => setShowCertificate(true)}>
+                        )}
+
+                        {/* VIEW CERTIFICATE */}
+                        {hasCertificate && (
+                          <Button variant="outline" onClick={() => setShowCertificate(true)}>
                             <Award className="h-4 w-4 mr-2" />
                             Ver Certificado
                           </Button>
-                        ) : null}
+                        )}
                       </div>
                     </div>
                   </div>
@@ -867,10 +852,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
                     <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">Nenhum módulo disponível</h3>
-                    <p className="text-muted-foreground">
-                      Os módulos deste curso serão adicionados em breve.
-                    </p>
+                    <p className="text-lg text-muted-foreground">Selecione um módulo para começar</p>
                   </div>
                 </div>
               )}

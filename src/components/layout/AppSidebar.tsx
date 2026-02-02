@@ -21,6 +21,7 @@ import {
   Shield,
   ShoppingBag,
   Newspaper,
+  Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ const navigation = [
   { name: "Metas & FIRE", href: "/goals", icon: Target, badge: "FIRE" },
   { name: "Educação", href: "/education", icon: GraduationCap },
   { name: "Renda Extra", href: "/income", icon: Briefcase },
+  { name: "Calculadoras", href: "/calculators", icon: Calculator },
   { name: "Análises", href: "/reports", icon: BarChart3 },
   { name: "Notícias", href: "/news", icon: Newspaper, badge: "NOVO" },
   { name: "Comunidade", href: "/community", icon: Users },
