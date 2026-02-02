@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   TrendingDown,
@@ -35,6 +36,10 @@ import {
   Check,
   Minus,
   Tag,
+  Bell,
+  BellOff,
+  Heart,
+  HeartOff,
 } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -85,6 +90,17 @@ interface PriceProduct {
   id: string;
   name: string;
   category: string;
+  is_essential: boolean;
+  unit: string;
+}
+
+interface ProductFollow {
+  id: string;
+  user_id: string;
+  product_id: string | null;
+  product_name: string | null;
+  lowest_price_seen: number | null;
+  created_at: string;
   is_essential: boolean;
   unit: string;
 }
@@ -151,6 +167,21 @@ export default function Prices() {
       if (error) throw error;
       return data as PriceProduct[];
     },
+  });
+
+  // Fetch user's product follows
+  const { data: productFollows = [] } = useQuery({
+    queryKey: ["product-follows", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_product_follows")
+        .select("*")
+        .eq("user_id", user?.id);
+
+      if (error) throw error;
+      return data as ProductFollow[];
+    },
+    enabled: !!user?.id,
   });
 
   // Fetch user's own entries
@@ -223,6 +254,61 @@ export default function Prices() {
       toast.success("Entrada removida");
     },
   });
+
+  // Follow product mutation
+  const followProductMutation = useMutation({
+    mutationFn: async ({ productId, productName, currentPrice }: { productId?: string; productName: string; currentPrice?: number }) => {
+      const { error } = await supabase.from("user_product_follows").insert({
+        user_id: user?.id,
+        product_id: productId || null,
+        product_name: productId ? null : productName,
+        lowest_price_seen: currentPrice || null,
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product-follows"] });
+      toast.success("Produto seguido! Você será notificado quando o preço baixar.");
+    },
+    onError: () => {
+      toast.error("Erro ao seguir produto");
+    },
+  });
+
+  // Unfollow product mutation
+  const unfollowProductMutation = useMutation({
+    mutationFn: async ({ productId, productName }: { productId?: string; productName?: string }) => {
+      let query = supabase.from("user_product_follows").delete().eq("user_id", user?.id);
+      
+      if (productId) {
+        query = query.eq("product_id", productId);
+      } else if (productName) {
+        query = query.eq("product_name", productName);
+      }
+
+      const { error } = await query;
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product-follows"] });
+      toast.success("Deixou de seguir o produto");
+    },
+  });
+
+  // Helper to check if product is followed
+  const isProductFollowed = (productName: string, productId?: string) => {
+    return productFollows.some(
+      (f) => f.product_id === productId || f.product_name?.toLowerCase() === productName.toLowerCase()
+    );
+  };
+
+  // Get follow data for a product
+  const getProductFollow = (productName: string, productId?: string) => {
+    return productFollows.find(
+      (f) => f.product_id === productId || f.product_name?.toLowerCase() === productName.toLowerCase()
+    );
+  };
 
   // Group prices by product and find best prices
   const pricesByProduct = priceEntries.reduce((acc, entry) => {
@@ -591,10 +677,19 @@ export default function Prices() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="compare">
               <BarChart3 className="h-4 w-4 mr-2" />
               Comparar
+            </TabsTrigger>
+            <TabsTrigger value="following" className="relative">
+              <Bell className="h-4 w-4 mr-2" />
+              Seguindo
+              {productFollows.length > 0 && (
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs bg-primary">
+                  {productFollows.length}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="suggestions">
               <Sparkles className="h-4 w-4 mr-2" />
@@ -642,82 +737,246 @@ export default function Prices() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {filteredProducts.map((product: any, index) => (
-                  <Card key={index} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-semibold">{product.product_name}</h3>
-                            {product.is_essential && (
-                              <Badge variant="outline" className="text-xs">Essencial</Badge>
+                {filteredProducts.map((product: any, index) => {
+                  const catalogProduct = productsCatalog.find(
+                    (p) => p.name.toLowerCase() === product.product_name.toLowerCase()
+                  );
+                  const isFollowed = isProductFollowed(product.product_name, catalogProduct?.id);
+                  
+                  return (
+                    <Card key={index} className={`hover:shadow-md transition-shadow ${isFollowed ? 'ring-2 ring-primary/30' : ''}`}>
+                      <CardContent className="p-4">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="font-semibold">{product.product_name}</h3>
+                              {product.is_essential && (
+                                <Badge variant="outline" className="text-xs">Essencial</Badge>
+                              )}
+                              <Badge className="bg-muted text-muted-foreground text-xs">
+                                {product.entries.length} registro(s)
+                              </Badge>
+                              {isFollowed && (
+                                <Badge className="bg-primary/20 text-primary text-xs">
+                                  <Bell className="h-3 w-3 mr-1" />
+                                  Seguindo
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <span className="text-muted-foreground">Menor preço:</span>
+                                <p className="font-bold text-success flex items-center gap-1">
+                                  <ArrowDownIcon className="h-3 w-3" />
+                                  {formatCurrency(product.minPrice)}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Maior preço:</span>
+                                <p className="font-bold text-destructive flex items-center gap-1">
+                                  <ArrowUpIcon className="h-3 w-3" />
+                                  {formatCurrency(product.maxPrice)}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Média:</span>
+                                <p className="font-medium">{formatCurrency(product.avgPrice)}</p>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Economia:</span>
+                                <p className="font-bold text-success">
+                                  {product.savingsPercent.toFixed(0)}%
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <div className="flex items-center gap-2 text-success bg-success/10 px-3 py-2 rounded-lg">
+                              <MapPin className="h-4 w-4" />
+                              <div className="text-right">
+                                <p className="text-xs text-muted-foreground">Compre em:</p>
+                                <p className="font-semibold">{product.bestStore}</p>
+                              </div>
+                            </div>
+                            {user && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant={isFollowed ? "default" : "outline"}
+                                      size="sm"
+                                      onClick={() => {
+                                        if (isFollowed) {
+                                          unfollowProductMutation.mutate({
+                                            productId: catalogProduct?.id,
+                                            productName: product.product_name,
+                                          });
+                                        } else {
+                                          followProductMutation.mutate({
+                                            productId: catalogProduct?.id,
+                                            productName: product.product_name,
+                                            currentPrice: product.minPrice,
+                                          });
+                                        }
+                                      }}
+                                      disabled={followProductMutation.isPending || unfollowProductMutation.isPending}
+                                      className={isFollowed ? "gradient-primary" : ""}
+                                    >
+                                      {isFollowed ? (
+                                        <>
+                                          <BellOff className="h-4 w-4 mr-1" />
+                                          Parar
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Bell className="h-4 w-4 mr-1" />
+                                          Seguir
+                                        </>
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {isFollowed
+                                      ? "Deixar de receber notificações de preço"
+                                      : "Receber notificação quando o preço baixar"}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             )}
-                            <Badge className="bg-muted text-muted-foreground text-xs">
-                              {product.entries.length} registro(s)
-                            </Badge>
-                          </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                              <span className="text-muted-foreground">Menor preço:</span>
-                              <p className="font-bold text-success flex items-center gap-1">
-                                <ArrowDownIcon className="h-3 w-3" />
-                                {formatCurrency(product.minPrice)}
-                              </p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Maior preço:</span>
-                              <p className="font-bold text-destructive flex items-center gap-1">
-                                <ArrowUpIcon className="h-3 w-3" />
-                                {formatCurrency(product.maxPrice)}
-                              </p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Média:</span>
-                              <p className="font-medium">{formatCurrency(product.avgPrice)}</p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Economia:</span>
-                              <p className="font-bold text-success">
-                                {product.savingsPercent.toFixed(0)}%
-                              </p>
-                            </div>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <div className="flex items-center gap-2 text-success bg-success/10 px-3 py-2 rounded-lg">
-                            <MapPin className="h-4 w-4" />
-                            <div className="text-right">
-                              <p className="text-xs text-muted-foreground">Compre em:</p>
-                              <p className="font-semibold">{product.bestStore}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* Price History */}
-                      <div className="mt-4 pt-4 border-t">
-                        <p className="text-xs text-muted-foreground mb-2">Histórico de preços:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {product.entries.slice(0, 5).map((entry: PriceEntry) => (
-                            <Badge 
-                              key={entry.id} 
-                              variant="outline" 
-                              className={`text-xs ${entry.price === product.minPrice ? 'border-success text-success' : ''}`}
-                            >
-                              <Store className="h-3 w-3 mr-1" />
-                              {entry.store_name}: {formatCurrency(entry.price)}
-                            </Badge>
-                          ))}
-                          {product.entries.length > 5 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{product.entries.length - 5} mais
-                            </Badge>
-                          )}
+                        {/* Price History */}
+                        <div className="mt-4 pt-4 border-t">
+                          <p className="text-xs text-muted-foreground mb-2">Histórico de preços:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {product.entries.slice(0, 5).map((entry: PriceEntry) => (
+                              <Badge 
+                                key={entry.id} 
+                                variant="outline" 
+                                className={`text-xs ${entry.price === product.minPrice ? 'border-success text-success' : ''}`}
+                              >
+                                <Store className="h-3 w-3 mr-1" />
+                                {entry.store_name}: {formatCurrency(entry.price)}
+                              </Badge>
+                            ))}
+                            {product.entries.length > 5 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{product.entries.length - 5} mais
+                              </Badge>
+                            )}
+                          </div>
                         </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Following Tab */}
+          <TabsContent value="following" className="mt-6">
+            {!user ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Bell className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Faça login para seguir produtos</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Receba notificações quando os preços baixarem!
+                  </p>
+                </CardContent>
+              </Card>
+            ) : productFollows.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Bell className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Você não está seguindo nenhum produto</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Siga produtos na aba "Comparar" para receber notificações quando o preço baixar!
+                  </p>
+                  <Button onClick={() => setActiveTab("compare")}>
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Ver Produtos
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                <Card className="border-primary/30 bg-primary/5">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                        <Bell className="h-5 w-5 text-primary" />
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      <div>
+                        <h3 className="font-semibold">Alertas de Preço Ativos</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Você será notificado quando alguém registrar um preço mais baixo
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {productFollows.map((follow) => {
+                  const productName = follow.product_name || 
+                    productsCatalog.find(p => p.id === follow.product_id)?.name || "Produto";
+                  const productData = pricesByProduct[productName.toLowerCase().trim()];
+                  
+                  return (
+                    <Card key={follow.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <ShoppingCart className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium">{productName}</h4>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                Seguindo desde {format(new Date(follow.created_at), "dd/MM/yyyy", { locale: pt })}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              {productData ? (
+                                <>
+                                  <p className="font-bold text-success">{formatCurrency(productData.minPrice)}</p>
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" />
+                                    {productData.bestStore}
+                                  </p>
+                                  {follow.lowest_price_seen && productData.minPrice < follow.lowest_price_seen && (
+                                    <Badge className="bg-success/20 text-success text-xs mt-1">
+                                      <TrendingDown className="h-3 w-3 mr-1" />
+                                      -{((follow.lowest_price_seen - productData.minPrice) / follow.lowest_price_seen * 100).toFixed(0)}%
+                                    </Badge>
+                                  )}
+                                </>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">Sem dados</p>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => unfollowProductMutation.mutate({
+                                productId: follow.product_id || undefined,
+                                productName: follow.product_name || undefined,
+                              })}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <BellOff className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
@@ -741,28 +1000,65 @@ export default function Prices() {
                       .filter(p => p.is_essential)
                       .map((catalogProduct) => {
                         const productData = pricesByProduct[catalogProduct.name.toLowerCase().trim()];
+                        const isFollowed = isProductFollowed(catalogProduct.name, catalogProduct.id);
+                        
                         return (
-                          <div key={catalogProduct.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                          <div key={catalogProduct.id} className={`flex items-center justify-between p-4 rounded-lg ${isFollowed ? 'bg-primary/10 ring-1 ring-primary/30' : 'bg-muted/50'}`}>
                             <div className="flex items-center gap-3">
                               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                                 <ShoppingCart className="h-5 w-5 text-primary" />
                               </div>
                               <div>
-                                <h4 className="font-medium">{catalogProduct.name}</h4>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-medium">{catalogProduct.name}</h4>
+                                  {isFollowed && (
+                                    <Bell className="h-3 w-3 text-primary" />
+                                  )}
+                                </div>
                                 <p className="text-xs text-muted-foreground">{catalogProduct.category}</p>
                               </div>
                             </div>
-                            <div className="text-right">
-                              {productData ? (
-                                <>
-                                  <p className="font-bold text-success">{formatCurrency(productData.minPrice)}</p>
-                                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                    <MapPin className="h-3 w-3" />
-                                    {productData.bestStore}
-                                  </p>
-                                </>
-                              ) : (
-                                <p className="text-xs text-muted-foreground">Sem dados</p>
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                {productData ? (
+                                  <>
+                                    <p className="font-bold text-success">{formatCurrency(productData.minPrice)}</p>
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      {productData.bestStore}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground">Sem dados</p>
+                                )}
+                              </div>
+                              {user && (
+                                <Button
+                                  variant={isFollowed ? "default" : "ghost"}
+                                  size="icon"
+                                  onClick={() => {
+                                    if (isFollowed) {
+                                      unfollowProductMutation.mutate({
+                                        productId: catalogProduct.id,
+                                        productName: catalogProduct.name,
+                                      });
+                                    } else {
+                                      followProductMutation.mutate({
+                                        productId: catalogProduct.id,
+                                        productName: catalogProduct.name,
+                                        currentPrice: productData?.minPrice,
+                                      });
+                                    }
+                                  }}
+                                  disabled={followProductMutation.isPending || unfollowProductMutation.isPending}
+                                  className={isFollowed ? "gradient-primary h-8 w-8" : "h-8 w-8"}
+                                >
+                                  {isFollowed ? (
+                                    <BellOff className="h-4 w-4" />
+                                  ) : (
+                                    <Bell className="h-4 w-4" />
+                                  )}
+                                </Button>
                               )}
                             </div>
                           </div>
