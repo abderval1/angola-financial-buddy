@@ -2013,6 +2013,10 @@ export type Database = {
     Functions: {
       can_download_free_ebook: { Args: { p_user_id: string }; Returns: boolean }
       demote_from_admin: { Args: { target_user_id: string }; Returns: boolean }
+      ensure_user_referral_code: {
+        Args: { p_user_id: string }
+        Returns: string
+      }
       get_user_balance: {
         Args: { p_user_id: string }
         Returns: {
@@ -2035,6 +2039,15 @@ export type Database = {
         Returns: boolean
       }
       promote_to_admin: { Args: { target_user_id: string }; Returns: boolean }
+      register_marketplace_earning: {
+        Args: {
+          p_amount: number
+          p_description?: string
+          p_product_id: string
+          p_seller_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

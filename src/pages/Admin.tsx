@@ -6,6 +6,7 @@ import { Navigate, Link, useSearchParams } from "react-router-dom";
 import { AdminSubscriptions } from "@/components/admin/AdminSubscriptions";
 import { AdminCourseManager as AdminCourses } from "@/components/admin/AdminCourseManager";
 import { AdminNewsManager as AdminNews } from "@/components/admin/AdminNewsManager";
+import { AdminPayouts } from "@/components/admin/AdminPayouts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,6 +53,7 @@ import {
   Image,
   Link as LinkIcon,
   AlertCircle,
+  Wallet,
 } from "lucide-react";
 
 export default function Admin() {
@@ -134,6 +136,7 @@ export default function Admin() {
     { id: "overview", label: "Visão Geral", icon: BarChart3 },
     { id: "users", label: "Usuários", icon: Users },
     { id: "subscriptions", label: "Assinaturas", icon: DollarSign },
+    { id: "payouts", label: "Levantamentos", icon: Wallet },
     { id: "marketplace", label: "Marketplace", icon: ShoppingBag },
     { id: "content", label: "Conteúdo Educativo", icon: GraduationCap },
     { id: "courses", label: "Gestão de Cursos", icon: BookOpen },
@@ -200,6 +203,7 @@ export default function Admin() {
           {activeTab === "overview" && <AdminOverview stats={stats} />}
           {activeTab === "users" && <AdminUsers />}
           {activeTab === "subscriptions" && <AdminSubscriptions />}
+          {activeTab === "payouts" && <AdminPayouts />}
           {activeTab === "marketplace" && <AdminMarketplace />}
           {activeTab === "content" && <AdminContent />}
           {activeTab === "courses" && <AdminCourses />}

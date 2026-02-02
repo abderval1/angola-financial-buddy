@@ -23,6 +23,7 @@ import Admin from "./pages/Admin";
 import News from "./pages/News";
 import Calculators from "./pages/Calculators";
 import Prices from "./pages/Prices";
+import Monetization from "./pages/Monetization";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -78,6 +79,9 @@ const App = () => (
             } />
             <Route path="/prices" element={
               <ProtectedRoute><Prices /></ProtectedRoute>
+            } />
+            <Route path="/monetization" element={
+              <ProtectedRoute><Monetization /></ProtectedRoute>
             } />
             <Route path="/settings" element={
               <ProtectedRoute><Settings /></ProtectedRoute>
