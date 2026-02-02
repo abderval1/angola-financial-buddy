@@ -23,6 +23,7 @@ import {
   Newspaper,
   Calculator,
   Tags,
+  Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,8 @@ const navigation = [
   { name: "Educação", href: "/education", icon: GraduationCap },
   { name: "Renda Extra", href: "/income", icon: Briefcase },
   { name: "Calculadoras", href: "/calculators", icon: Calculator },
-  { name: "Comparar Preços", href: "/prices", icon: Tags, badge: "NOVO" },
+  { name: "Comparar Preços", href: "/prices", icon: Tags },
+  { name: "Monetização", href: "/monetization", icon: Coins, badge: "NOVO" },
   { name: "Análises", href: "/reports", icon: BarChart3 },
   { name: "Notícias", href: "/news", icon: Newspaper },
   { name: "Comunidade", href: "/community", icon: Users },
