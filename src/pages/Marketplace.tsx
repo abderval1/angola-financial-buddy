@@ -3,18 +3,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   ShoppingBag,
   Book,
-  GraduationCap,
   FileText,
   Wrench,
   Search,
@@ -24,17 +22,13 @@ import {
   ShoppingCart,
   CheckCircle,
   Package,
-  Crown,
-  Lock,
-  AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
-import { SubscriptionPlans } from "@/components/subscription/SubscriptionPlans";
 
 const PRODUCT_TYPES = [
   { value: "all", label: "Todos", icon: Package },
   { value: "ebook", label: "E-books", icon: Book },
-  { value: "course", label: "Cursos", icon: GraduationCap },
-  { value: "template", label: "Templates", icon: FileText },
+  { value: "template", label: "Planilhas", icon: FileText },
   { value: "tool", label: "Ferramentas", icon: Wrench },
 ];
 
@@ -52,9 +46,8 @@ export default function Marketplace() {
   const [selectedType, setSelectedType] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
 
-  // Fetch products
+  // Fetch products - only ebooks, templates, tools (no courses - those are in Education)
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["marketplace-products"],
     queryFn: async () => {
@@ -62,8 +55,9 @@ export default function Marketplace() {
         .from("marketplace_products")
         .select("*")
         .eq("is_published", true)
+        .in("product_type", ["ebook", "template", "tool"])
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -77,104 +71,14 @@ export default function Marketplace() {
         .from("marketplace_purchases")
         .select("product_id")
         .eq("user_id", user?.id);
-      
+
       if (error) throw error;
-      return data?.map(p => p.product_id) || [];
+      return data?.map((p) => p.product_id) || [];
     },
     enabled: !!user?.id,
   });
 
-  // Fetch user active subscription
-  const { data: activeSubscription } = useQuery({
-    queryKey: ["user-subscription", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_subscriptions")
-        .select("*, subscription_plans(*)")
-        .eq("user_id", user?.id)
-        .eq("status", "active")
-        .gt("expires_at", new Date().toISOString())
-        .maybeSingle();
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  // Fetch user free downloads count
-  const { data: freeDownloadsCount = 0 } = useQuery({
-    queryKey: ["user-free-downloads", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc("get_user_free_downloads", { p_user_id: user?.id });
-      
-      if (error) throw error;
-      return data || 0;
-    },
-    enabled: !!user?.id,
-  });
-
-  // Check if user can download
-  const { data: canDownload } = useQuery({
-    queryKey: ["can-download", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc("can_download_free_ebook", { p_user_id: user?.id });
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  const ebookLimit = activeSubscription?.subscription_plans?.ebook_limit || 0;
-
-  // Download ebook mutation (for subscription included ebooks)
-  const downloadMutation = useMutation({
-    mutationFn: async (product: any) => {
-      // Check if can download
-      const { data: canDL, error: checkError } = await supabase
-        .rpc("can_download_free_ebook", { p_user_id: user?.id });
-      
-      if (checkError) throw checkError;
-      
-      if (!canDL) {
-        throw new Error("Você atingiu o limite de downloads do seu plano. Faça upgrade para baixar mais ebooks.");
-      }
-
-      // Register download
-      const { error } = await supabase.from("ebook_downloads").insert({
-        user_id: user?.id,
-        product_id: product.id,
-        is_free_download: true,
-        subscription_id: activeSubscription?.id,
-      });
-      
-      if (error) throw error;
-
-      // Increment download count on product
-      await supabase
-        .from("marketplace_products")
-        .update({ download_count: (product.download_count || 0) + 1 })
-        .eq("id", product.id);
-    },
-    onSuccess: (_, product) => {
-      queryClient.invalidateQueries({ queryKey: ["user-free-downloads"] });
-      queryClient.invalidateQueries({ queryKey: ["can-download"] });
-      queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
-      toast.success("Download registrado! Abrindo arquivo...");
-      // Open file
-      if (product.file_url) {
-        window.open(product.file_url, "_blank");
-      }
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Erro ao baixar ebook");
-    },
-  });
-
-  // Purchase mutation (for paid products)
+  // Purchase mutation
   const purchaseMutation = useMutation({
     mutationFn: async (product: any) => {
       const { error } = await supabase.from("marketplace_purchases").insert({
@@ -182,7 +86,7 @@ export default function Marketplace() {
         product_id: product.id,
         purchase_price: product.price,
       });
-      
+
       if (error) throw error;
 
       // Increment download count
@@ -191,133 +95,89 @@ export default function Marketplace() {
         .update({ download_count: (product.download_count || 0) + 1 })
         .eq("id", product.id);
     },
-    onSuccess: () => {
+    onSuccess: (_, product) => {
       queryClient.invalidateQueries({ queryKey: ["user-purchases"] });
       queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
       toast.success("Produto adquirido com sucesso!");
       setSelectedProduct(null);
+      // Open file if free
+      if (product.price === 0 && product.file_url) {
+        window.open(product.file_url, "_blank");
+      }
     },
     onError: () => {
       toast.error("Erro ao adquirir produto");
     },
   });
 
-  // Check if user has already downloaded an ebook (subscription)
-  const { data: downloads = [] } = useQuery({
-    queryKey: ["user-downloads"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ebook_downloads")
-        .select("product_id")
-        .eq("user_id", user?.id);
-      
-      if (error) throw error;
-      return data?.map(d => d.product_id) || [];
-    },
-    enabled: !!user?.id,
-  });
-
   const filteredProducts = products.filter((product: any) => {
     const matchesType = selectedType === "all" || product.product_type === selectedType;
-    const matchesSearch = 
+    const matchesSearch =
       product.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.description?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesType && matchesSearch;
   });
 
   const isPurchased = (productId: string) => purchases.includes(productId);
-  const isDownloaded = (productId: string) => downloads.includes(productId);
 
   const getProductIcon = (type: string) => {
     switch (type) {
-      case "ebook": return Book;
-      case "course": return GraduationCap;
-      case "template": return FileText;
-      case "tool": return Wrench;
-      default: return Package;
+      case "ebook":
+        return Book;
+      case "template":
+        return FileText;
+      case "tool":
+        return Wrench;
+      default:
+        return Package;
     }
   };
 
   const getProductLabel = (type: string) => {
-    const found = PRODUCT_TYPES.find(t => t.value === type);
+    const found = PRODUCT_TYPES.find((t) => t.value === type);
     return found?.label || type;
   };
 
   const handleDownload = (product: any) => {
-    if (product.is_subscription_included && activeSubscription) {
-      downloadMutation.mutate(product);
-    } else if (product.file_url) {
+    if (product.file_url) {
       window.open(product.file_url, "_blank");
     }
   };
 
+  const handleBuy = (product: any) => {
+    if (product.price === 0) {
+      // Free product - register and download
+      purchaseMutation.mutate(product);
+    } else {
+      // Paid product - show details dialog
+      setSelectedProduct(product);
+    }
+  };
+
   return (
-    <AppLayout title="Marketplace" subtitle="Ebooks, cursos e ferramentas para sua jornada financeira">
+    <AppLayout
+      title="Marketplace"
+      subtitle="Ebooks, planilhas e ferramentas para sua jornada financeira"
+    >
       <div className="space-y-6">
-        {/* Subscription Status Banner */}
-        {activeSubscription ? (
-          <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-accent/5">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
-                    <Crown className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg flex items-center gap-2">
-                      Plano {activeSubscription.subscription_plans?.name}
-                      <Badge className="bg-primary/10 text-primary">Ativo</Badge>
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Você baixou {freeDownloadsCount} de {ebookLimit} ebooks gratuitos
-                    </p>
-                  </div>
+        {/* Hero Banner */}
+        <Card className="border-primary/30 bg-gradient-to-r from-primary/10 via-accent/5 to-primary/10">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                  <ShoppingBag className="h-7 w-7 text-primary-foreground" />
                 </div>
-                <div className="flex-1 max-w-xs">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Downloads usados</span>
-                    <span className="font-medium">{freeDownloadsCount}/{ebookLimit}</span>
-                  </div>
-                  <Progress 
-                    value={(freeDownloadsCount / ebookLimit) * 100} 
-                    className="h-2"
-                  />
-                  {freeDownloadsCount >= ebookLimit && (
-                    <p className="text-xs text-amber-500 mt-1 flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      Limite atingido
-                    </p>
-                  )}
+                <div>
+                  <h2 className="text-xl font-bold">Produtos Digitais</h2>
+                  <p className="text-muted-foreground">
+                    Ebooks, planilhas e ferramentas para acelerar seu crescimento financeiro
+                  </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="border-accent/30 bg-gradient-to-r from-accent/5 to-primary/5">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-full bg-accent/20 flex items-center justify-center">
-                    <Lock className="h-6 w-6 text-accent" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg">Assine para Desbloquear Ebooks Grátis</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Tenha acesso a ebooks exclusivos incluídos na sua assinatura
-                    </p>
-                  </div>
-                </div>
-                <Button 
-                  className="gradient-primary"
-                  onClick={() => setShowSubscriptionDialog(true)}
-                >
-                  <Crown className="h-4 w-4 mr-2" />
-                  Ver Planos
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -342,8 +202,8 @@ export default function Marketplace() {
                   <Download className="h-5 w-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{purchases.length + downloads.length}</p>
-                  <p className="text-xs md:text-sm text-muted-foreground">Aquisições</p>
+                  <p className="text-2xl font-bold">{purchases.length}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Comprados</p>
                 </div>
               </div>
             </CardContent>
@@ -357,9 +217,9 @@ export default function Marketplace() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {products.filter((p: any) => p.is_subscription_included).length}
+                    {products.filter((p: any) => p.product_type === "ebook").length}
                   </p>
-                  <p className="text-xs md:text-sm text-muted-foreground">Incluídos</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">E-books</p>
                 </div>
               </div>
             </CardContent>
@@ -369,13 +229,13 @@ export default function Marketplace() {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-accent/20 flex items-center justify-center">
-                  <GraduationCap className="h-5 w-5 text-accent" />
+                  <FileText className="h-5 w-5 text-accent" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {products.filter((p: any) => p.product_type === "course").length}
+                    {products.filter((p: any) => p.product_type === "template").length}
                   </p>
-                  <p className="text-xs md:text-sm text-muted-foreground">Cursos</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Planilhas</p>
                 </div>
               </div>
             </CardContent>
@@ -430,16 +290,17 @@ export default function Marketplace() {
                 {filteredProducts.map((product: any) => {
                   const ProductIcon = getProductIcon(product.product_type);
                   const owned = isPurchased(product.id);
-                  const downloaded = isDownloaded(product.id);
-                  const isSubscriptionProduct = product.is_subscription_included;
 
                   return (
-                    <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-all group">
+                    <Card
+                      key={product.id}
+                      className="overflow-hidden hover:shadow-lg transition-all group"
+                    >
                       {/* Cover Image */}
                       <div className="relative h-40 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
                         {product.cover_image_url ? (
-                          <img 
-                            src={product.cover_image_url} 
+                          <img
+                            src={product.cover_image_url}
                             alt={product.title}
                             className="w-full h-full object-cover"
                           />
@@ -452,36 +313,28 @@ export default function Marketplace() {
                             Destaque
                           </Badge>
                         )}
-                        {isSubscriptionProduct && (
-                          <Badge className="absolute top-3 right-3 bg-accent/90 text-accent-foreground">
-                            <Crown className="h-3 w-3 mr-1" />
-                            Assinatura
-                          </Badge>
-                        )}
-                        {(owned || downloaded) && (
-                          <Badge className="absolute bottom-3 right-3 bg-success/90 text-white">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Adquirido
+                        {product.price === 0 && (
+                          <Badge className="absolute top-3 right-3 bg-success text-success-foreground">
+                            Grátis
                           </Badge>
                         )}
                       </div>
 
-                      <CardContent className="p-5">
-                        <div className="flex items-center gap-2 mb-2">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2 mb-2">
                           <Badge variant="secondary" className="text-xs">
+                            <ProductIcon className="h-3 w-3 mr-1" />
                             {getProductLabel(product.product_type)}
                           </Badge>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Eye className="h-3 w-3" />
                             {product.view_count || 0}
-                          </span>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Download className="h-3 w-3" />
+                            <Download className="h-3 w-3 ml-2" />
                             {product.download_count || 0}
-                          </span>
+                          </div>
                         </div>
 
-                        <h3 className="font-semibold text-lg mb-2 group-hover:text-primary transition-colors line-clamp-1">
+                        <h3 className="font-semibold text-lg mb-2 line-clamp-1">
                           {product.title}
                         </h3>
                         <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
@@ -489,114 +342,29 @@ export default function Marketplace() {
                         </p>
 
                         <div className="flex items-center justify-between">
-                          <div>
-                            {isSubscriptionProduct ? (
-                              <Badge className="bg-accent/10 text-accent">
-                                <Crown className="h-3 w-3 mr-1" />
-                                Incluído
-                              </Badge>
-                            ) : product.price > 0 ? (
-                              <p className="text-xl font-bold text-primary">
-                                {formatCurrency(product.price)}
-                              </p>
-                            ) : (
-                              <Badge className="bg-success/10 text-success">Gratuito</Badge>
-                            )}
-                          </div>
+                          <span className="text-xl font-bold text-primary">
+                            {product.price === 0 ? "Grátis" : formatCurrency(product.price)}
+                          </span>
 
-                          {owned || downloaded ? (
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
+                          {owned ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleDownload(product)}
+                              className="border-success text-success hover:bg-success/10"
                             >
-                              <Download className="h-4 w-4 mr-2" />
+                              <Download className="h-4 w-4 mr-1" />
                               Baixar
                             </Button>
-                          ) : isSubscriptionProduct ? (
-                            activeSubscription && canDownload ? (
-                              <Button 
-                                size="sm" 
-                                className="gradient-primary"
-                                onClick={() => downloadMutation.mutate(product)}
-                                disabled={downloadMutation.isPending}
-                              >
-                                <Download className="h-4 w-4 mr-2" />
-                                {downloadMutation.isPending ? "..." : "Baixar"}
-                              </Button>
-                            ) : activeSubscription && !canDownload ? (
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                className="text-amber-500 border-amber-500/30"
-                                disabled
-                              >
-                                <Lock className="h-4 w-4 mr-2" />
-                                Limite
-                              </Button>
-                            ) : (
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => setShowSubscriptionDialog(true)}
-                              >
-                                <Lock className="h-4 w-4 mr-2" />
-                                Assinar
-                              </Button>
-                            )
                           ) : (
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button 
-                                  size="sm" 
-                                  className="gradient-primary"
-                                  onClick={() => setSelectedProduct(product)}
-                                >
-                                  <ShoppingCart className="h-4 w-4 mr-2" />
-                                  {product.price > 0 ? "Comprar" : "Obter"}
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Confirmar Aquisição</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4 py-4">
-                                  <div className="flex items-start gap-4">
-                                    <div className="h-16 w-16 rounded-lg bg-primary/10 flex items-center justify-center">
-                                      <ProductIcon className="h-8 w-8 text-primary" />
-                                    </div>
-                                    <div>
-                                      <h3 className="font-semibold">{product.title}</h3>
-                                      <p className="text-sm text-muted-foreground">{product.description}</p>
-                                    </div>
-                                  </div>
-
-                                  <div className="p-4 bg-muted rounded-lg">
-                                    <div className="flex justify-between items-center">
-                                      <span>Preço</span>
-                                      <span className="text-xl font-bold text-primary">
-                                        {product.price > 0 ? formatCurrency(product.price) : "Gratuito"}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  <Button 
-                                    className="w-full gradient-primary"
-                                    onClick={() => purchaseMutation.mutate(product)}
-                                    disabled={purchaseMutation.isPending}
-                                  >
-                                    {purchaseMutation.isPending ? (
-                                      "Processando..."
-                                    ) : (
-                                      <>
-                                        <CheckCircle className="h-4 w-4 mr-2" />
-                                        Confirmar Aquisição
-                                      </>
-                                    )}
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+                            <Button
+                              size="sm"
+                              className="gradient-primary"
+                              onClick={() => handleBuy(product)}
+                            >
+                              <ShoppingCart className="h-4 w-4 mr-1" />
+                              {product.price === 0 ? "Obter" : "Comprar"}
+                            </Button>
                           )}
                         </div>
                       </CardContent>
@@ -607,20 +375,97 @@ export default function Marketplace() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
 
-      {/* Subscription Plans Dialog */}
-      <Dialog open={showSubscriptionDialog} onOpenChange={setShowSubscriptionDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Crown className="h-5 w-5 text-accent" />
-              Escolha seu Plano
-            </DialogTitle>
-          </DialogHeader>
-          <SubscriptionPlans onSuccess={() => setShowSubscriptionDialog(false)} />
-        </DialogContent>
-      </Dialog>
+        {/* Purchase Dialog */}
+        <Dialog open={!!selectedProduct} onOpenChange={() => setSelectedProduct(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Adquirir Produto</DialogTitle>
+            </DialogHeader>
+            {selectedProduct && (
+              <div className="space-y-4 py-4">
+                <div className="flex items-start gap-4">
+                  {selectedProduct.cover_image_url ? (
+                    <img
+                      src={selectedProduct.cover_image_url}
+                      alt={selectedProduct.title}
+                      className="w-24 h-24 object-cover rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 bg-primary/10 rounded-lg flex items-center justify-center">
+                      {(() => {
+                        const Icon = getProductIcon(selectedProduct.product_type);
+                        return <Icon className="h-10 w-10 text-primary" />;
+                      })()}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">{selectedProduct.title}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {selectedProduct.description}
+                    </p>
+                    <p className="text-2xl font-bold text-primary mt-2">
+                      {formatCurrency(selectedProduct.price)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-2">Como comprar:</h4>
+                  <ol className="space-y-2 text-sm text-muted-foreground">
+                    <li className="flex items-start gap-2">
+                      <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                        1
+                      </span>
+                      Faça a transferência para a conta indicada
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                        2
+                      </span>
+                      Envie o comprovativo pelo WhatsApp
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                        3
+                      </span>
+                      Receba o acesso em até 24h
+                    </li>
+                  </ol>
+                </div>
+
+                <Card className="border-primary/30">
+                  <CardContent className="p-4">
+                    <p className="font-medium">Dados para transferência:</p>
+                    <div className="mt-2 space-y-1 text-sm">
+                      <p>
+                        <span className="text-muted-foreground">Banco:</span> BAI
+                      </p>
+                      <p>
+                        <span className="text-muted-foreground">IBAN:</span>{" "}
+                        AO06.0040.0000.0000.0000.0000.0
+                      </p>
+                      <p>
+                        <span className="text-muted-foreground">Titular:</span> Kuanza
+                        Finanças
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSelectedProduct(null)}>
+                Cancelar
+              </Button>
+              <Button className="gradient-primary">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Enviar Comprovativo
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </AppLayout>
   );
 }

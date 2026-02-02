@@ -22,6 +22,7 @@ import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import News from "./pages/News";
 import Calculators from "./pages/Calculators";
+import Prices from "./pages/Prices";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -74,6 +75,9 @@ const App = () => (
             } />
             <Route path="/calculators" element={
               <ProtectedRoute><Calculators /></ProtectedRoute>
+            } />
+            <Route path="/prices" element={
+              <ProtectedRoute><Prices /></ProtectedRoute>
             } />
             <Route path="/settings" element={
               <ProtectedRoute><Settings /></ProtectedRoute>

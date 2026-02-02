@@ -997,6 +997,105 @@ export type Database = {
           },
         ]
       }
+      price_entries: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          id: string
+          is_essential: boolean | null
+          is_verified: boolean | null
+          notes: string | null
+          price: number
+          product_id: string | null
+          product_name: string
+          purchase_date: string | null
+          quantity: number | null
+          store_id: string | null
+          store_name: string
+          unit: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          is_essential?: boolean | null
+          is_verified?: boolean | null
+          notes?: string | null
+          price: number
+          product_id?: string | null
+          product_name: string
+          purchase_date?: string | null
+          quantity?: number | null
+          store_id?: string | null
+          store_name: string
+          unit?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          is_essential?: boolean | null
+          is_verified?: boolean | null
+          notes?: string | null
+          price?: number
+          product_id?: string | null
+          product_name?: string
+          purchase_date?: string | null
+          quantity?: number | null
+          store_id?: string | null
+          store_name?: string
+          unit?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_entries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "price_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_entries_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      price_products: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: string
+          is_essential: boolean | null
+          name: string
+          unit: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: string
+          is_essential?: boolean | null
+          name: string
+          unit?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: string
+          is_essential?: boolean | null
+          name?: string
+          unit?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1134,6 +1233,39 @@ export type Database = {
           target_amount?: number
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      stores: {
+        Row: {
+          city: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_verified: boolean | null
+          location: string | null
+          name: string
+          store_type: string | null
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_verified?: boolean | null
+          location?: string | null
+          name: string
+          store_type?: string | null
+        }
+        Update: {
+          city?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_verified?: boolean | null
+          location?: string | null
+          name?: string
+          store_type?: string | null
         }
         Relationships: []
       }
