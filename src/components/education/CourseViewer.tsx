@@ -742,12 +742,12 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                   </div>
 
                   {/* SCROLLABLE CONTENT AREA */}
-                  <div className="flex-1 overflow-y-auto p-6">
-                    <div className="max-w-4xl mx-auto space-y-6 pb-8">
+                  <div className="flex-1 overflow-y-auto">
+                    <div className="max-w-4xl mx-auto space-y-6 p-6 pb-12">
                       {/* Video/YouTube Content */}
                       {currentModule.video_url && (
                         <div className="mb-6">
-                          {currentModule.video_url.includes("youtube.com") || currentModule.video_url.includes("youtu.be") ? (
+                          {(currentModule.media_type === "youtube" || currentModule.video_url.includes("youtube.com") || currentModule.video_url.includes("youtu.be")) ? (
                             renderYouTubeEmbed(currentModule.video_url)
                           ) : (
                             <video 
@@ -761,15 +761,12 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                         </div>
                       )}
 
-                      {/* Text Content */}
+                      {/* Rich Text Content - properly rendered HTML from WYSIWYG editor */}
                       {currentModule.content && (
-                        <div className="prose prose-sm max-w-none dark:prose-invert">
-                          <div 
-                            dangerouslySetInnerHTML={{ 
-                              __html: currentModule.content.replace(/\n/g, '<br />') 
-                            }} 
-                          />
-                        </div>
+                        <div 
+                          className="prose prose-sm md:prose-base max-w-none dark:prose-invert prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:leading-relaxed prose-img:rounded-lg prose-a:text-primary"
+                          dangerouslySetInnerHTML={{ __html: currentModule.content }} 
+                        />
                       )}
 
                       {/* Empty State */}
