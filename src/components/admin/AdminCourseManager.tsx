@@ -886,18 +886,21 @@ export function AdminCourseManager() {
                       Quizzes ({quizzes.length})
                     </TabsTrigger>
                   </TabsList>
-                  <Tabs defaultValue="modules">
-                    <TabsContent value="modules" className="m-0">
-                      <Button size="sm" onClick={() => setModuleDialogOpen(true)}>
-                        <Plus className="h-4 w-4 mr-1" />
-                        Novo Módulo
-                      </Button>
-                    </TabsContent>
-                  </Tabs>
                 </div>
 
                 {/* Modules Tab */}
-                <TabsContent value="modules" className="space-y-2 mt-0">
+                <TabsContent value="modules" className="space-y-3 mt-0">
+                  {/* Add Module Button */}
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm text-muted-foreground">
+                      Organize os módulos do curso. Cada módulo pode ter texto rico, vídeos e materiais.
+                    </p>
+                    <Button size="sm" onClick={() => setModuleDialogOpen(true)}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Novo Módulo
+                    </Button>
+                  </div>
+
                   {isLoadingModules ? (
                     <Card>
                       <CardContent className="py-8 text-center text-muted-foreground">
@@ -909,6 +912,9 @@ export function AdminCourseManager() {
                       <CardContent className="py-12 text-center">
                         <Layers className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
                         <p className="text-muted-foreground mb-3">Nenhum módulo criado</p>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Comece adicionando módulos ao seu curso. Cada módulo pode conter texto, vídeos e quizzes.
+                        </p>
                         <Button size="sm" onClick={() => setModuleDialogOpen(true)}>
                           <Plus className="h-4 w-4 mr-1" />
                           Criar primeiro módulo
@@ -916,127 +922,217 @@ export function AdminCourseManager() {
                       </CardContent>
                     </Card>
                   ) : (
-                    modules.map((mod, idx) => (
-                      <Card key={mod.id} className="overflow-hidden">
-                        <div 
-                          className="p-4 cursor-pointer hover:bg-muted/30 transition-colors"
-                          onClick={() => toggleModuleExpanded(mod.id)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-7 w-7"
-                                onClick={(e) => { e.stopPropagation(); moveModule(mod.id, "up"); }}
-                                disabled={idx === 0}
-                              >
-                                <ArrowUp className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-7 w-7"
-                                onClick={(e) => { e.stopPropagation(); moveModule(mod.id, "down"); }}
-                                disabled={idx === modules.length - 1}
-                              >
-                                <ArrowDown className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                            
-                            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center font-bold text-primary flex-shrink-0">
-                              {idx + 1}
-                            </div>
-                            
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium">{mod.title}</h4>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
-                                {mod.media_type === "youtube" ? (
-                                  <Badge variant="outline" className="text-[10px] h-5 gap-0.5">
-                                    <Youtube className="h-2.5 w-2.5" /> YouTube
-                                  </Badge>
-                                ) : mod.media_type === "video" ? (
-                                  <Badge variant="outline" className="text-[10px] h-5 gap-0.5">
-                                    <Video className="h-2.5 w-2.5" /> Vídeo
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-[10px] h-5 gap-0.5">
-                                    <FileText className="h-2.5 w-2.5" /> Texto
-                                  </Badge>
-                                )}
-                                {mod.duration_minutes && (
-                                  <span className="text-xs">{mod.duration_minutes} min</span>
-                                )}
-                                {mod.is_free && (
-                                  <Badge className="text-[10px] h-5 bg-success/10 text-success">Gratuito</Badge>
-                                )}
+                    <div className="space-y-2">
+                      {modules.map((mod, idx) => (
+                        <Card key={mod.id} className="overflow-hidden border-l-4 border-l-primary/30 hover:border-l-primary transition-colors">
+                          <div className="p-4">
+                            <div className="flex items-start gap-3">
+                              {/* Order Controls */}
+                              <div className="flex flex-col items-center gap-0.5 pt-1">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6"
+                                  onClick={() => moveModule(mod.id, "up")}
+                                  disabled={idx === 0}
+                                >
+                                  <ArrowUp className="h-3 w-3" />
+                                </Button>
+                                <span className="text-xs font-bold text-muted-foreground">{idx + 1}</span>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6"
+                                  onClick={() => moveModule(mod.id, "down")}
+                                  disabled={idx === modules.length - 1}
+                                >
+                                  <ArrowDown className="h-3 w-3" />
+                                </Button>
                               </div>
-                            </div>
 
-                            <div className="flex items-center gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={(e) => { e.stopPropagation(); openEditModule(mod); }}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                className="text-destructive hover:text-destructive"
-                                onClick={(e) => { 
-                                  e.stopPropagation(); 
-                                  if (confirm("Excluir este módulo?")) {
-                                    deleteModuleMutation.mutate(mod.id);
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                              {expandedModules.has(mod.id) ? (
-                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Expanded Content Preview */}
-                        {expandedModules.has(mod.id) && (
-                          <div className="border-t bg-muted/20 p-4">
-                            {mod.description && (
-                              <p className="text-sm text-muted-foreground mb-3">{mod.description}</p>
-                            )}
-                            
-                            {/* Video/YouTube Preview */}
-                            {mod.media_type === "youtube" && mod.video_url && (
-                              <div className="aspect-video rounded-lg overflow-hidden bg-black mb-3">
-                                <iframe
-                                  src={getYoutubeEmbedUrl(mod.video_url)}
-                                  className="w-full h-full"
-                                  allowFullScreen
+                              {/* Thumbnail */}
+                              {mod.thumbnail_url ? (
+                                <img 
+                                  src={mod.thumbnail_url} 
+                                  alt="" 
+                                  className="h-16 w-24 rounded-lg object-cover flex-shrink-0" 
                                 />
+                              ) : (
+                                <div className="h-16 w-24 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                                  {mod.media_type === "youtube" ? (
+                                    <Youtube className="h-6 w-6 text-red-500" />
+                                  ) : mod.media_type === "video" ? (
+                                    <Video className="h-6 w-6 text-blue-500" />
+                                  ) : (
+                                    <FileText className="h-6 w-6 text-muted-foreground" />
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Content Info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <h4 className="font-semibold">{mod.title}</h4>
+                                    {mod.description && (
+                                      <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
+                                        {mod.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 ml-2">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      className="h-8"
+                                      onClick={() => toggleModuleExpanded(mod.id)}
+                                    >
+                                      {expandedModules.has(mod.id) ? (
+                                        <>
+                                          <ChevronDown className="h-4 w-4 mr-1" />
+                                          Fechar
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Eye className="h-4 w-4 mr-1" />
+                                          Ver
+                                        </>
+                                      )}
+                                    </Button>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      className="h-8"
+                                      onClick={() => openEditModule(mod)}
+                                    >
+                                      <Edit2 className="h-3.5 w-3.5 mr-1" />
+                                      Editar
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      className="h-8 text-destructive hover:text-destructive"
+                                      onClick={() => {
+                                        if (confirm("Excluir este módulo?")) {
+                                          deleteModuleMutation.mutate(mod.id);
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                
+                                {/* Module Meta */}
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                  <Badge variant="outline" className="text-xs h-5 gap-1">
+                                    {mod.media_type === "youtube" ? (
+                                      <><Youtube className="h-2.5 w-2.5" /> YouTube</>
+                                    ) : mod.media_type === "video" ? (
+                                      <><Video className="h-2.5 w-2.5" /> Vídeo</>
+                                    ) : (
+                                      <><FileText className="h-2.5 w-2.5" /> Texto</>
+                                    )}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs h-5 gap-1">
+                                    <Clock className="h-2.5 w-2.5" />
+                                    {mod.duration_minutes || 0} min
+                                  </Badge>
+                                  {mod.is_free && (
+                                    <Badge className="text-xs h-5 bg-success/10 text-success border-success/20">
+                                      Gratuito
+                                    </Badge>
+                                  )}
+                                  {mod.content && (
+                                    <Badge variant="secondary" className="text-xs h-5">
+                                      <FileText className="h-2.5 w-2.5 mr-0.5" />
+                                      Conteúdo
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
-                            )}
-                            {mod.media_type === "video" && mod.video_url && (
-                              <div className="aspect-video rounded-lg overflow-hidden bg-black mb-3">
-                                <video src={mod.video_url} controls className="w-full h-full" />
+                            </div>
+
+                            {/* Expanded Content Preview */}
+                            {expandedModules.has(mod.id) && (
+                              <div className="mt-4 pt-4 border-t bg-muted/20 rounded-lg p-4 -mx-4 -mb-4">
+                                {mod.description && (
+                                  <p className="text-sm text-muted-foreground mb-4 italic">"{mod.description}"</p>
+                                )}
+                                
+                                {/* Video/YouTube Preview */}
+                                {mod.media_type === "youtube" && mod.video_url && (
+                                  <div className="aspect-video rounded-lg overflow-hidden bg-black mb-4 max-w-2xl">
+                                    <iframe
+                                      src={getYoutubeEmbedUrl(mod.video_url)}
+                                      className="w-full h-full"
+                                      allowFullScreen
+                                    />
+                                  </div>
+                                )}
+                                {mod.media_type === "video" && mod.video_url && (
+                                  <div className="aspect-video rounded-lg overflow-hidden bg-black mb-4 max-w-2xl">
+                                    <video src={mod.video_url} controls className="w-full h-full" />
+                                  </div>
+                                )}
+                                
+                                {/* Content Preview */}
+                                {mod.content && (
+                                  <div className="bg-background rounded-lg p-4 border">
+                                    <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
+                                      <FileText className="h-4 w-4" />
+                                      Conteúdo do Módulo
+                                    </h5>
+                                    <ScrollArea className="max-h-[300px]">
+                                      <div 
+                                        className="prose prose-sm dark:prose-invert max-w-none"
+                                        dangerouslySetInnerHTML={{ __html: mod.content }}
+                                      />
+                                    </ScrollArea>
+                                  </div>
+                                )}
+
+                                {!mod.content && !mod.video_url && (
+                                  <div className="text-center py-8 text-muted-foreground">
+                                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                    <p className="text-sm">Este módulo ainda não tem conteúdo</p>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="mt-2"
+                                      onClick={() => openEditModule(mod)}
+                                    >
+                                      <Edit2 className="h-3.5 w-3.5 mr-1" />
+                                      Adicionar Conteúdo
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                            
-                            {/* Content Preview */}
-                            {mod.content && (
-                              <div 
-                                className="prose prose-sm dark:prose-invert max-w-none text-sm"
-                                dangerouslySetInnerHTML={{ __html: mod.content }}
-                              />
                             )}
                           </div>
-                        )}
+                        </Card>
+                      ))}
+
+                      {/* Summary Card */}
+                      <Card className="bg-muted/30">
+                        <CardContent className="py-3 px-4">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              Total: {modules.length} módulos • {totalModulesDuration} minutos de conteúdo
+                            </span>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 text-xs"
+                              onClick={() => setModuleDialogOpen(true)}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Adicionar mais
+                            </Button>
+                          </div>
+                        </CardContent>
                       </Card>
-                    ))
+                    </div>
                   )}
                 </TabsContent>
 
