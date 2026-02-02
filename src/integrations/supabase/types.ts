@@ -863,6 +863,33 @@ export type Database = {
           },
         ]
       }
+      monetization_settings: {
+        Row: {
+          description: string | null
+          id: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          setting_key: string
+          setting_value: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       news: {
         Row: {
           category: string
@@ -952,6 +979,48 @@ export type Database = {
           read?: boolean | null
           title?: string
           type?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      payout_requests: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          created_at: string
+          currency: string | null
+          id: string
+          payment_details: Json
+          payment_method: string
+          processed_at: string | null
+          processed_by: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount: number
+          created_at?: string
+          currency?: string | null
+          id?: string
+          payment_details: Json
+          payment_method: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          amount?: number
+          created_at?: string
+          currency?: string | null
+          id?: string
+          payment_details?: Json
+          payment_method?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: string | null
           user_id?: string
         }
         Relationships: []
@@ -1184,6 +1253,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      referral_codes: {
+        Row: {
+          code: string
+          commission_rate: number | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          successful_referrals: number | null
+          total_earnings: number | null
+          total_referrals: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          commission_rate?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          successful_referrals?: number | null
+          total_earnings?: number | null
+          total_referrals?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          commission_rate?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          successful_referrals?: number | null
+          total_earnings?: number | null
+          total_referrals?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       savings_goals: {
         Row: {
@@ -1546,6 +1654,48 @@ export type Database = {
           },
         ]
       }
+      user_earnings: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          created_at: string
+          currency: string | null
+          description: string | null
+          earning_type: string
+          id: string
+          paid_at: string | null
+          source_id: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          approved_at?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          earning_type: string
+          id?: string
+          paid_at?: string | null
+          source_id?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          earning_type?: string
+          id?: string
+          paid_at?: string | null
+          source_id?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_gamification: {
         Row: {
           challenges_completed: number | null
@@ -1746,6 +1896,39 @@ export type Database = {
           },
         ]
       }
+      user_referrals: {
+        Row: {
+          activated_at: string | null
+          created_at: string
+          id: string
+          referral_code: string
+          referred_id: string
+          referrer_id: string
+          reward_earned: number | null
+          status: string
+        }
+        Insert: {
+          activated_at?: string | null
+          created_at?: string
+          id?: string
+          referral_code: string
+          referred_id: string
+          referrer_id: string
+          reward_earned?: number | null
+          status?: string
+        }
+        Update: {
+          activated_at?: string | null
+          created_at?: string
+          id?: string
+          referral_code?: string
+          referred_id?: string
+          referrer_id?: string
+          reward_earned?: number | null
+          status?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -1830,12 +2013,25 @@ export type Database = {
     Functions: {
       can_download_free_ebook: { Args: { p_user_id: string }; Returns: boolean }
       demote_from_admin: { Args: { target_user_id: string }; Returns: boolean }
+      get_user_balance: {
+        Args: { p_user_id: string }
+        Returns: {
+          available_balance: number
+          total_earned: number
+          total_paid: number
+          total_pending: number
+        }[]
+      }
       get_user_free_downloads: { Args: { p_user_id: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      process_referral_signup: {
+        Args: { p_referral_code: string; p_referred_id: string }
         Returns: boolean
       }
       promote_to_admin: { Args: { target_user_id: string }; Returns: boolean }
