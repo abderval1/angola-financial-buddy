@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Link, useSearchParams } from "react-router-dom";
 import { AdminSubscriptions } from "@/components/admin/AdminSubscriptions";
+import { AdminCourseManager as AdminCourses } from "@/components/admin/AdminCourseManager";
+import { AdminNewsManager as AdminNews } from "@/components/admin/AdminNewsManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -134,6 +136,8 @@ export default function Admin() {
     { id: "subscriptions", label: "Assinaturas", icon: DollarSign },
     { id: "marketplace", label: "Marketplace", icon: ShoppingBag },
     { id: "content", label: "Conteúdo Educativo", icon: GraduationCap },
+    { id: "courses", label: "Gestão de Cursos", icon: BookOpen },
+    { id: "news", label: "Notícias", icon: FileText },
     { id: "community", label: "Comunidade", icon: MessageSquare },
     { id: "chat", label: "Chat Público", icon: MessageCircle },
     { id: "challenges", label: "Desafios", icon: Trophy },
@@ -198,6 +202,8 @@ export default function Admin() {
           {activeTab === "subscriptions" && <AdminSubscriptions />}
           {activeTab === "marketplace" && <AdminMarketplace />}
           {activeTab === "content" && <AdminContent />}
+          {activeTab === "courses" && <AdminCourses />}
+          {activeTab === "news" && <AdminNews />}
           {activeTab === "community" && <AdminCommunity />}
           {activeTab === "chat" && <AdminChat />}
           {activeTab === "challenges" && <AdminChallenges />}
