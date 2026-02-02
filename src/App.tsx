@@ -20,6 +20,7 @@ import Community from "./pages/Community";
 import Marketplace from "./pages/Marketplace";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
+import News from "./pages/News";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -66,6 +67,9 @@ const App = () => (
             } />
             <Route path="/marketplace" element={
               <ProtectedRoute><Marketplace /></ProtectedRoute>
+            } />
+            <Route path="/news" element={
+              <ProtectedRoute><News /></ProtectedRoute>
             } />
             <Route path="/settings" element={
               <ProtectedRoute><Settings /></ProtectedRoute>

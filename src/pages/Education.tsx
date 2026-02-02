@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CourseViewer } from "@/components/education/CourseViewer";
 import { toast } from "sonner";
 import {
   GraduationCap,
@@ -71,6 +72,7 @@ export default function Education() {
   const queryClient = useQueryClient();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
   // Fetch educational content from Supabase
   const { data: contents = [], isLoading: isLoadingContent } = useQuery({
@@ -138,16 +140,22 @@ export default function Education() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_, contentId) => {
       queryClient.invalidateQueries({ queryKey: ["user-content-progress"] });
-      toast.success("Conteúdo iniciado!");
+      // Open course viewer for courses
+      const content = contents.find((c: any) => c.id === contentId);
+      if (content?.content_type === "course") {
+        setSelectedCourseId(contentId);
+      } else {
+        toast.success("Conteúdo iniciado!");
+      }
     },
   });
 
-  // Complete content mutation
+  // Complete content mutation (for non-course content)
   const completeContentMutation = useMutation({
     mutationFn: async (contentId: string) => {
-      const content = contents.find(c => c.id === contentId);
+      const content = contents.find((c: any) => c.id === contentId);
       const pointsToAdd = content?.points_reward || 10;
 
       // Update progress
@@ -184,7 +192,7 @@ export default function Education() {
         .eq("id", contentId);
     },
     onSuccess: (_, contentId) => {
-      const content = contents.find(c => c.id === contentId);
+      const content = contents.find((c: any) => c.id === contentId);
       queryClient.invalidateQueries({ queryKey: ["user-content-progress"] });
       queryClient.invalidateQueries({ queryKey: ["user-gamification"] });
       toast.success(`Parabéns! Você ganhou ${content?.points_reward || 10} pontos!`);
@@ -212,6 +220,26 @@ export default function Education() {
   const getContentProgress = (contentId: string) => {
     const p = progress.find(p => p.content_id === contentId);
     return p?.progress_percentage || 0;
+  };
+
+  const handleContentAction = (content: any) => {
+    const progressPercent = getContentProgress(content.id);
+    
+    if (content.content_type === "course") {
+      // For courses, always open the viewer
+      if (progressPercent === 0) {
+        startContentMutation.mutate(content.id);
+      } else {
+        setSelectedCourseId(content.id);
+      }
+    } else {
+      // For other content types
+      if (progressPercent === 0) {
+        startContentMutation.mutate(content.id);
+      } else {
+        completeContentMutation.mutate(content.id);
+      }
+    }
   };
 
   return (
@@ -277,7 +305,7 @@ export default function Education() {
         </div>
 
         {/* Featured Course */}
-        {contents.length > 0 && contents.some((c: any) => c.is_premium) && (
+        {contents.length > 0 && contents.some((c: any) => c.content_type === "course") && (
           <Card className="overflow-hidden border-2 border-primary/20">
             <div className="grid md:grid-cols-2">
               <div className="p-6 md:p-8 flex flex-col justify-center">
@@ -286,29 +314,35 @@ export default function Education() {
                   Curso em Destaque
                 </Badge>
                 <h2 className="text-2xl font-bold mb-2">
-                  {contents.find((c: any) => c.is_premium)?.title || "Curso Premium"}
+                  {contents.find((c: any) => c.content_type === "course")?.title || "Curso Premium"}
                 </h2>
                 <p className="text-muted-foreground mb-4">
-                  {contents.find((c: any) => c.is_premium)?.description || "Conteúdo exclusivo para assinantes premium."}
+                  {contents.find((c: any) => c.content_type === "course")?.description || "Conteúdo exclusivo para assinantes premium."}
                 </p>
                 <div className="flex items-center gap-4 mb-6">
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Clock className="h-4 w-4" />
-                    <span>{contents.find((c: any) => c.is_premium)?.duration_minutes || 60} min</span>
+                    <span>{contents.find((c: any) => c.content_type === "course")?.duration_minutes || 60} min</span>
                   </div>
                   <Badge className="bg-amber-500/10 text-amber-500">
-                    +{contents.find((c: any) => c.is_premium)?.points_reward || 100} pontos
+                    +{contents.find((c: any) => c.content_type === "course")?.points_reward || 100} pontos
                   </Badge>
                 </div>
-                <Button className="w-fit gradient-primary">
+                <Button 
+                  className="w-fit gradient-primary"
+                  onClick={() => {
+                    const course = contents.find((c: any) => c.content_type === "course");
+                    if (course) handleContentAction(course);
+                  }}
+                >
                   <Play className="h-4 w-4 mr-2" />
                   Começar Curso
                 </Button>
               </div>
               <div className="bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center p-8">
                 <div className="text-center">
-                  <Building className="h-24 w-24 text-primary mx-auto mb-4" />
-                  <p className="text-lg font-semibold text-primary">Investimentos em Angola</p>
+                  <GraduationCap className="h-24 w-24 text-primary mx-auto mb-4" />
+                  <p className="text-lg font-semibold text-primary">Curso Completo</p>
                 </div>
               </div>
             </div>
@@ -367,9 +401,14 @@ export default function Education() {
                   const ContentIcon = getContentIcon(content.content_type);
                   const isCompleted = isContentCompleted(content.id);
                   const progressPercent = getContentProgress(content.id);
+                  const isCourse = content.content_type === "course";
                   
                   return (
-                    <Card key={content.id} className="hover:shadow-lg transition-shadow group cursor-pointer">
+                    <Card 
+                      key={content.id} 
+                      className="hover:shadow-lg transition-shadow group cursor-pointer"
+                      onClick={() => isCourse && handleContentAction(content)}
+                    >
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between mb-4">
                           <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${
@@ -390,6 +429,9 @@ export default function Education() {
                           <div className="flex items-center gap-2">
                             {content.is_premium && (
                               <Badge className="badge-premium text-xs">Premium</Badge>
+                            )}
+                            {isCourse && (
+                              <Badge className="bg-primary/10 text-primary text-xs">Curso</Badge>
                             )}
                             <Badge className={getDifficultyColor(content.difficulty_level)}>
                               {getDifficultyLabel(content.difficulty_level)}
@@ -436,15 +478,15 @@ export default function Education() {
                               variant="ghost" 
                               size="sm" 
                               className="group-hover:bg-primary/10"
-                              onClick={() => {
-                                if (progressPercent === 0) {
-                                  startContentMutation.mutate(content.id);
-                                } else {
-                                  completeContentMutation.mutate(content.id);
-                                }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleContentAction(content);
                               }}
                             >
-                              {progressPercent > 0 ? "Concluir" : "Iniciar"}
+                              {isCourse 
+                                ? (progressPercent > 0 ? "Continuar" : "Iniciar Curso")
+                                : (progressPercent > 0 ? "Concluir" : "Iniciar")
+                              }
                               <ChevronRight className="h-4 w-4 ml-1" />
                             </Button>
                           )}
@@ -458,6 +500,15 @@ export default function Education() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Course Viewer Modal */}
+      {selectedCourseId && (
+        <CourseViewer
+          courseId={selectedCourseId}
+          isOpen={!!selectedCourseId}
+          onClose={() => setSelectedCourseId(null)}
+        />
+      )}
     </AppLayout>
   );
 }
