@@ -28,8 +28,6 @@ import { InvestmentProducts } from "@/components/investments/InvestmentProducts"
 import { InvestmentSimulator } from "@/components/investments/InvestmentSimulator";
 import { InvestmentEducation } from "@/components/investments/InvestmentEducation";
 import { InvestmentOrderBook } from "@/components/investments/InvestmentOrderBook";
-import { InvestmentAlerts } from "@/components/investments/InvestmentAlerts";
-import { InvestmentTrustBadges } from "@/components/investments/InvestmentTrustBadges";
 
 interface Investment {
   id: string;
@@ -297,8 +295,6 @@ export default function Investments() {
               riskProfile={riskProfile}
             />
 
-            {/* Alerts */}
-            <InvestmentAlerts />
 
             {/* Quick Actions */}
             <InvestmentQuickActions
@@ -351,9 +347,6 @@ export default function Investments() {
 
             {/* Education Section */}
             <InvestmentEducation />
-
-            {/* Trust Badges */}
-            <InvestmentTrustBadges />
           </>
         ) : (
           /* Details View - Existing Investments */

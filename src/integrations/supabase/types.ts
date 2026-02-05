@@ -151,6 +151,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_deleted: boolean | null
+          reply_to_id: string | null
           room_id: string | null
           user_id: string
         }
@@ -159,6 +160,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_deleted?: boolean | null
+          reply_to_id?: string | null
           room_id?: string | null
           user_id: string
         }
@@ -167,10 +169,51 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_deleted?: boolean | null
+          reply_to_id?: string | null
           room_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       community_posts: {
         Row: {
@@ -1033,6 +1076,7 @@ export type Database = {
           is_approved: boolean | null
           likes_count: number | null
           post_id: string
+          reply_to_id: string | null
           updated_at: string | null
           user_id: string
         }
@@ -1043,6 +1087,7 @@ export type Database = {
           is_approved?: boolean | null
           likes_count?: number | null
           post_id: string
+          reply_to_id?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -1053,12 +1098,52 @@ export type Database = {
           is_approved?: boolean | null
           likes_count?: number | null
           post_id?: string
+          reply_to_id?: string | null
           updated_at?: string | null
           user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_comments_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "post_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_reactions_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "community_posts"
