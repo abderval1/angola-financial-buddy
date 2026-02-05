@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, Chrome } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, Chrome, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -14,6 +15,9 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(searchParams.get("mode") !== "register");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  // Referral code from URL
+  const refCode = searchParams.get("ref");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -21,6 +25,7 @@ export default function Auth() {
     phone: "",
     password: "",
     confirmPassword: "",
+    referralCode: refCode || "",
   });
 
   useEffect(() => {
@@ -54,7 +59,14 @@ export default function Auth() {
         setLoading(false);
         return;
       }
-      toast.success("Conta criada com sucesso!");
+      
+      // Process referral code if provided
+      if (formData.referralCode.trim()) {
+        // Store referral code in localStorage to process after email confirmation
+        localStorage.setItem("pendingReferralCode", formData.referralCode.trim().toUpperCase());
+      }
+      
+      toast.success("Conta criada! Verifique seu email para confirmar.");
     }
     setLoading(false);
   };
@@ -145,6 +157,25 @@ export default function Auth() {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input id="confirmPassword" type="password" placeholder="••••••••" className="pl-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} required={!isLogin} />
                 </div>
+              </div>
+            )}
+
+            {!isLogin && (
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label htmlFor="referralCode" className="text-sm">Código de Convite (opcional)</Label>
+                <div className="relative">
+                  <Gift className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    id="referralCode" 
+                    placeholder="Ex: ABC12345" 
+                    className="pl-10 h-10 sm:h-12 text-sm sm:text-base uppercase" 
+                    value={formData.referralCode} 
+                    onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })} 
+                  />
+                </div>
+                {formData.referralCode && (
+                  <p className="text-xs text-success">🎁 Você receberá um bónus de boas-vindas!</p>
+                )}
               </div>
             )}
 
