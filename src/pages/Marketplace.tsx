@@ -23,7 +23,9 @@ import {
   CheckCircle,
   Package,
   ExternalLink,
+  CreditCard,
 } from "lucide-react";
+import { SubscriptionStatus } from "@/components/subscription/SubscriptionStatus";
 
 const PRODUCT_TYPES = [
   { value: "all", label: "Todos", icon: Package },
@@ -161,23 +163,30 @@ export default function Marketplace() {
     >
       <div className="space-y-6">
         {/* Hero Banner */}
-        <Card className="border-primary/30 bg-gradient-to-r from-primary/10 via-accent/5 to-primary/10">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                  <ShoppingBag className="h-7 w-7 text-primary-foreground" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold">Produtos Digitais</h2>
-                  <p className="text-muted-foreground">
-                    Ebooks, planilhas e ferramentas para acelerar seu crescimento financeiro
-                  </p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2 border-primary/30 bg-gradient-to-r from-primary/10 via-accent/5 to-primary/10">
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                    <ShoppingBag className="h-7 w-7 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">Produtos Digitais</h2>
+                    <p className="text-muted-foreground">
+                      Ebooks, planilhas e ferramentas para acelerar seu crescimento financeiro
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+          
+          {/* Subscription Status Widget */}
+          <div>
+            <SubscriptionStatus />
+          </div>
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
