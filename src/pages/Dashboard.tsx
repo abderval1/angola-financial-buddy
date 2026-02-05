@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useReferralProcessor } from "@/hooks/useReferralProcessor";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { InvestmentRecommendations } from "@/components/dashboard/InvestmentRecommendations";
+import { MonetizationWidget } from "@/components/dashboard/MonetizationWidget";
 import { SubscriptionStatus } from "@/components/subscription/SubscriptionStatus";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,7 +55,9 @@ const COLORS = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#06b6d4"
 
 export default function Dashboard() {
   const { user } = useAuth();
-
+  
+  // Process pending referral code after login
+  useReferralProcessor();
   // Fetch current month transactions
   const { data: transactions = [] } = useQuery({
     queryKey: ["dashboard-transactions"],
@@ -287,8 +291,10 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* FIRE Progress & Gamification */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* FIRE Progress, Gamification & Monetization */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Monetization Widget */}
+          <MonetizationWidget />
           {/* FIRE Progress */}
           <Card className="border-2 border-amber-500/20 bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-amber-950/20 dark:to-orange-950/20">
             <CardHeader className="pb-2">
