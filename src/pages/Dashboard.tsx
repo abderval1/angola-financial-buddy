@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
+import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 import { useReferralProcessor } from "@/hooks/useReferralProcessor";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { InvestmentRecommendations } from "@/components/dashboard/InvestmentRecommendations";
