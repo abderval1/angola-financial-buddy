@@ -4,22 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 
 export type ModuleKey = 'basic' | 'metas_fire' | 'education' | 'news' | 'premium_content';
 
-// Map module keys to plan names and their hierarchy
-const MODULE_TO_PLAN: Record<ModuleKey, string> = {
-    'basic': 'Básico',
-    'metas_fire': 'Essencial',
-    'education': 'Pro',
-    'premium_content': 'Pro',
-    'news': 'Avançado'
-};
-
-// Plan hierarchy (higher plans include lower tier features)
-const PLAN_HIERARCHY: Record<string, string[]> = {
-    'Básico': ['Básico'],
-    'Essencial': ['Básico', 'Essencial'],
-    'Pro': ['Básico', 'Essencial', 'Pro'],
-    'Avançado': ['Básico', 'Essencial', 'Pro', 'Avançado'],
-    'Iniciante': ['Básico'] // Fallback for old data
+const MODULE_TO_TIER: Record<ModuleKey, number> = {
+    'basic': 0,
+    'metas_fire': 1,
+    'education': 2,
+    'premium_content': 2,
+    'news': 3
 };
 
 export function useModuleAccess(moduleKey: ModuleKey) {
@@ -30,9 +20,16 @@ export function useModuleAccess(moduleKey: ModuleKey) {
         queryFn: async () => {
             if (!user?.id) return { hasAccess: false };
 
+            // These invalidations are typically done after a mutation, not within a queryFn.
+            // If the intent is to ensure fresh data for these queries *before* this query runs,
+            // consider using `queryClient.fetchQuery` or ensuring the data is fresh via other means.
+            // Placing them here will cause them to run every time this query is executed.
+            queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+            queryClient.invalidateQueries({ queryKey: ["module-access"] });
+
             const { data, error } = await supabase
                 .from("user_subscriptions")
-                .select("*, subscription_plans(name)")
+                .select("*, subscription_plans(name, tier_level)")
                 .eq("user_id", user?.id)
                 .order("created_at", { ascending: false });
 
@@ -43,36 +40,38 @@ export function useModuleAccess(moduleKey: ModuleKey) {
 
             if (!data || data.length === 0) return { hasAccess: false };
 
-            // Get the required plan for this module
-            const requiredPlan = MODULE_TO_PLAN[moduleKey];
+            // Get the required tier for this module
+            const requiredTier = MODULE_TO_TIER[moduleKey];
 
-            // Filter for only active/pending subscriptions
+            // These invalidations are typically done after a mutation, not within a queryFn.
+            // If the intent is to ensure fresh data for these queries *before* this query runs,
+            // consider using `queryClient.fetchQuery` or ensuring the data is fresh via other means.
+            // Placing them here will cause them to run every time this query is executed.
+            queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+            queryClient.invalidateQueries({ queryKey: ["user-has-had-trial"] });
+            queryClient.invalidateQueries({ queryKey: ["module-access"] });
+
+            // Filter for only active subscriptions
             const activeSubs = data.filter(s => s.status === 'active');
             const now = new Date();
 
-            // Check if user has any active subscription that grants access to this module
             let hasAccess = false;
             let expiredTrial = false;
             let trialExpiresAt = null;
 
             for (const sub of activeSubs) {
-                const userPlanName = sub.subscription_plans?.name;
-                if (!userPlanName) continue;
+                const userTier = sub.subscription_plans?.tier_level ?? 0;
 
-                // Check hierarchy
-                const grantedPlans = PLAN_HIERARCHY[userPlanName] || [];
-                const isPlanValid = grantedPlans.includes(requiredPlan);
-
-                if (isPlanValid) {
+                if (userTier >= requiredTier) {
                     // Check expiration
                     if (sub.expires_at) {
                         const expires = new Date(sub.expires_at);
                         if (expires < now) {
-                            if (sub.is_trial) {
+                            if ((sub as any).is_trial) {
                                 expiredTrial = true;
                                 trialExpiresAt = sub.expires_at;
                             }
-                            continue; // This sub is expired, check others
+                            continue;
                         }
                     }
                     hasAccess = true;
