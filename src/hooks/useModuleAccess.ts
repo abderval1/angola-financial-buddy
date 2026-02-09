@@ -21,13 +21,7 @@ export function useModuleAccess(moduleKey: ModuleKey) {
         queryFn: async () => {
             if (!user?.id) return { hasAccess: false };
 
-            // The provided snippet seems to be from a mutation's onSuccess callback,
-            // not suitable for direct insertion into a queryFn.
-            // Inserting it directly would cause syntax errors and logical issues.
-            // Assuming the intent was to ensure the module-access query is invalidated
-            // elsewhere when subscription data changes, the current setup is correct
-            // for fetching. If there was an external action that changed subscription
-            // status, that action's success callback should invalidate "module-access".
+
 
             const { data, error } = await supabase
                 .from("user_subscriptions")
