@@ -18,6 +18,7 @@ interface Plan {
   features: string[];
   is_active: boolean;
   trial_period_days?: number;
+  module_key?: string;
 }
 
 interface SubscriptionPlansProps {
@@ -262,7 +263,9 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                   }`}>
                   <PlanIcon className={`h-5 w-5 ${index >= 2 ? "text-accent" : "text-primary"}`} />
                 </div>
-                <h3 className="font-display text-xl font-bold">{plan.name}</h3>
+                <h3 className="font-display text-xl font-bold">
+                  {plan.name === 'Gratuito' ? 'Básico' : plan.name}
+                </h3>
               </div>
 
               <div className="mb-6">
