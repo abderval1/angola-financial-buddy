@@ -276,11 +276,11 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                 )}
                 <div>
                   <span className="text-4xl font-bold text-foreground">
-                    {plan.module_key === 'basic' || plan.name === 'Básico' || (plan.price === 0 && plan.trial_period_days > 0) ? '2.000' : new Intl.NumberFormat("pt-AO").format(plan.price)}
+                    {plan.module_key === 'basic' || plan.name === 'Básico' || plan.name === 'Gratuito' || plan.price === 0 ? '2.000' : new Intl.NumberFormat("pt-AO").format(plan.price)}
                   </span>
                   <span className="text-muted-foreground ml-1">Kz/mês</span>
                 </div>
-                {(plan.module_key === 'basic' || plan.name === 'Básico' || plan.name === 'Gratuito') && (
+                {(plan.module_key === 'basic' || plan.name === 'Básico' || plan.name === 'Gratuito' || plan.price === 0) && (
                   <p className="text-[10px] text-muted-foreground mt-1">
                     * Grátis nos primeiros 7 dias, depois 2.000 Kz/mês
                   </p>
