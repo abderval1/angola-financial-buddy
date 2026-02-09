@@ -27,6 +27,8 @@ import Prices from "./pages/Prices";
 import Monetization from "./pages/Monetization";
 import Notifications from "./pages/Notifications";
 import Plans from "./pages/Plans";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -101,6 +103,8 @@ const App = () => (
             <Route path="/plans" element={
               <ProtectedRoute><Plans /></ProtectedRoute>
             } />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

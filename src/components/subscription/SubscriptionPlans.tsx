@@ -223,7 +223,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                       variant={currentSubscription.status === "active" ? "default" : "secondary"}
                       className={currentSubscription.status === "active" ? "bg-success" : ""}
                     >
-                      {currentSubscription.status === "active" ? (currentSubscription.is_trial ? "Período de Teste" : "Ativo") :
+                      {currentSubscription.status === "active" ? ((currentSubscription as any).is_trial ? "Período de Teste" : "Ativo") :
                         currentSubscription.status === "pending" ? "Pendente" :
                           currentSubscription.status === "expired" ? "Expirado" : "Cancelado"}
                     </Badge>
@@ -340,7 +340,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
               <div className="p-4 bg-primary/5 rounded-lg space-y-2 text-sm">
                 <p><strong>IBAN:</strong> AO06.0040.0000.1234.5678.9012.3</p>
                 <p><strong>Banco:</strong> BAI</p>
-                <p><strong>Titular:</strong> Kuanza Finance, Lda</p>
+                <p><strong>Titular:</strong> AngolaFinance, Lda</p>
               </div>
             </div>
 

@@ -76,9 +76,9 @@ export default function Landing() {
           <div className="flex h-14 sm:h-16 items-center justify-between">
             <Link to="/" className="flex items-center gap-2 sm:gap-3">
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl gradient-accent">
-                <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">K</span>
+                <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">A</span>
               </div>
-              <span className="font-display text-lg sm:text-xl font-bold text-foreground">Kuanza</span>
+              <span className="font-display text-lg sm:text-xl font-bold text-foreground">AngolaFinance</span>
             </Link>
 
             <div className="hidden md:flex items-center gap-6 lg:gap-8">
@@ -206,7 +206,7 @@ export default function Landing() {
             <div className="order-2 lg:order-1">
               <h2 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-4 sm:mb-6">
                 Por que escolher o{" "}
-                <span className="text-primary">Kuanza</span>?
+                <span className="text-primary">AngolaFinance</span>?
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8">
                 Criado especialmente para a realidade financeira angolana, com ferramentas
@@ -483,25 +483,25 @@ export default function Landing() {
           <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
             <Link to="/" className="flex items-center gap-2 sm:gap-3">
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl gradient-accent">
-                <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">K</span>
+                <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">A</span>
               </div>
-              <span className="font-display text-lg sm:text-xl font-bold text-sidebar-foreground">Kuanza</span>
+              <span className="font-display text-lg sm:text-xl font-bold text-sidebar-foreground">AngolaFinance</span>
             </Link>
 
             <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
-              <a href="#" className="text-xs sm:text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
+              <Link to="/terms" className="text-xs sm:text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
                 Termos de Uso
-              </a>
-              <a href="#" className="text-xs sm:text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
+              </Link>
+              <Link to="/privacy" className="text-xs sm:text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
                 Privacidade
-              </a>
+              </Link>
               <a href="#" className="text-xs sm:text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
                 Suporte
               </a>
             </div>
 
             <p className="text-xs sm:text-sm text-sidebar-foreground/50 text-center">
-              © 2024 Kuanza. Todos os direitos reservados.
+              © 2024 AngolaFinance. Todos os direitos reservados.
             </p>
           </div>
         </div>

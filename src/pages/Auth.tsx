@@ -112,9 +112,9 @@ export default function Auth() {
         <div className="w-full max-w-md mx-auto">
           <Link to="/" className="inline-flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
             <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl gradient-accent">
-              <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">K</span>
+              <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">A</span>
             </div>
-            <span className="font-display text-lg sm:text-xl font-bold text-foreground">Kuanza</span>
+            <span className="font-display text-lg sm:text-xl font-bold text-foreground">AngolaFinance</span>
           </Link>
 
           <div className="mb-6 sm:mb-8">
@@ -199,6 +199,20 @@ export default function Auth() {
               </div>
             )}
 
+            {!isLogin && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Ao criar uma conta, você concorda com nossos{" "}
+                <Link to="/terms" className="text-primary hover:underline">
+                  Termos de Serviço
+                </Link>{" "}
+                e{" "}
+                <Link to="/privacy" className="text-primary hover:underline">
+                  Política de Privacidade
+                </Link>
+                .
+              </p>
+            )}
+
             <Button type="submit" variant="accent" className="w-full h-10 sm:h-12 text-sm sm:text-base" disabled={loading}>
               {loading ? (
                 <div className="flex items-center gap-2">
@@ -227,7 +241,7 @@ export default function Auth() {
         <div className="absolute inset-0 flex items-center justify-center p-12">
           <div className="max-w-lg text-center">
             <div className="inline-flex items-center justify-center h-20 w-20 rounded-2xl gradient-accent mb-8 animate-float">
-              <span className="font-display text-4xl font-bold text-accent-foreground">K</span>
+              <span className="font-display text-4xl font-bold text-accent-foreground">A</span>
             </div>
             <h2 className="font-display text-4xl font-bold text-foreground mb-4">Gerencie suas finanças com inteligência</h2>
             <p className="text-muted-foreground text-lg">Orçamento, poupança, investimentos e educação financeira — tudo em uma plataforma feita para você.</p>
