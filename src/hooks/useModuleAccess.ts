@@ -6,10 +6,10 @@ export type ModuleKey = 'basic' | 'metas_fire' | 'education' | 'news' | 'premium
 
 const MODULE_TO_TIER: Record<ModuleKey, number> = {
     'basic': 0,
-    'metas_fire': 1,
-    'education': 2,
-    'premium_content': 2,
-    'news': 3
+    'education': 1,
+    'metas_fire': 2,
+    'premium_content': 3,
+    'news': 4
 };
 
 export function useModuleAccess(moduleKey: ModuleKey) {
