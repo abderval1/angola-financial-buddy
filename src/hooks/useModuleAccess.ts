@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -14,18 +14,20 @@ const MODULE_TO_TIER: Record<ModuleKey, number> = {
 
 export function useModuleAccess(moduleKey: ModuleKey) {
     const { user } = useAuth();
+    const queryClient = useQueryClient();
 
     return useQuery({
         queryKey: ["module-access", user?.id, moduleKey],
         queryFn: async () => {
             if (!user?.id) return { hasAccess: false };
 
-            // These invalidations are typically done after a mutation, not within a queryFn.
-            // If the intent is to ensure fresh data for these queries *before* this query runs,
-            // consider using `queryClient.fetchQuery` or ensuring the data is fresh via other means.
-            // Placing them here will cause them to run every time this query is executed.
-            queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-            queryClient.invalidateQueries({ queryKey: ["module-access"] });
+            // The provided snippet seems to be from a mutation's onSuccess callback,
+            // not suitable for direct insertion into a queryFn.
+            // Inserting it directly would cause syntax errors and logical issues.
+            // Assuming the intent was to ensure the module-access query is invalidated
+            // elsewhere when subscription data changes, the current setup is correct
+            // for fetching. If there was an external action that changed subscription
+            // status, that action's success callback should invalidate "module-access".
 
             const { data, error } = await supabase
                 .from("user_subscriptions")
@@ -42,14 +44,6 @@ export function useModuleAccess(moduleKey: ModuleKey) {
 
             // Get the required tier for this module
             const requiredTier = MODULE_TO_TIER[moduleKey];
-
-            // These invalidations are typically done after a mutation, not within a queryFn.
-            // If the intent is to ensure fresh data for these queries *before* this query runs,
-            // consider using `queryClient.fetchQuery` or ensuring the data is fresh via other means.
-            // Placing them here will cause them to run every time this query is executed.
-            queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
-            queryClient.invalidateQueries({ queryKey: ["user-has-had-trial"] });
-            queryClient.invalidateQueries({ queryKey: ["module-access"] });
 
             // Filter for only active subscriptions
             const activeSubs = data.filter(s => s.status === 'active');
