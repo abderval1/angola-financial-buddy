@@ -1,572 +1,239 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
-import {
-  Target,
-  Plus,
-  Flame,
-  TrendingUp,
-  Calendar,
-  Wallet,
-  Home,
-  Car,
-  GraduationCap,
-  Plane,
-  Shield,
-  Calculator,
-  ChevronRight,
-} from "lucide-react";
+import { Target, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 
-const goalTypes = [
-  { value: "emergency_fund", label: "Fundo de Emergência", icon: Shield },
-  { value: "retirement", label: "Aposentadoria", icon: Target },
-  { value: "house", label: "Casa Própria", icon: Home },
-  { value: "car", label: "Veículo", icon: Car },
-  { value: "education", label: "Educação", icon: GraduationCap },
-  { value: "travel", label: "Viagem", icon: Plane },
-  { value: "fire_number", label: "Número FIRE", icon: Flame },
-  { value: "other", label: "Outro", icon: Target },
-];
+// Components
+import { FireStrategyPanel } from "@/components/goals/FireStrategyPanel";
+import { VirtualCoach } from "@/components/goals/VirtualCoach";
+import { EducationalContext } from "@/components/goals/EducationalContext";
 
-const fireTypes = [
-  { value: "lean", label: "Lean FIRE", description: "Vida minimalista, despesas baixas" },
-  { value: "regular", label: "FIRE Regular", description: "Estilo de vida moderado" },
-  { value: "fat", label: "Fat FIRE", description: "Vida confortável, despesas altas" },
-  { value: "coast", label: "Coast FIRE", description: "Investir agora, parar de poupar depois" },
-];
+// Types derived from other pages
+interface Investment {
+  amount: number;
+  current_value: number | null;
+  type: string;
+}
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-AO", {
-    style: "currency",
-    currency: "AOA",
-    minimumFractionDigits: 0,
-  }).format(value);
-};
+interface SavingsGoal {
+  saved_amount: number | null;
+  target_amount: number;
+  name: string;
+  icon?: string;
+}
 
 export default function Goals() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedTab, setSelectedTab] = useState("all");
-  
-  // FIRE Calculator state
-  const [fireCalc, setFireCalc] = useState({
-    monthlyExpenses: 500000,
-    currentSavings: 1000000,
-    monthlySavings: 200000,
-    expectedReturn: 8,
-    inflationRate: 20,
-    withdrawalRate: 4,
-  });
 
-  // Form state
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    target_amount: "",
-    monthly_contribution: "",
-    goal_type: "other",
-    target_date: "",
-    is_fire_goal: false,
-    fire_type: "",
-    annual_expenses: "",
-    safe_withdrawal_rate: "4",
-  });
-
-  // Fetch goals
-  const { data: goals = [], isLoading } = useQuery({
-    queryKey: ["financial-goals"],
+  // 1. Fetch Investments (Read Only)
+  const { data: investments = [] } = useQuery({
+    queryKey: ["investments"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("financial_goals")
-        .select("*")
+        .from("investments")
+        .select("amount, current_value, type")
+        .eq("user_id", user?.id);
+      if (error) throw error;
+      return data as Investment[];
+    },
+    enabled: !!user,
+  });
+
+  // 2. Fetch Savings Goals (Active Goals)
+  const { data: savingsGoals = [] } = useQuery({
+    queryKey: ["savings-goals"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("savings_goals")
+        .select("name, saved_amount, target_amount, status, icon")
+        .eq("user_id", user?.id);
+      if (error) throw error;
+      return data as SavingsGoal[];
+    },
+    enabled: !!user,
+  });
+
+  // 3. Fetch Monthly Expenses (Dual Source: Actual History vs Planned Budget)
+  const { data: expenseData = { value: 500000, source: 'default', hasAlerts: false } } = useQuery({
+    queryKey: ["monthly-expenses-smart"],
+    queryFn: async () => {
+      // Source B: Planned Budget (Sum of Monthly Alerts)
+      const { data: alertData } = await supabase
+        .from("budget_alerts")
+        .select("limit_amount")
         .eq("user_id", user?.id)
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      return data || [];
+        .eq("period", "monthly")
+        .eq("is_active", true);
+
+      const hasAlerts = (alertData?.length || 0) > 0;
+
+      // Source A: Manual Budget Override (User Settings) - HIGHEST PRIORITY
+      const manualBudget = Number(user?.user_metadata?.monthly_budget || 0);
+      if (manualBudget > 0) return { value: manualBudget, source: 'manual', hasAlerts };
+
+      const budgetLimit = alertData?.reduce((acc, curr) => acc + Number(curr.limit_amount), 0) || 0;
+
+      // Source C: Actual Spending (Last 30 Days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data: txData } = await supabase
+        .from("transactions")
+        .select("amount")
+        .eq("type", "expense")
+        .eq("user_id", user?.id)
+        .gte("date", thirtyDaysAgo.toISOString().split('T')[0]);
+
+      const actualSpend = txData?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
+
+      if (budgetLimit > 0 && actualSpend > 0) {
+        return { value: Math.max(budgetLimit, actualSpend), source: budgetLimit > actualSpend ? 'budget' : 'history', hasAlerts };
+      } else if (budgetLimit > 0) {
+        return { value: budgetLimit, source: 'budget', hasAlerts };
+      } else if (actualSpend > 0) {
+        return { value: actualSpend, source: 'history', hasAlerts };
+      }
+
+      return { value: 500000, source: 'default', hasAlerts };
     },
-    enabled: !!user?.id,
+    enabled: !!user
   });
 
-  // Create goal mutation
-  const createGoalMutation = useMutation({
-    mutationFn: async (goalData: typeof formData) => {
-      const { error } = await supabase.from("financial_goals").insert({
-        user_id: user?.id,
-        name: goalData.name,
-        description: goalData.description || null,
-        target_amount: parseFloat(goalData.target_amount),
-        monthly_contribution: parseFloat(goalData.monthly_contribution) || 0,
-        goal_type: goalData.goal_type,
-        target_date: goalData.target_date || null,
-        is_fire_goal: goalData.is_fire_goal,
-        fire_type: goalData.is_fire_goal ? goalData.fire_type : null,
-        annual_expenses: goalData.annual_expenses ? parseFloat(goalData.annual_expenses) : null,
-        safe_withdrawal_rate: parseFloat(goalData.safe_withdrawal_rate) || 4,
-      });
+  const monthlyExpenses = expenseData.value;
+
+  // 4. Fetch Monthly Income (Rolling 30 days)
+  const { data: monthlyIncome = 0 } = useQuery({
+    queryKey: ["monthly-income"],
+    queryFn: async () => {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("amount")
+        .eq("type", "income")
+        .eq("user_id", user?.id)
+        .gte("date", thirtyDaysAgo.toISOString().split('T')[0]);
+
       if (error) throw error;
+      return data.reduce((acc, curr) => acc + Number(curr.amount), 0);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["financial-goals"] });
-      toast.success("Meta criada com sucesso!");
-      setIsDialogOpen(false);
-      resetForm();
-    },
-    onError: () => {
-      toast.error("Erro ao criar meta");
-    },
+    enabled: !!user
   });
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      description: "",
-      target_amount: "",
-      monthly_contribution: "",
-      goal_type: "other",
-      target_date: "",
-      is_fire_goal: false,
-      fire_type: "",
-      annual_expenses: "",
-      safe_withdrawal_rate: "4",
+  // 5. Aggregate Data for Strategy
+  const strategyData = useMemo(() => {
+    const totalInvestments = investments.reduce((sum, inv) => sum + (inv.current_value || inv.amount), 0);
+    const totalSavings = savingsGoals.reduce((sum, goal) => sum + (goal.saved_amount || 0), 0);
+    const totalNetWorth = totalInvestments + totalSavings;
+
+    const dist: Record<string, number> = {};
+    dist['poupanca'] = totalSavings;
+    investments.forEach(inv => {
+      dist[inv.type] = (dist[inv.type] || 0) + (inv.current_value || inv.amount);
     });
-  };
 
-  // FIRE calculations
-  const calculateFireNumber = () => {
-    const annualExpenses = fireCalc.monthlyExpenses * 12;
-    const fireNumber = annualExpenses / (fireCalc.withdrawalRate / 100);
-    return fireNumber;
-  };
+    const emergencyFund = savingsGoals
+      .filter(g => {
+        const isShieldIcon = g.icon === '🛡️';
+        const normalizedName = (g.name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const isEmergencyName = normalizedName.includes("emerg") || normalizedName.includes("reserva") || normalizedName.includes("seguranca") || normalizedName.includes("fundo");
+        return (isEmergencyName || isShieldIcon) && (g.saved_amount || 0) > 0;
+      })
+      .reduce((sum, g) => sum + (g.saved_amount || 0), 0);
 
-  const calculateYearsToFire = () => {
-    const fireNumber = calculateFireNumber();
-    const realReturn = (fireCalc.expectedReturn - fireCalc.inflationRate) / 100;
-    
-    if (realReturn <= 0) return Infinity;
-    
-    let currentSavings = fireCalc.currentSavings;
-    let years = 0;
-    
-    while (currentSavings < fireNumber && years < 100) {
-      currentSavings = currentSavings * (1 + realReturn) + (fireCalc.monthlySavings * 12);
-      years++;
-    }
-    
-    return years;
-  };
-
-  const fireNumber = calculateFireNumber();
-  const yearsToFire = calculateYearsToFire();
-  const fireProgress = Math.min((fireCalc.currentSavings / fireNumber) * 100, 100);
-
-  const filteredGoals = selectedTab === "all" 
-    ? goals 
-    : selectedTab === "fire" 
-      ? goals.filter(g => g.is_fire_goal)
-      : goals.filter(g => !g.is_fire_goal && g.goal_type === selectedTab);
-
-  const getGoalIcon = (type: string) => {
-    const goalType = goalTypes.find(t => t.value === type);
-    return goalType?.icon || Target;
-  };
+    return { totalNetWorth, totalInvestments, totalSavings, dist, emergencyFund };
+  }, [investments, savingsGoals]);
 
   return (
-    <AppLayout title="Metas & Objetivos" subtitle="Planeje seu futuro financeiro com o método FIRE">
-      <div className="space-y-6">
-        {/* FIRE Calculator Card */}
-        <Card className="border-2 border-amber-500/20 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
-                  <Flame className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl">Calculadora FIRE</CardTitle>
-                  <CardDescription>Financial Independence, Retire Early</CardDescription>
-                </div>
-              </div>
-              <Badge className="badge-fire">
-                <Flame className="h-3 w-3 mr-1" />
-                Método FIRE
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Calculator Inputs */}
-              <div className="space-y-4">
-                <div>
-                  <Label>Despesas Mensais (Kz)</Label>
-                  <Input
-                    type="number"
-                    value={fireCalc.monthlyExpenses}
-                    onChange={(e) => setFireCalc(prev => ({ ...prev, monthlyExpenses: parseFloat(e.target.value) || 0 }))}
-                  />
-                </div>
-                <div>
-                  <Label>Poupança Atual (Kz)</Label>
-                  <Input
-                    type="number"
-                    value={fireCalc.currentSavings}
-                    onChange={(e) => setFireCalc(prev => ({ ...prev, currentSavings: parseFloat(e.target.value) || 0 }))}
-                  />
-                </div>
-                <div>
-                  <Label>Poupança Mensal (Kz)</Label>
-                  <Input
-                    type="number"
-                    value={fireCalc.monthlySavings}
-                    onChange={(e) => setFireCalc(prev => ({ ...prev, monthlySavings: parseFloat(e.target.value) || 0 }))}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <Label>Retorno Esperado (%/ano)</Label>
-                  <Input
-                    type="number"
-                    value={fireCalc.expectedReturn}
-                    onChange={(e) => setFireCalc(prev => ({ ...prev, expectedReturn: parseFloat(e.target.value) || 0 }))}
-                  />
-                </div>
-                <div>
-                  <Label>Inflação Estimada (%/ano)</Label>
-                  <Input
-                    type="number"
-                    value={fireCalc.inflationRate}
-                    onChange={(e) => setFireCalc(prev => ({ ...prev, inflationRate: parseFloat(e.target.value) || 0 }))}
-                  />
-                </div>
-                <div>
-                  <Label>Taxa de Retirada Segura (%)</Label>
-                  <Input
-                    type="number"
-                    value={fireCalc.withdrawalRate}
-                    onChange={(e) => setFireCalc(prev => ({ ...prev, withdrawalRate: parseFloat(e.target.value) || 4 }))}
-                  />
-                </div>
-              </div>
-
-              {/* Results */}
-              <div className="space-y-4 bg-white/50 dark:bg-white/5 rounded-xl p-4">
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-1">Seu Número FIRE</p>
-                  <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">
-                    {formatCurrency(fireNumber)}
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Progresso</span>
-                    <span className="font-medium">{fireProgress.toFixed(1)}%</span>
-                  </div>
-                  <Progress value={fireProgress} className="h-3" />
-                </div>
-
-                <div className="text-center pt-2">
-                  <p className="text-sm text-muted-foreground mb-1">Anos até FIRE</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {yearsToFire === Infinity ? "∞" : `${yearsToFire} anos`}
-                  </p>
-                </div>
-
-                <Button className="w-full gradient-accent text-accent-foreground">
-                  <Calculator className="h-4 w-4 mr-2" />
-                  Simular Cenários
-                </Button>
+    <AppLayout title="Estratégia & FIRE 🔥" subtitle="Painel de Inteligência Financeira">
+      <ModuleGuard
+        moduleKey="metas_fire"
+        title="Módulo Metas & FIRE"
+        description="Desbloqueie o simulador de independência financeira (FIRE), gestão de metas avançada e recomendações personalizadas."
+      >
+        <div className="space-y-6 animate-fade-in">
+          {/* Top Section: Coach & Strategy Overview */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1">
+              <VirtualCoach
+                totalNetWorth={strategyData.totalNetWorth}
+                emergencyFundTotal={strategyData.emergencyFund}
+                monthlyExpenses={monthlyExpenses}
+                investmentDistribution={strategyData.dist}
+                expenseSource={expenseData.source as any}
+                hasBudgetAlerts={expenseData.hasAlerts}
+              />
+              <div className="mt-4 space-y-4">
+                <EducationalContext topic="inflation" />
+                <EducationalContext topic="fire" />
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Goals Section */}
-        <div className="flex items-center justify-between">
-          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+            <div className="lg:col-span-2">
+              <FireStrategyPanel
+                totalNetWorth={strategyData.totalNetWorth}
+                currentMonthlySavings={Math.max(0, monthlyIncome - monthlyExpenses)}
+                monthlyExpenses={monthlyExpenses}
+              />
+            </div>
+          </div>
+
+          {/* Bottom Section: Active Goals Monitor */}
+          <div>
             <div className="flex items-center justify-between mb-4">
-              <TabsList>
-                <TabsTrigger value="all">Todas</TabsTrigger>
-                <TabsTrigger value="fire" className="flex items-center gap-1">
-                  <Flame className="h-3 w-3" />
-                  FIRE
-                </TabsTrigger>
-                <TabsTrigger value="emergency_fund">Emergência</TabsTrigger>
-                <TabsTrigger value="house">Casa</TabsTrigger>
-              </TabsList>
-
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gradient-primary">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nova Meta
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Criar Nova Meta</DialogTitle>
-                  </DialogHeader>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      createGoalMutation.mutate(formData);
-                    }}
-                    className="space-y-4"
-                  >
-                    <div className="space-y-2">
-                      <Label>Nome da Meta</Label>
-                      <Input
-                        value={formData.name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="Ex: Fundo de Emergência"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Tipo de Meta</Label>
-                      <Select
-                        value={formData.goal_type}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, goal_type: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {goalTypes.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              <div className="flex items-center gap-2">
-                                <type.icon className="h-4 w-4" />
-                                {type.label}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Valor Alvo (Kz)</Label>
-                        <Input
-                          type="number"
-                          value={formData.target_amount}
-                          onChange={(e) => setFormData(prev => ({ ...prev, target_amount: e.target.value }))}
-                          placeholder="5.000.000"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Contribuição Mensal (Kz)</Label>
-                        <Input
-                          type="number"
-                          value={formData.monthly_contribution}
-                          onChange={(e) => setFormData(prev => ({ ...prev, monthly_contribution: e.target.value }))}
-                          placeholder="200.000"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Data Alvo</Label>
-                      <Input
-                        type="date"
-                        value={formData.target_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, target_date: e.target.value }))}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Flame className="h-5 w-5 text-amber-500" />
-                        <span className="font-medium">Meta FIRE</span>
-                      </div>
-                      <Switch
-                        checked={formData.is_fire_goal}
-                        onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_fire_goal: checked }))}
-                      />
-                    </div>
-
-                    {formData.is_fire_goal && (
-                      <div className="space-y-4 p-4 border border-amber-200 dark:border-amber-800 rounded-lg">
-                        <div className="space-y-2">
-                          <Label>Tipo de FIRE</Label>
-                          <Select
-                            value={formData.fire_type}
-                            onValueChange={(value) => setFormData(prev => ({ ...prev, fire_type: value }))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o tipo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {fireTypes.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>
-                                  <div>
-                                    <div className="font-medium">{type.label}</div>
-                                    <div className="text-xs text-muted-foreground">{type.description}</div>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Despesas Anuais (Kz)</Label>
-                            <Input
-                              type="number"
-                              value={formData.annual_expenses}
-                              onChange={(e) => setFormData(prev => ({ ...prev, annual_expenses: e.target.value }))}
-                              placeholder="6.000.000"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Taxa de Retirada (%)</Label>
-                            <Input
-                              type="number"
-                              value={formData.safe_withdrawal_rate}
-                              onChange={(e) => setFormData(prev => ({ ...prev, safe_withdrawal_rate: e.target.value }))}
-                              placeholder="4"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      <Label>Descrição (opcional)</Label>
-                      <Textarea
-                        value={formData.description}
-                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Descreva sua meta..."
-                        rows={2}
-                      />
-                    </div>
-
-                    <Button type="submit" className="w-full gradient-primary" disabled={createGoalMutation.isPending}>
-                      {createGoalMutation.isPending ? "Criando..." : "Criar Meta"}
-                    </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Target className="h-5 w-5" />
+                Monitor de Metas Ativas
+              </h3>
+              <Link to="/savings">
+                <Button variant="ghost" size="sm">
+                  Gerir Metas na Poupança <ExternalLink className="ml-2 h-3 w-3" />
+                </Button>
+              </Link>
             </div>
 
-            <TabsContent value={selectedTab} className="mt-0">
-              {isLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {[1, 2, 3].map((i) => (
-                    <Card key={i} className="animate-pulse">
-                      <CardContent className="p-6">
-                        <div className="h-32 bg-muted rounded" />
-                      </CardContent>
-                    </Card>
-                  ))}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {savingsGoals.length === 0 ? (
+                <div className="col-span-full text-center py-8 text-muted-foreground bg-muted/30 rounded-lg">
+                  Nenhuma meta ativa encontrada no menu Poupança.
                 </div>
-              ) : filteredGoals.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Nenhuma meta ainda</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Comece a planejar seu futuro financeiro criando sua primeira meta.
-                    </p>
-                    <Button onClick={() => setIsDialogOpen(true)} className="gradient-primary">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Criar Primeira Meta
-                    </Button>
-                  </CardContent>
-                </Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredGoals.map((goal) => {
-                    const GoalIcon = getGoalIcon(goal.goal_type);
-                    const progress = goal.target_amount > 0 
-                      ? ((goal.current_amount || 0) / goal.target_amount) * 100 
-                      : 0;
-
-                    return (
-                      <Card key={goal.id} className={goal.is_fire_goal ? "border-amber-500/30" : ""}>
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${
-                              goal.is_fire_goal 
-                                ? "bg-gradient-to-br from-amber-500 to-orange-500" 
-                                : "bg-primary/10"
-                            }`}>
-                              {goal.is_fire_goal ? (
-                                <Flame className="h-6 w-6 text-white" />
-                              ) : (
-                                <GoalIcon className="h-6 w-6 text-primary" />
-                              )}
-                            </div>
-                            {goal.is_fire_goal && (
-                              <Badge className="badge-fire text-xs">FIRE</Badge>
-                            )}
-                          </div>
-
-                          <h3 className="font-semibold text-lg mb-1">{goal.name}</h3>
-                          {goal.description && (
-                            <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                              {goal.description}
-                            </p>
-                          )}
-
-                          <div className="space-y-3">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Progresso</span>
-                              <span className="font-medium">{progress.toFixed(1)}%</span>
-                            </div>
-                            <Progress value={progress} className="h-2" />
-                            
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">
-                                {formatCurrency(goal.current_amount || 0)}
-                              </span>
-                              <span className="font-medium">
-                                {formatCurrency(goal.target_amount)}
-                              </span>
-                            </div>
-
-                            {goal.target_date && (
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Calendar className="h-4 w-4" />
-                                <span>Meta: {new Date(goal.target_date).toLocaleDateString("pt-AO")}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <Button variant="ghost" className="w-full mt-4 group">
-                            Ver Detalhes
-                            <ChevronRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                savingsGoals.map((goal, idx) => {
+                  const progress = Math.min(((goal.saved_amount || 0) / goal.target_amount) * 100, 100);
+                  return (
+                    <div key={idx} className="bg-card border rounded-lg p-4 space-y-3">
+                      <div className="flex justify-between items-start">
+                        <span className="font-semibold truncate pr-2">{goal.name}</span>
+                        <span className="text-xs font-mono text-muted-foreground">
+                          {(goal.saved_amount || 0).toLocaleString('pt-AO')} Kz
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary transition-all"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-muted-foreground">
+                          <span>{progress.toFixed(0)}%</span>
+                          <span>Meta: {goal.target_amount.toLocaleString('pt-AO')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
               )}
-            </TabsContent>
-          </Tabs>
+            </div>
+          </div>
         </div>
-      </div>
+      </ModuleGuard>
     </AppLayout>
   );
 }

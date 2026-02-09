@@ -10,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { 
-  Plus, TrendingUp, TrendingDown, Trash2, Edit2, 
+import {
+  Plus, TrendingUp, TrendingDown, Trash2, Edit2,
   Wallet, PieChart, BarChart3, Coins, Building, Landmark, LineChart,
   ChevronRight, Calendar, Eye
 } from "lucide-react";
@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useAchievements } from "@/hooks/useAchievements";
 
 // Import new components
 import { InvestmentPortfolioSummary } from "@/components/investments/InvestmentPortfolioSummary";
@@ -27,7 +28,7 @@ import { InvestmentQuickActions } from "@/components/investments/InvestmentQuick
 import { InvestmentProducts } from "@/components/investments/InvestmentProducts";
 import { InvestmentSimulator } from "@/components/investments/InvestmentSimulator";
 import { InvestmentEducation } from "@/components/investments/InvestmentEducation";
-import { InvestmentOrderBook } from "@/components/investments/InvestmentOrderBook";
+
 
 interface Investment {
   id: string;
@@ -36,6 +37,7 @@ interface Investment {
   amount: number;
   current_value: number | null;
   expected_return: number | null;
+  return_frequency: 'monthly' | 'annual' | null;
   actual_return: number | null;
   start_date: string | null;
   maturity_date: string | null;
@@ -63,10 +65,12 @@ const RISK_LEVELS = [
 
 export default function Investments() {
   const { user } = useAuth();
+  const { unlockAchievement } = useAchievements();
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
+  const [reinforcingInvestment, setReinforcingInvestment] = useState<Investment | null>(null);
   const [activeView, setActiveView] = useState<"home" | "details">("home");
 
   const [newInvestment, setNewInvestment] = useState({
@@ -75,6 +79,7 @@ export default function Investments() {
     amount: '',
     current_value: '',
     expected_return: '',
+    return_frequency: 'annual' as 'monthly' | 'annual',
     start_date: format(new Date(), 'yyyy-MM-dd'),
     maturity_date: '',
     risk_level: 'medium',
@@ -99,13 +104,40 @@ export default function Investments() {
       return;
     }
 
-    setInvestments(data || []);
+    setInvestments((data || []).map((i: any) => ({
+      ...i,
+      return_frequency: i.return_frequency || 'annual'
+    })) as Investment[]);
     setLoading(false);
   };
 
   const createOrUpdateInvestment = async () => {
     if (!newInvestment.name || !newInvestment.type || !newInvestment.amount) {
       toast.error("Preencha nome, tipo e valor investido");
+      return;
+    }
+
+    // Handle reinforcement (adding capital to existing investment)
+    if (reinforcingInvestment) {
+      const additionalAmount = parseFloat(newInvestment.amount);
+      const newTotalAmount = reinforcingInvestment.amount + additionalAmount;
+      const newCurrentValue = (reinforcingInvestment.current_value || reinforcingInvestment.amount) + additionalAmount;
+
+      const { error } = await supabase
+        .from('investments')
+        .update({
+          amount: newTotalAmount,
+          current_value: newCurrentValue,
+        })
+        .eq('id', reinforcingInvestment.id);
+
+      if (error) {
+        toast.error("Erro ao reforçar investimento");
+        return;
+      }
+      toast.success(`Investimento reforçado com ${additionalAmount.toLocaleString('pt-AO')} Kz! 💰`);
+      resetForm();
+      fetchInvestments();
       return;
     }
 
@@ -116,6 +148,7 @@ export default function Investments() {
       amount: parseFloat(newInvestment.amount),
       current_value: parseFloat(newInvestment.current_value) || parseFloat(newInvestment.amount),
       expected_return: parseFloat(newInvestment.expected_return) || null,
+      // return_frequency: newInvestment.return_frequency || 'annual', // Uncomment after running migration
       start_date: newInvestment.start_date || null,
       maturity_date: newInvestment.maturity_date || null,
       risk_level: newInvestment.risk_level,
@@ -124,9 +157,10 @@ export default function Investments() {
     };
 
     if (editingInvestment) {
+      const { user_id, ...updateData } = investmentData;
       const { error } = await supabase
         .from('investments')
-        .update(investmentData)
+        .update(updateData)
         .eq('id', editingInvestment.id);
 
       if (error) {
@@ -144,6 +178,7 @@ export default function Investments() {
         return;
       }
       toast.success("Investimento registrado! 📈");
+      unlockAchievement('newbie_investor', 'Investidor Novato', 2);
     }
 
     resetForm();
@@ -168,12 +203,14 @@ export default function Investments() {
   const resetForm = () => {
     setDialogOpen(false);
     setEditingInvestment(null);
+    setReinforcingInvestment(null);
     setNewInvestment({
       name: '',
       type: '',
       amount: '',
       current_value: '',
       expected_return: '',
+      return_frequency: 'annual',
       start_date: format(new Date(), 'yyyy-MM-dd'),
       maturity_date: '',
       risk_level: 'medium',
@@ -189,6 +226,7 @@ export default function Investments() {
       amount: investment.amount.toString(),
       current_value: investment.current_value?.toString() || '',
       expected_return: investment.expected_return?.toString() || '',
+      return_frequency: investment.return_frequency || 'annual',
       start_date: investment.start_date || '',
       maturity_date: investment.maturity_date || '',
       risk_level: investment.risk_level || 'medium',
@@ -248,6 +286,34 @@ export default function Investments() {
     return ((currentValue - investment.amount) / investment.amount) * 100;
   };
 
+  const calculateExpectedReturn = (investment: Investment) => {
+    if (!investment.expected_return) return 0;
+    const rate = investment.expected_return / 100;
+    const amount = investment.current_value || investment.amount;
+
+    if (investment.return_frequency === 'monthly') {
+      return amount * rate; // Monthly return
+    }
+    return amount * rate; // Annual return
+  };
+
+  const openReinforceDialog = (investment: Investment) => {
+    setReinforcingInvestment(investment);
+    setNewInvestment({
+      name: investment.name,
+      type: investment.type,
+      amount: '',
+      current_value: '',
+      expected_return: investment.expected_return?.toString() || '',
+      return_frequency: investment.return_frequency || 'annual',
+      start_date: format(new Date(), 'yyyy-MM-dd'),
+      maturity_date: investment.maturity_date || '',
+      risk_level: investment.risk_level || 'medium',
+      notes: investment.notes || '',
+    });
+    setDialogOpen(true);
+  };
+
   if (loading) {
     return (
       <AppLayout title="Investimentos" subtitle="Sua carteira de investimentos">
@@ -299,7 +365,6 @@ export default function Investments() {
             {/* Quick Actions */}
             <InvestmentQuickActions
               onInvestNow={() => setDialogOpen(true)}
-              onReinvest={() => setDialogOpen(true)}
               onWithdraw={() => toast.info("Funcionalidade de resgate em breve!")}
               onViewDetails={() => setActiveView("details")}
             />
@@ -335,13 +400,9 @@ export default function Investments() {
                 }}
               />
 
-              {/* Right Column */}
               <div className="space-y-6">
                 {/* Simulator */}
                 <InvestmentSimulator />
-                
-                {/* Order Book */}
-                <InvestmentOrderBook />
               </div>
             </div>
 
@@ -473,15 +534,14 @@ export default function Investments() {
                                   <Badge variant="secondary" className="text-xs">
                                     {typeInfo.label}
                                   </Badge>
-                                  <Badge 
-                                    variant="outline" 
-                                    className={`text-xs ${
-                                      investment.risk_level === 'low' 
-                                        ? 'bg-success/10 text-success border-success/20'
-                                        : investment.risk_level === 'high'
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs ${investment.risk_level === 'low'
+                                      ? 'bg-success/10 text-success border-success/20'
+                                      : investment.risk_level === 'high'
                                         ? 'bg-destructive/10 text-destructive border-destructive/20'
                                         : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                                    }`}
+                                      }`}
                                   >
                                     Risco {riskInfo.label}
                                   </Badge>
@@ -490,6 +550,15 @@ export default function Investments() {
                             </div>
 
                             <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openReinforceDialog(investment)}
+                                className="text-xs"
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Reforçar
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -521,6 +590,11 @@ export default function Investments() {
                               <p className={`font-semibold ${returnPct >= 0 ? 'text-success' : 'text-destructive'}`}>
                                 {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%
                               </p>
+                              {investment.expected_return && (
+                                <p className="text-xs text-success mt-1">
+                                  +{calculateExpectedReturn(investment).toLocaleString('pt-AO')} Kz {investment.return_frequency === 'monthly' ? '/mês' : '/ano'}
+                                </p>
+                              )}
                             </div>
                           </div>
 
@@ -544,40 +618,52 @@ export default function Investments() {
         <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); else setDialogOpen(true); }}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>{editingInvestment ? 'Editar Investimento' : 'Registrar Investimento'}</DialogTitle>
+              <DialogTitle>
+                {reinforcingInvestment ? `Reforçar: ${reinforcingInvestment.name}` : editingInvestment ? 'Editar Investimento' : 'Registrar Investimento'}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto pr-2">
-              <div className="space-y-2">
-                <Label>Nome do Investimento</Label>
-                <Input
-                  placeholder="Ex: Poupança BFA, Obrigações 2027..."
-                  value={newInvestment.name}
-                  onChange={(e) => setNewInvestment({ ...newInvestment, name: e.target.value })}
-                />
-              </div>
+              {reinforcingInvestment && (
+                <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+                  <p className="text-sm font-medium">Valor atual: {((reinforcingInvestment.current_value || reinforcingInvestment.amount) + (parseFloat(newInvestment.amount) || 0)).toLocaleString('pt-AO')} Kz</p>
+                  <p className="text-xs text-muted-foreground mt-1">Original: {reinforcingInvestment.amount.toLocaleString('pt-AO')} Kz + Reforço: {(parseFloat(newInvestment.amount) || 0).toLocaleString('pt-AO')} Kz</p>
+                </div>
+              )}
+              {!reinforcingInvestment && (
+                <div className="space-y-2">
+                  <Label>Nome do Investimento</Label>
+                  <Input
+                    placeholder="Ex: Poupança BFA, Obrigações 2027..."
+                    value={newInvestment.name}
+                    onChange={(e) => setNewInvestment({ ...newInvestment, name: e.target.value })}
+                  />
+                </div>
+              )}
 
-              <div className="space-y-2">
-                <Label>Tipo de Investimento</Label>
-                <Select
-                  value={newInvestment.type}
-                  onValueChange={(value) => setNewInvestment({ ...newInvestment, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INVESTMENT_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.icon} {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {!reinforcingInvestment && (
+                <div className="space-y-2">
+                  <Label>Tipo de Investimento</Label>
+                  <Select
+                    value={newInvestment.type}
+                    onValueChange={(value) => setNewInvestment({ ...newInvestment, type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INVESTMENT_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.icon} {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Valor Investido (Kz)</Label>
+                  <Label>{reinforcingInvestment ? 'Valor a Adicionar (Kz)' : 'Valor Investido (Kz)'}</Label>
                   <Input
                     type="number"
                     placeholder="100000"
@@ -585,46 +671,77 @@ export default function Investments() {
                     onChange={(e) => setNewInvestment({ ...newInvestment, amount: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Valor Atual (Kz)</Label>
-                  <Input
-                    type="number"
-                    placeholder="105000"
-                    value={newInvestment.current_value}
-                    onChange={(e) => setNewInvestment({ ...newInvestment, current_value: e.target.value })}
-                  />
-                </div>
+                {!reinforcingInvestment && (
+                  <div className="space-y-2">
+                    <Label>Valor Atual (Kz)</Label>
+                    <Input
+                      type="number"
+                      placeholder="105000"
+                      value={newInvestment.current_value}
+                      onChange={(e) => setNewInvestment({ ...newInvestment, current_value: e.target.value })}
+                    />
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Retorno Esperado (% a.a.)</Label>
-                  <Input
-                    type="number"
-                    placeholder="8"
-                    value={newInvestment.expected_return}
-                    onChange={(e) => setNewInvestment({ ...newInvestment, expected_return: e.target.value })}
-                  />
+              {!reinforcingInvestment && (
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Retorno Esperado (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="10.5"
+                      value={newInvestment.expected_return}
+                      onChange={(e) => setNewInvestment({ ...newInvestment, expected_return: e.target.value })}
+                      disabled={reinforcingInvestment !== null}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Frequência</Label>
+                    <Select
+                      value={newInvestment.return_frequency}
+                      onValueChange={(value: 'monthly' | 'annual') => setNewInvestment({ ...newInvestment, return_frequency: value })}
+                      disabled={reinforcingInvestment !== null}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="annual">Anual</SelectItem>
+                        <SelectItem value="monthly">Mensal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nível de Risco</Label>
+                    <Select
+                      value={newInvestment.risk_level}
+                      onValueChange={(value) => setNewInvestment({ ...newInvestment, risk_level: value })}
+                      disabled={reinforcingInvestment !== null}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RISK_LEVELS.map((level) => (
+                          <SelectItem key={level.value} value={level.value}>
+                            {level.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Nível de Risco</Label>
-                  <Select
-                    value={newInvestment.risk_level}
-                    onValueChange={(value) => setNewInvestment({ ...newInvestment, risk_level: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {RISK_LEVELS.map((level) => (
-                        <SelectItem key={level.value} value={level.value}>
-                          {level.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              )}
+
+              {newInvestment.expected_return && parseFloat(newInvestment.expected_return) > 0 && parseFloat(newInvestment.amount) > 0 && (
+                <div className="p-3 bg-success/10 rounded-lg border border-success/20">
+                  <p className="text-sm font-medium text-success">
+                    Retorno Projetado: +{((parseFloat(newInvestment.amount) || 0) * (parseFloat(newInvestment.expected_return) / 100)).toLocaleString('pt-AO')} Kz {newInvestment.return_frequency === 'monthly' ? 'por mês' : 'por ano'}
+                  </p>
                 </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -660,13 +777,13 @@ export default function Investments() {
                   Cancelar
                 </Button>
                 <Button variant="accent" onClick={createOrUpdateInvestment}>
-                  {editingInvestment ? 'Atualizar' : 'Registrar'}
+                  {reinforcingInvestment ? 'Reforçar Investimento' : editingInvestment ? 'Atualizar' : 'Registrar'}
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
       </div>
-    </AppLayout>
+    </AppLayout >
   );
 }

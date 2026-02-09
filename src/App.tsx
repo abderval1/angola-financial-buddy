@@ -20,10 +20,13 @@ import Community from "./pages/Community";
 import Marketplace from "./pages/Marketplace";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
+import Achievements from "./pages/Achievements";
 import News from "./pages/News";
 import Calculators from "./pages/Calculators";
 import Prices from "./pages/Prices";
 import Monetization from "./pages/Monetization";
+import Notifications from "./pages/Notifications";
+import Plans from "./pages/Plans";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -88,6 +91,15 @@ const App = () => (
             } />
             <Route path="/admin" element={
               <ProtectedRoute><Admin /></ProtectedRoute>
+            } />
+            <Route path="/achievements" element={
+              <ProtectedRoute><Achievements /></ProtectedRoute>
+            } />
+            <Route path="/notifications" element={
+              <ProtectedRoute><Notifications /></ProtectedRoute>
+            } />
+            <Route path="/plans" element={
+              <ProtectedRoute><Plans /></ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
           </Routes>

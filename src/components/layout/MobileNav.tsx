@@ -43,6 +43,7 @@ const navigation = [
   { name: "Renda Extra", href: "/income", icon: Briefcase },
   { name: "Calculadoras", href: "/calculators", icon: Calculator },
   { name: "Comparar Preços", href: "/prices", icon: Tags },
+  { name: "Planos", href: "/plans", icon: Coins, badge: "PRO" },
   { name: "Monetização", href: "/monetization", icon: Coins, badge: "NOVO" },
   { name: "Análises", href: "/reports", icon: BarChart3 },
   { name: "Notícias", href: "/news", icon: Newspaper },
@@ -64,7 +65,7 @@ export function MobileNav() {
         .select("role")
         .eq("user_id", user?.id)
         .maybeSingle();
-      
+
       if (error) return null;
       return data?.role;
     },
@@ -184,7 +185,7 @@ export function MobileNav() {
               <Settings className="h-5 w-5 shrink-0" />
               <span className="font-medium">Configurações</span>
             </Link>
-            
+
             <button
               onClick={handleSignOut}
               className="flex w-full items-center gap-3 px-3 py-3 rounded-lg text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive transition-all duration-200 group"

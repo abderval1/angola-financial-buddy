@@ -24,6 +24,7 @@ import {
   Calculator,
   Tags,
   Coins,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ const navigation = [
   { name: "Comparar Preços", href: "/prices", icon: Tags },
   { name: "Monetização", href: "/monetization", icon: Coins, badge: "NOVO" },
   { name: "Análises", href: "/reports", icon: BarChart3 },
+  { name: "Conquistas", href: "/achievements", icon: Trophy },
   { name: "Notícias", href: "/news", icon: Newspaper },
   { name: "Comunidade", href: "/community", icon: Users },
   { name: "Marketplace", href: "/marketplace", icon: ShoppingBag },
@@ -67,7 +69,7 @@ export function AppSidebar() {
         .select("role")
         .eq("user_id", user?.id)
         .maybeSingle();
-      
+
       if (error) return null;
       return data?.role;
     },
@@ -206,7 +208,7 @@ export function AppSidebar() {
               </Link>
             );
           })}
-          
+
           <button
             onClick={handleSignOut}
             className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive transition-all duration-200 group"

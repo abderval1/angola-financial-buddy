@@ -15,7 +15,7 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(searchParams.get("mode") !== "register");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  
+
   // Referral code from URL
   const refCode = searchParams.get("ref");
 
@@ -53,19 +53,29 @@ export default function Auth() {
       }
       toast.success("Bem-vindo de volta!");
     } else {
-      const { error } = await signUp(formData.email, formData.password, formData.name);
+      const { error, data } = await signUp(formData.email, formData.password, formData.name);
       if (error) {
         toast.error(error.message || "Erro ao criar conta");
         setLoading(false);
         return;
       }
-      
+
+      // Explicitly create profile if signUp doesn't trigger it (safety measure)
+      // Note: Usually handled by Supabase triggers, but let's be explicit to ensure name is saved
+      if (data?.user) {
+        await supabase.from("profiles").upsert({
+          user_id: data.user.id,
+          name: formData.name,
+          email: formData.email,
+        });
+      }
+
       // Process referral code if provided
       if (formData.referralCode.trim()) {
         // Store referral code in localStorage to process after email confirmation
         localStorage.setItem("pendingReferralCode", formData.referralCode.trim().toUpperCase());
       }
-      
+
       toast.success("Conta criada! Verifique seu email para confirmar.");
     }
     setLoading(false);
@@ -165,12 +175,12 @@ export default function Auth() {
                 <Label htmlFor="referralCode" className="text-sm">Código de Convite (opcional)</Label>
                 <div className="relative">
                   <Gift className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    id="referralCode" 
-                    placeholder="Ex: ABC12345" 
-                    className="pl-10 h-10 sm:h-12 text-sm sm:text-base uppercase" 
-                    value={formData.referralCode} 
-                    onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })} 
+                  <Input
+                    id="referralCode"
+                    placeholder="Ex: ABC12345"
+                    className="pl-10 h-10 sm:h-12 text-sm sm:text-base uppercase"
+                    value={formData.referralCode}
+                    onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
                   />
                 </div>
                 {formData.referralCode && (

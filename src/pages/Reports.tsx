@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -7,13 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -53,20 +55,35 @@ const COLORS = ["#10b981", "#ef4444", "#3b82f6", "#8b5cf6", "#f59e0b", "#06b6d4"
 export default function Reports() {
   const { user } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState("6");
+  const [selectedType, setSelectedType] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+
+  // Fetch categories
+  const { data: categories = [] } = useQuery({
+    queryKey: ["transaction-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transaction_categories")
+        .select("*")
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   // Fetch transactions for the selected period
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions-report", selectedPeriod],
     queryFn: async () => {
       const startDate = format(subMonths(new Date(), parseInt(selectedPeriod)), "yyyy-MM-dd");
-      
+
       const { data, error } = await supabase
         .from("transactions")
         .select("*, transaction_categories(name, icon, color)")
         .eq("user_id", user?.id)
         .gte("date", startDate)
         .order("date", { ascending: true });
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -81,7 +98,7 @@ export default function Reports() {
         .from("savings_goals")
         .select("*")
         .eq("user_id", user?.id);
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -96,7 +113,7 @@ export default function Reports() {
         .from("debts")
         .select("*")
         .eq("user_id", user?.id);
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -111,33 +128,44 @@ export default function Reports() {
         .from("investments")
         .select("*")
         .eq("user_id", user?.id);
-      
+
       if (error) throw error;
       return data || [];
     },
     enabled: !!user?.id,
   });
 
+  // Apply filters to transactions
+  const filteredTransactions = transactions.filter(t => {
+    const matchesType = selectedType === "all" || t.type === selectedType;
+    const matchesCategory = selectedCategory === "all" || t.category_id === selectedCategory;
+    return matchesType && matchesCategory;
+  });
+
   // Process data for charts
   const monthlyData = [];
-  for (let i = parseInt(selectedPeriod) - 1; i >= 0; i--) {
+  const periodsToProcess = parseInt(selectedPeriod);
+
+  for (let i = periodsToProcess - 1; i >= 0; i--) {
     const date = subMonths(new Date(), i);
     const monthStart = startOfMonth(date);
     const monthEnd = endOfMonth(date);
-    
-    const monthTransactions = transactions.filter(t => {
+
+    // Use filtered transactions for monthly data if we want the charts to reflect filters
+    // Usually, charts reflect the current filter context
+    const monthTransactions = filteredTransactions.filter(t => {
       const tDate = new Date(t.date);
       return tDate >= monthStart && tDate <= monthEnd;
     });
-    
+
     const income = monthTransactions
       .filter(t => t.type === "income")
       .reduce((sum, t) => sum + t.amount, 0);
-    
+
     const expense = monthTransactions
       .filter(t => t.type === "expense")
       .reduce((sum, t) => sum + t.amount, 0);
-    
+
     monthlyData.push({
       month: format(date, "MMM", { locale: pt }),
       receitas: income,
@@ -147,7 +175,7 @@ export default function Reports() {
   }
 
   // Category breakdown
-  const categoryData = transactions
+  const categoryData = filteredTransactions
     .filter(t => t.type === "expense")
     .reduce((acc, t) => {
       const categoryName = t.transaction_categories?.name || "Outros";
@@ -164,12 +192,46 @@ export default function Reports() {
   }));
 
   // Summary calculations
-  const totalIncome = transactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
-  const totalExpenses = transactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+  const totalIncome = filteredTransactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
+  const totalExpenses = filteredTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
   const totalSavings = savingsGoals.reduce((sum, g) => sum + (g.saved_amount || 0), 0);
   const totalDebt = debts.filter(d => d.status !== "paid").reduce((sum, d) => sum + (d.current_amount || 0), 0);
   const totalInvestments = investments.reduce((sum, i) => sum + (i.current_value || i.amount), 0);
   const netWorth = totalSavings + totalInvestments - totalDebt;
+
+  const exportToExcel = () => {
+    if (filteredTransactions.length === 0) {
+      toast.error("Nenhum dado para exportar");
+      return;
+    }
+
+    // CSV format
+    const headers = ["Data", "Descrição", "Categoria", "Tipo", "Valor (AOA)"];
+    const rows = filteredTransactions.map(t => [
+      format(new Date(t.date), "dd/MM/yyyy"),
+      t.description || "",
+      t.transaction_categories?.name || "Geral",
+      t.type === "income" ? "Receita" : "Despesa",
+      t.amount.toString()
+    ]);
+
+    const csvContent = [
+      headers.join(";"),
+      ...rows.map(row => row.join(";"))
+    ].join("\n");
+
+    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `relatorio_financeiro_${format(new Date(), "yyyyMMdd")}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success("Excel (CSV) exportado com sucesso!");
+  };
 
   return (
     <AppLayout title="Análises & Relatórios" subtitle="Visualize sua saúde financeira de forma completa">
@@ -191,13 +253,69 @@ export default function Reports() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline">
-              <Filter className="h-4 w-4 mr-2" />
-              Filtros
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filtros
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4" align="start">
+                <div className="space-y-4">
+                  <h4 className="font-medium leading-none mb-2">Refinar Análise</h4>
+
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Tipo</label>
+                    <Select value={selectedType} onValueChange={setSelectedType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos os tipos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os tipos</SelectItem>
+                        <SelectItem value="income">Receitas</SelectItem>
+                        <SelectItem value="expense">Despesas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Categoria</label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas as categorias" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as categorias</SelectItem>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    className="w-full text-xs"
+                    onClick={() => {
+                      setSelectedType("all");
+                      setSelectedCategory("all");
+                    }}
+                  >
+                    Limpar Filtros
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Button variant="outline" onClick={exportToExcel}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar Excel
             </Button>
             <Button className="gradient-primary">
               <Download className="h-4 w-4 mr-2" />
-              Exportar PDF
+              PDF
             </Button>
           </div>
         </div>
@@ -283,15 +401,15 @@ export default function Reports() {
                   <BarChart data={monthlyData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="month" className="text-xs" />
-                    <YAxis 
-                      className="text-xs" 
+                    <YAxis
+                      className="text-xs"
                       tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
                     />
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value: number) => formatCurrency(value)}
                       labelStyle={{ color: "hsl(var(--foreground))" }}
-                      contentStyle={{ 
-                        backgroundColor: "hsl(var(--card))", 
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px",
                       }}
@@ -329,10 +447,10 @@ export default function Reports() {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip 
+                      <Tooltip
                         formatter={(value: number) => formatCurrency(value)}
-                        contentStyle={{ 
-                          backgroundColor: "hsl(var(--card))", 
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
                           border: "1px solid hsl(var(--border))",
                           borderRadius: "8px",
                         }}
@@ -361,24 +479,24 @@ export default function Reports() {
                   <AreaChart data={monthlyData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="month" className="text-xs" />
-                    <YAxis 
-                      className="text-xs" 
+                    <YAxis
+                      className="text-xs"
                       tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
                     />
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value: number) => formatCurrency(value)}
-                      contentStyle={{ 
-                        backgroundColor: "hsl(var(--card))", 
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px",
                       }}
                     />
-                    <Area 
-                      type="monotone" 
-                      dataKey="saldo" 
-                      name="Saldo" 
-                      stroke="hsl(var(--primary))" 
-                      fill="hsl(var(--primary) / 0.2)" 
+                    <Area
+                      type="monotone"
+                      dataKey="saldo"
+                      name="Saldo"
+                      stroke="hsl(var(--primary))"
+                      fill="hsl(var(--primary) / 0.2)"
                       strokeWidth={2}
                     />
                   </AreaChart>

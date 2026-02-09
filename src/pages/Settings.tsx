@@ -13,6 +13,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAchievements } from "@/hooks/useAchievements";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 
 interface NotificationPreferences {
   email: boolean;
@@ -35,7 +37,12 @@ interface Profile {
 export default function Settings() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  
+  const { unlockAchievement, awardXP } = useAchievements();
+
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -59,9 +66,9 @@ export default function Settings() {
         .select("*")
         .eq("user_id", user.id)
         .single();
-      
+
       if (error && error.code !== "PGRST116") throw error;
-      
+
       if (data) {
         return {
           ...data,
@@ -97,11 +104,18 @@ export default function Settings() {
     }
   }, [profile, user]);
 
+  // Auto-check achievement when profile data is ready
+  useEffect(() => {
+    if (profile?.name && profile?.phone && profile?.avatar_url) {
+      checkProfileCompletion(profile.name, profile.phone, profile.avatar_url);
+    }
+  }, [profile]);
+
   // Update profile mutation
   const updateProfile = useMutation({
     mutationFn: async (data: typeof formData) => {
       if (!user?.id) throw new Error("User not authenticated");
-      
+
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -113,12 +127,18 @@ export default function Settings() {
           updated_at: new Date().toISOString(),
         })
         .eq("user_id", user.id);
-      
+
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       toast.success("Perfil atualizado com sucesso!");
+
+      // Award XP for updating profile (once)
+      await awardXP(1, "Perfil atualizado");
+
+      // Check for achievement
+      await checkProfileCompletion();
     },
     onError: (error) => {
       console.error("Error updating profile:", error);
@@ -126,9 +146,87 @@ export default function Settings() {
     },
   });
 
+  // Change password mutation
+  const updatePasswordMutation = useMutation({
+    mutationFn: async (password: string) => {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      toast.success("Senha alterada com sucesso!");
+      setIsPasswordDialogOpen(false);
+      setNewPassword("");
+      setConfirmPassword("");
+      await awardXP(1, "Segurança reforçada (Senha alterada)");
+      await unlockAchievement('organized', 'Foco em Segurança', 2); // Reusing/Adding logic
+    },
+    onError: (error: any) => {
+      toast.error("Erro ao alterar senha: " + error.message);
+    }
+  });
+
+  // Upload avatar mutation
+  const uploadAvatar = useMutation({
+    mutationFn: async (file: File) => {
+      if (!user?.id) throw new Error("User not authenticated");
+
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/${Math.random()}.${fileExt}`;
+
+      // Upload image
+      const { error: uploadError, data } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      return publicUrl;
+    },
+    onSuccess: async (publicUrl: string) => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast.success("Foto de perfil atualizada!");
+      await awardXP(1, "Personalizou o perfil (Foto)");
+
+      // Check for achievement
+      await checkProfileCompletion(undefined, undefined, publicUrl);
+    },
+    onError: (error: any) => {
+      toast.error("Erro ao carregar foto: " + error.message);
+    }
+  });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      uploadAvatar.mutate(e.target.files[0]);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateProfile.mutate(formData);
+  };
+
+  const checkProfileCompletion = async (currentName?: string, currentPhone?: string, currentAvatar?: string) => {
+    const name = currentName || formData.name;
+    const phone = currentPhone || formData.phone;
+    const avatar = currentAvatar || profile?.avatar_url;
+
+    if (name && phone && avatar) {
+      await unlockAchievement('profile_complete', 'Perfil Completo', 2);
+    }
   };
 
   const getUserInitials = () => {
@@ -176,12 +274,22 @@ export default function Settings() {
                 </AvatarFallback>
               </Avatar>
               <div>
-                <Button type="button" variant="outline" size="sm" disabled>
-                  <Camera className="h-4 w-4 mr-2" />
-                  Alterar foto
-                </Button>
+                <Label htmlFor="avatar-upload" className="cursor-pointer">
+                  <div className="flex items-center gap-2 px-4 py-2 border rounded-md hover:bg-muted transition-colors">
+                    <Camera className="h-4 w-4" />
+                    <span className="text-sm font-medium">Alterar foto</span>
+                  </div>
+                  <Input
+                    id="avatar-upload"
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    disabled={uploadAvatar.isPending}
+                  />
+                </Label>
                 <p className="text-xs text-muted-foreground mt-1">
-                  JPG, PNG ou GIF. Máximo 2MB.
+                  {uploadAvatar.isPending ? "Carregando..." : "JPG, PNG ou GIF. Máximo 2MB."}
                 </p>
               </div>
             </div>
@@ -362,9 +470,50 @@ export default function Settings() {
                   Atualize sua senha de acesso
                 </p>
               </div>
-              <Button type="button" variant="outline" size="sm" disabled>
-                Alterar
-              </Button>
+              <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button type="button" variant="outline" size="sm">
+                    Alterar
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Alterar senha</DialogTitle>
+                    <DialogDescription>
+                      Introduza a sua nova senha abaixo.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">Nova Senha</Label>
+                      <Input
+                        id="new-password"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirmar Senha</Label>
+                      <Input
+                        id="confirm-password"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>Cancelar</Button>
+                    <Button
+                      disabled={!newPassword || newPassword !== confirmPassword || updatePasswordMutation.isPending}
+                      onClick={() => updatePasswordMutation.mutate(newPassword)}
+                    >
+                      {updatePasswordMutation.isPending ? "Alterando..." : "Confirmar"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
             <Separator />
             <div className="flex items-center justify-between">

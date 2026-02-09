@@ -15,7 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PublicChat } from "@/components/community/PublicChat";
+import { DiscussionDialog } from "@/components/community/DiscussionDialog";
 import { toast } from "sonner";
+import { useAchievements } from "@/hooks/useAchievements";
 import {
   Users,
   Trophy,
@@ -32,16 +34,25 @@ import {
   CheckCircle,
   BookOpen,
   Edit,
+  Trash2,
+  X,
+  Pencil,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
+import { useEffect } from "react";
 
 export default function Community() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { awardXP, unlockAchievement } = useAchievements();
   const [selectedTab, setSelectedTab] = useState("chat");
   const [isPostDialogOpen, setIsPostDialogOpen] = useState(false);
   const [postContent, setPostContent] = useState({ title: "", content: "", category: "tips" });
+  const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [isDiscussionDialogOpen, setIsDiscussionDialogOpen] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingPostForm, setEditingPostForm] = useState({ title: "", content: "", category: "tips" });
 
   // Fetch user gamification
   const { data: gamification } = useQuery({
@@ -52,7 +63,7 @@ export default function Community() {
         .select("*")
         .eq("user_id", user?.id)
         .maybeSingle();
-      
+
       if (error) throw error;
       return data;
     },
@@ -68,7 +79,7 @@ export default function Community() {
         .select("*")
         .eq("is_active", true)
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -82,7 +93,7 @@ export default function Community() {
         .from("user_challenges")
         .select("*, challenges(*)")
         .eq("user_id", user?.id);
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -98,7 +109,7 @@ export default function Community() {
         .select("*")
         .order("total_points", { ascending: false })
         .limit(20);
-      
+
       if (error) throw error;
 
       // Fetch profiles separately
@@ -109,12 +120,52 @@ export default function Community() {
         .in("user_id", userIds);
 
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
-      
-      return (gamData || []).map(g => ({
-        ...g,
-        profile_name: profileMap.get(g.user_id)?.name || profileMap.get(g.user_id)?.email?.split("@")[0] || "Usuário",
-      }));
+
+      return (gamData || []).map(g => {
+        const profile = profileMap.get(g.user_id);
+        return {
+          ...g,
+          profile_name: profile?.name || profile?.email?.split("@")[0] || "Usuário",
+        };
+      });
     },
+  });
+
+  // Real-time updates for community posts
+  useEffect(() => {
+    const channel = supabase
+      .channel("community-posts-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "community_posts",
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["community-posts"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  // Fetch post reactions for the current user
+  const { data: userReactions = [] } = useQuery({
+    queryKey: ["user-post-reactions", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("post_reactions")
+        .select("post_id")
+        .eq("user_id", user?.id);
+
+      if (error) throw error;
+      return data.map(r => r.post_id);
+    },
+    enabled: !!user?.id,
   });
 
   // Fetch community posts
@@ -127,22 +178,25 @@ export default function Community() {
         .eq("is_approved", true)
         .order("created_at", { ascending: false })
         .limit(20);
-      
+
       if (error) throw error;
 
       // Fetch profiles
       const userIds = [...new Set(postsData?.map(p => p.user_id) || [])];
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("user_id, name")
+        .select("user_id, name, email")
         .in("user_id", userIds);
 
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
 
-      return (postsData || []).map(p => ({
-        ...p,
-        author_name: profileMap.get(p.user_id)?.name || "Usuário",
-      }));
+      return (postsData || []).map(p => {
+        const profile = profileMap.get(p.user_id);
+        return {
+          ...p,
+          author_name: profile?.name || profile?.email?.split("@")[0] || "Usuário",
+        };
+      });
     },
   });
 
@@ -157,7 +211,7 @@ export default function Community() {
           status: "active",
           current_progress: 0,
         });
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -185,7 +239,7 @@ export default function Community() {
           points_earned: pointsToAdd,
         })
         .eq("id", userChallengeId);
-      
+
       if (ucError) throw ucError;
 
       if (gamification) {
@@ -197,7 +251,7 @@ export default function Community() {
             last_activity_at: new Date().toISOString(),
           })
           .eq("user_id", user?.id);
-        
+
         if (gamError) throw gamError;
       }
     },
@@ -223,6 +277,7 @@ export default function Community() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["community-posts"] });
       toast.success("Post publicado!");
+      unlockAchievement('active_member', 'Membro Ativo', 2);
       setIsPostDialogOpen(false);
       setPostContent({ title: "", content: "", category: "tips" });
     },
@@ -231,18 +286,133 @@ export default function Community() {
     },
   });
 
-  // Like post mutation
+  // Like/Reaction post mutation (Toggle logic)
   const likePostMutation = useMutation({
     mutationFn: async (postId: string) => {
+      if (!user?.id) throw new Error("Não autenticado");
+
       const post = posts.find((p: any) => p.id === postId);
+      if (!post) return;
+
+      const hasLiked = userReactions.includes(postId);
+
+      if (hasLiked) {
+        // UNLIKE: Remove reaction and decrement
+        const { error: rxError } = await supabase
+          .from("post_reactions")
+          .delete()
+          .eq("post_id", postId)
+          .eq("user_id", user.id);
+
+        if (rxError) throw rxError;
+
+        const { error: postError } = await supabase
+          .from("community_posts")
+          .update({ likes_count: Math.max(0, (post.likes_count || 1) - 1) })
+          .eq("id", postId);
+
+        if (postError) throw postError;
+      } else {
+        // LIKE: Add reaction and increment
+        const { error: rxError } = await supabase
+          .from("post_reactions")
+          .insert({
+            post_id: postId,
+            user_id: user.id,
+            emoji: "❤️"
+          });
+
+        if (rxError) throw rxError;
+
+        const { error: postError } = await supabase
+          .from("community_posts")
+          .update({ likes_count: (post.likes_count || 0) + 1 })
+          .eq("id", postId);
+
+        if (postError) throw postError;
+
+        // Award XP only on new likes
+        await awardXP(1, "Curtiu um post");
+
+        // Award XP to the author
+        if (post.user_id !== user.id) {
+          const { data: authorGam } = await supabase
+            .from("user_gamification")
+            .select("total_points")
+            .eq("user_id", post.user_id)
+            .maybeSingle();
+
+          await supabase
+            .from("user_gamification")
+            .upsert({
+              user_id: post.user_id,
+              total_points: (authorGam?.total_points || 0) + 1,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id' });
+
+          // Check for Helper achievement (5 likes)
+          const postLikes = (post.likes_count || 0) + 1;
+          if (postLikes >= 5) {
+            await unlockAchievement('helper', 'Ajudante', 2);
+          }
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["community-posts"] });
+      queryClient.invalidateQueries({ queryKey: ["user-post-reactions"] });
+    },
+    onError: (error: any) => {
+      console.error("Like error:", error);
+      toast.error("Erro ao atualizar reação");
+    }
+  });
+
+  // Edit post mutation
+  const editPostMutation = useMutation({
+    mutationFn: async (post: { id: string; title: string; content: string; category: string }) => {
       const { error } = await supabase
         .from("community_posts")
-        .update({ likes_count: (post?.likes_count || 0) + 1 })
-        .eq("id", postId);
+        .update({
+          title: post.title,
+          content: post.content,
+          category: post.category,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", post.id)
+        .eq("user_id", user?.id);
+
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["community-posts"] });
+      toast.success("Discussão atualizada!");
+      setEditingPostId(null);
+    },
+    onError: (error: any) => {
+      toast.error("Erro ao editar discussão");
+      console.error(error);
+    },
+  });
+
+  // Delete post mutation
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      const { error } = await supabase
+        .from("community_posts")
+        .delete()
+        .eq("id", postId)
+        .eq("user_id", user?.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["community-posts"] });
+      toast.success("Discussão removida!");
+    },
+    onError: (error: any) => {
+      toast.error("Erro ao remover discussão");
+      console.error(error);
     },
   });
 
@@ -295,7 +465,9 @@ export default function Community() {
                   <Trophy className="h-5 w-5 text-amber-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{gamification?.total_points || 0}</p>
+                  <p className="text-2xl font-bold text-foreground">
+                    {Number(gamification?.total_points || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                  </p>
                   <p className="text-sm text-muted-foreground">Pontos Totais</p>
                 </div>
               </div>
@@ -392,7 +564,7 @@ export default function Community() {
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Star className="h-5 w-5 text-amber-500" />
-                      Top Membros
+                      Melhores comentadores
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -409,7 +581,9 @@ export default function Community() {
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate text-foreground">{r.profile_name}</p>
-                            <p className="text-xs text-muted-foreground">{r.total_points} pts</p>
+                            <p className="text-xs text-muted-foreground">
+                              {Number(r.total_points || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} pts
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -497,38 +671,130 @@ export default function Community() {
             ) : (
               <div className="space-y-4">
                 {posts.map((post: any) => (
-                  <Card key={post.id} className="hover:shadow-md transition-shadow">
+                  <Card
+                    key={post.id}
+                    className="hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => {
+                      setSelectedPost(post);
+                      setIsDiscussionDialogOpen(true);
+                    }}
+                  >
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="secondary" className="text-xs">
-                              {post.category === "tips" ? "Dicas" :
-                               post.category === "question" ? "Pergunta" :
-                               post.category === "success" ? "Sucesso" : "Discussão"}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: pt })}
-                            </span>
-                          </div>
-                          <h4 className="font-semibold text-lg mb-2 text-foreground">{post.title}</h4>
-                          <p className="text-muted-foreground line-clamp-2">{post.content}</p>
-                          <div className="flex items-center gap-4 mt-3">
-                            <span className="text-sm text-muted-foreground">por {post.author_name}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => likePostMutation.mutate(post.id)}
-                              className="text-muted-foreground hover:text-destructive"
-                            >
-                              <Heart className="h-4 w-4 mr-1" />
-                              {post.likes_count || 0}
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-muted-foreground">
-                              <MessageCircle className="h-4 w-4 mr-1" />
-                              {post.comments_count || 0}
-                            </Button>
-                          </div>
+                          {editingPostId === post.id ? (
+                            <div className="space-y-4" onClick={(e) => e.stopPropagation()}>
+                              <div className="space-y-2">
+                                <Label>Título</Label>
+                                <Input
+                                  value={editingPostForm.title}
+                                  onChange={(e) => setEditingPostForm({ ...editingPostForm, title: e.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Categoria</Label>
+                                <Select
+                                  value={editingPostForm.category}
+                                  onValueChange={(v) => setEditingPostForm({ ...editingPostForm, category: v })}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="tips">Dicas</SelectItem>
+                                    <SelectItem value="question">Pergunta</SelectItem>
+                                    <SelectItem value="success">Sucesso</SelectItem>
+                                    <SelectItem value="discussion">Discussão</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Conteúdo</Label>
+                                <Textarea
+                                  value={editingPostForm.content}
+                                  onChange={(e) => setEditingPostForm({ ...editingPostForm, content: e.target.value })}
+                                />
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                <Button variant="ghost" onClick={() => setEditingPostId(null)}>
+                                  Cancelar
+                                </Button>
+                                <Button onClick={() => editPostMutation.mutate({ id: post.id, ...editingPostForm })}>
+                                  Salvar Alterações
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {post.category === "tips" ? "Dicas" :
+                                      post.category === "question" ? "Pergunta" :
+                                        post.category === "success" ? "Sucesso" : "Discussão"}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: pt })}
+                                  </span>
+                                </div>
+
+                                {post.user_id === user?.id && (
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingPostId(post.id);
+                                        setEditingPostForm({
+                                          title: post.title,
+                                          content: post.content,
+                                          category: post.category
+                                        });
+                                      }}
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm("Apagar esta discussão permanentemente?")) {
+                                          deletePostMutation.mutate(post.id);
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                              <h4 className="font-semibold text-lg mb-2 text-foreground">{post.title}</h4>
+                              <p className="text-muted-foreground line-clamp-2">{post.content}</p>
+                              <div className="flex items-center gap-4 mt-3">
+                                <span className="text-sm text-muted-foreground">por {post.author_name}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    likePostMutation.mutate(post.id);
+                                  }}
+                                  className={userReactions.includes(post.id) ? "text-destructive" : "text-muted-foreground hover:text-destructive"}
+                                >
+                                  <Heart className={`h-4 w-4 mr-1 ${userReactions.includes(post.id) ? "fill-current" : ""}`} />
+                                  {post.likes_count || 0}
+                                </Button>
+                                <Button variant="ghost" size="sm" className="text-muted-foreground">
+                                  <MessageCircle className="h-4 w-4 mr-1" />
+                                  {post.comments_count || 0}
+                                </Button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -594,23 +860,23 @@ export default function Community() {
                             <Star className="h-3 w-3 mr-1" />
                             +{challenge.points_reward} pts
                           </Badge>
-                          
+
                           {isCompleted ? (
                             <Badge className="bg-success/10 text-success">
                               <CheckCircle className="h-3 w-3 mr-1" />
                               Concluído
                             </Badge>
                           ) : isJoined ? (
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               onClick={() => completeChallengeMutation.mutate(userChallenge.id)}
                             >
                               Concluir
                               <ChevronRight className="h-4 w-4 ml-1" />
                             </Button>
                           ) : (
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               className="gradient-primary"
                               onClick={() => joinChallengeMutation.mutate(challenge.id)}
                             >
@@ -633,9 +899,9 @@ export default function Community() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-amber-500" />
-                  Ranking Geral
+                  Ranking Geral: Melhores comentadores
                 </CardTitle>
-                <CardDescription>Os melhores poupadores de Angola</CardDescription>
+                <CardDescription>Os membros mais ativos da nossa comunidade</CardDescription>
               </CardHeader>
               <CardContent>
                 {isLoadingRanking ? (
@@ -652,11 +918,10 @@ export default function Community() {
                     {ranking.map((r: any, index: number) => (
                       <div
                         key={r.id}
-                        className={`flex items-center gap-4 p-4 rounded-xl transition-colors ${
-                          r.user_id === user?.id 
-                            ? "bg-primary/10 border-2 border-primary/20" 
-                            : "bg-muted/50"
-                        }`}
+                        className={`flex items-center gap-4 p-4 rounded-xl transition-colors ${r.user_id === user?.id
+                          ? "bg-primary/10 border-2 border-primary/20"
+                          : "bg-muted/50"
+                          }`}
                       >
                         <div className="w-10 h-10 flex items-center justify-center">
                           {index === 0 ? (
@@ -686,7 +951,9 @@ export default function Community() {
                         </div>
 
                         <div className="text-right">
-                          <p className="font-bold text-lg text-foreground">{r.total_points || 0}</p>
+                          <p className="font-bold text-lg text-foreground">
+                            {Number(r.total_points || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                          </p>
                           <p className="text-xs text-muted-foreground">pontos</p>
                         </div>
 
@@ -703,6 +970,12 @@ export default function Community() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <DiscussionDialog
+        post={selectedPost}
+        isOpen={isDiscussionDialogOpen}
+        onOpenChange={setIsDiscussionDialogOpen}
+      />
     </AppLayout>
   );
 }

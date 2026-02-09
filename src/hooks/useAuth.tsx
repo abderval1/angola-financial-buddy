@@ -1,13 +1,13 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { lovable } from '@/integrations/lovable';
+// Removed lovable to be 100% independent
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null; data: any }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -40,10 +40,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      const syncProfile = async () => {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name, status")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        // Check for suspension/ban
+        if (profile?.status === 'suspended' || profile?.status === 'banned') {
+          await supabase.auth.signOut();
+          // We can't use toast here easily if it's not imported or outside provider context, 
+          // but we can rely on the redirect or UI state.
+          // Ideally, we'd have a way to notify, but strict security first.
+          window.location.href = '/auth?error=suspended';
+          return;
+        }
+
+        if ((!profile || !profile.name) && user.email) {
+          await supabase.from("profiles").upsert({
+            user_id: user.id,
+            name: user.user_metadata?.name || profile?.name || '',
+            email: user.email,
+            status: 'active'
+          });
+        }
+      };
+
+      syncProfile();
+    }
+  }, [user]);
+
   const signUp = async (email: string, password: string, name?: string) => {
     const redirectUrl = `${window.location.origin}/dashboard`;
-    
-    const { error } = await supabase.auth.signUp({
+
+    const result = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -53,8 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     });
-    
-    return { error };
+
+    return { error: result.error, data: result.data };
   };
 
   const signIn = async (email: string, password: string) => {
@@ -62,16 +95,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
     });
-    
+
     return { error };
   };
 
   const signInWithGoogle = async () => {
-    const result = await lovable.auth.signInWithOAuth('google', {
-      redirect_uri: `${window.location.origin}/dashboard`,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth`,
+      },
     });
-    
-    return { error: result.error };
+
+    return { error };
   };
 
   const signOut = async () => {

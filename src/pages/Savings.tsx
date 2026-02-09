@@ -3,19 +3,23 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Plus, Target, PiggyBank, Calendar, TrendingUp, Award, 
-  Play, Pause, Trash2, Sparkles, Trophy, Star, Zap
+import {
+  Plus, Target, PiggyBank, Calendar, Trophy,
+  Play, Pause, Trash2, Edit2,
+  History
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, differenceInMonths, addMonths, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { pt } from "date-fns/locale";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAchievements } from "@/hooks/useAchievements";
 
 interface SavingsGoal {
   id: string;
@@ -31,15 +35,6 @@ interface SavingsGoal {
   color: string | null;
 }
 
-interface Achievement {
-  id: string;
-  name: string;
-  description: string | null;
-  icon: string | null;
-  points: number | null;
-  category: string | null;
-  requirement: unknown;
-}
 
 const GOAL_ICONS = [
   { name: 'Emergência', icon: '🛡️', color: 'emerald' },
@@ -54,15 +49,21 @@ const GOAL_ICONS = [
 
 export default function Savings() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { unlockAchievement } = useAchievements();
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [userAchievements, setUserAchievements] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
-  const [simulatorOpen, setSimulatorOpen] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<SavingsGoal | null>(null);
+  const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [transactionType, setTransactionType] = useState<'deposit' | 'withdraw'>('deposit');
   const [depositAmount, setDepositAmount] = useState('');
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [activeHistoryGoal, setActiveHistoryGoal] = useState<SavingsGoal | null>(null);
+  const [goalTransactions, setGoalTransactions] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const [newGoal, setNewGoal] = useState({
     name: '',
@@ -74,12 +75,7 @@ export default function Savings() {
     color: 'gray',
   });
 
-  const [simulator, setSimulator] = useState({
-    initial: 0,
-    monthly: 5000,
-    rate: 5,
-    years: 5,
-  });
+
 
   useEffect(() => {
     if (user) {
@@ -89,7 +85,7 @@ export default function Savings() {
 
   const fetchData = async () => {
     setLoading(true);
-    await Promise.all([fetchGoals(), fetchAchievements()]);
+    await fetchGoals();
     setLoading(false);
   };
 
@@ -100,31 +96,13 @@ export default function Savings() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast.error("Erro ao carregar metas");
+      toast.error(`Erro ao carregar metas: ${error.message}`);
       return;
     }
 
     setGoals(data || []);
   };
 
-  const fetchAchievements = async () => {
-    const { data: allAchievements, error: achError } = await supabase
-      .from('achievements')
-      .select('*')
-      .eq('category', 'savings');
-
-    if (achError) {
-      console.error('Error fetching achievements:', achError);
-      return;
-    }
-
-    const { data: userAch } = await supabase
-      .from('user_achievements')
-      .select('achievement_id');
-
-    setAchievements(allAchievements || []);
-    setUserAchievements((userAch || []).map(a => a.achievement_id));
-  };
 
   const createGoal = async () => {
     if (!newGoal.name || !newGoal.target_amount) {
@@ -147,11 +125,12 @@ export default function Savings() {
       });
 
     if (error) {
-      toast.error("Erro ao criar meta");
+      toast.error(`Erro ao criar meta: ${error.message}`);
       return;
     }
 
     toast.success("Meta criada com sucesso! 🎯");
+    unlockAchievement('first_goal', 'Primeiro Passo', 2);
     setDialogOpen(false);
     setNewGoal({
       name: '',
@@ -165,75 +144,20 @@ export default function Savings() {
     fetchGoals();
   };
 
-  const makeDeposit = async () => {
-    if (!selectedGoal || !depositAmount) {
-      toast.error("Informe o valor do depósito");
-      return;
-    }
-
-    const newSavedAmount = (selectedGoal.saved_amount || 0) + parseFloat(depositAmount);
-    const isCompleted = newSavedAmount >= selectedGoal.target_amount;
-
+  const updateGoal = async (id: string, updatedData: Partial<SavingsGoal>) => {
     const { error } = await supabase
       .from('savings_goals')
-      .update({
-        saved_amount: newSavedAmount,
-        status: isCompleted ? 'completed' : 'active',
-      })
-      .eq('id', selectedGoal.id);
-
-    if (error) {
-      toast.error("Erro ao fazer depósito");
-      return;
-    }
-
-    if (isCompleted) {
-      toast.success("🎉 Parabéns! Você atingiu sua meta!", { duration: 5000 });
-      // Check for achievement
-      checkAndAwardAchievement();
-    } else {
-      toast.success("Depósito realizado com sucesso! 💰");
-    }
-
-    setDepositDialogOpen(false);
-    setDepositAmount('');
-    setSelectedGoal(null);
-    fetchGoals();
-  };
-
-  const checkAndAwardAchievement = async () => {
-    // Find the "goal completed" achievement
-    const goalAchievement = achievements.find(a => 
-      a.requirement && JSON.parse(JSON.stringify(a.requirement)).type === 'goal_completed'
-    );
-    
-    if (goalAchievement && !userAchievements.includes(goalAchievement.id)) {
-      await supabase
-        .from('user_achievements')
-        .insert({
-          user_id: user?.id,
-          achievement_id: goalAchievement.id,
-        });
-      
-      toast.success(`🏆 Conquista desbloqueada: ${goalAchievement.name}!`, { duration: 5000 });
-      fetchAchievements();
-    }
-  };
-
-  const toggleGoalStatus = async (goal: SavingsGoal) => {
-    const newStatus = goal.status === 'active' ? 'paused' : 'active';
-    
-    const { error } = await supabase
-      .from('savings_goals')
-      .update({ status: newStatus })
-      .eq('id', goal.id);
+      .update(updatedData)
+      .eq('id', id);
 
     if (error) {
       toast.error("Erro ao atualizar meta");
       return;
     }
 
-    toast.success(newStatus === 'paused' ? "Meta pausada" : "Meta reativada");
+    toast.success("Meta atualizada com sucesso! 🎯");
+    setEditDialogOpen(false);
+    setEditingGoal(null);
     fetchGoals();
   };
 
@@ -252,53 +176,161 @@ export default function Savings() {
     fetchGoals();
   };
 
-  // Simulator calculations
-  const calculateSimulation = () => {
-    const { initial, monthly, rate, years } = simulator;
-    const monthlyRate = rate / 100 / 12;
-    const months = years * 12;
-    const data = [];
-    
-    let balance = initial;
-    for (let m = 0; m <= months; m++) {
-      data.push({
-        month: m,
-        saldo: Math.round(balance),
-        contribuido: initial + (monthly * m),
-      });
-      balance = balance * (1 + monthlyRate) + monthly;
+
+  const handleTransaction = async () => {
+    if (!selectedGoal || !depositAmount) {
+      toast.error("Informe o valor");
+      return;
     }
-    
-    return data;
+
+    const amount = parseFloat(depositAmount);
+    const isDeposit = transactionType === 'deposit';
+
+    if (!isDeposit && (selectedGoal.saved_amount || 0) < amount) {
+      toast.error("Saldo insuficiente na meta");
+      return;
+    }
+
+    const newSavedAmount = isDeposit
+      ? (selectedGoal.saved_amount || 0) + amount
+      : (selectedGoal.saved_amount || 0) - amount;
+
+    const isNowCompleted = newSavedAmount >= selectedGoal.target_amount;
+
+    const { error } = await supabase
+      .from('savings_goals')
+      .update({
+        saved_amount: newSavedAmount,
+        status: isNowCompleted ? 'completed' : (selectedGoal.status === 'completed' ? 'active' : selectedGoal.status),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', selectedGoal.id);
+
+    if (error) {
+      toast.error("Erro ao processar transação");
+      return;
+    }
+
+    // Check for achievements
+    if (isDeposit) {
+      if (newSavedAmount >= 10000) {
+        unlockAchievement('beginner_saver', 'Poupador Iniciante', 2);
+      }
+    }
+
+    if (isNowCompleted) {
+      unlockAchievement('goal_reached', 'Meta Batida!', 2);
+
+      // Check for Savings Master (5 completed goals)
+      const totalCompleted = goals.filter(g => g.status === 'completed' || g.id === selectedGoal.id).length;
+      if (totalCompleted >= 5) {
+        unlockAchievement('savings_master', 'Mestre da Poupança', 2);
+      }
+    }
+
+    // CREATE TRANSACTION RECORD
+    // User Logic: Deposit = Increase Savings (+), Withdrawal = Decrease Savings (-)
+    // We map: Deposit -> 'income' (Green/+), Withdrawal -> 'expense' (Red/-)
+    const catName = isDeposit ? 'Poupança' : 'Resgate de Poupança';
+    const catType = isDeposit ? 'income' : 'expense';
+
+    let { data: catData } = await supabase
+      .from('transaction_categories')
+      .select('id')
+      .eq('name', catName)
+      .eq('type', catType)
+      .maybeSingle();
+
+    if (!catData) {
+      // Create category if it doesn't exist
+      const { data: newCat, error: catError } = await supabase
+        .from('transaction_categories')
+        .insert({
+          user_id: user?.id,
+          name: catName,
+          type: catType,
+          icon: isDeposit ? 'PiggyBank' : 'Wallet',
+          color: isDeposit ? 'emerald' : 'orange'
+        })
+        .select()
+        .single();
+
+      if (!catError) {
+        catData = newCat;
+      }
+    }
+
+    const { error: txError } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: user?.id,
+        type: catType,
+        amount: amount,
+        description: `${isDeposit ? 'Depósito' : 'Retirada'} em: ${selectedGoal.name}`,
+        category_id: catData?.id || null,
+        savings_goal_id: selectedGoal.id,
+        date: format(new Date(), 'yyyy-MM-dd'),
+      });
+
+    if (txError) {
+      console.error("Error creating transaction:", txError);
+      toast.error(`Erro ao registrar transação no histórico: ${txError.message}`);
+      // We don't return here because the goal balance was already updated above
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["dashboard-transactions"] });
+    toast.success(isDeposit ? "Depósito realizado! 💰" : "Levantamento realizado! 💸");
+    setDepositDialogOpen(false);
+    setDepositAmount('');
+    setSelectedGoal(null);
+    fetchGoals();
   };
 
-  const simulationData = calculateSimulation();
-  const finalBalance = simulationData[simulationData.length - 1]?.saldo || 0;
-  const totalContributed = simulator.initial + (simulator.monthly * simulator.years * 12);
-  const totalInterest = finalBalance - totalContributed;
+  const toggleGoalStatus = async (goal: SavingsGoal) => {
+    const newStatus = goal.status === 'active' ? 'paused' : 'active';
+    const { error } = await supabase
+      .from('savings_goals')
+      .update({ status: newStatus })
+      .eq('id', goal.id);
+
+    if (error) {
+      toast.error("Erro ao atualizar status");
+      return;
+    }
+
+    toast.success(newStatus === 'paused' ? "Meta pausada" : "Meta reativada");
+    fetchGoals();
+  };
+
+  const fetchGoalHistory = async (goalId: string) => {
+    setLoadingHistory(true);
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('savings_goal_id', goalId)
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error("Error fetching history:", error);
+      toast.error("Erro ao carregar histórico");
+      setGoalTransactions([]);
+    } else {
+      setGoalTransactions(data || []);
+    }
+    setLoadingHistory(false);
+  };
 
   // Stats
   const totalSaved = goals.reduce((sum, g) => sum + (g.saved_amount || 0), 0);
   const totalTarget = goals.reduce((sum, g) => sum + g.target_amount, 0);
   const completedGoals = goals.filter(g => g.status === 'completed').length;
-  const activeGoals = goals.filter(g => g.status === 'active').length;
-
-  // Monthly schedule for active goals
-  const monthlySchedule = goals
-    .filter(g => g.status === 'active' && g.monthly_contribution > 0)
-    .map(g => ({
-      goal: g.name,
-      amount: g.monthly_contribution || 0,
-      remaining: (g.monthly_contribution && g.monthly_contribution > 0) 
-        ? Math.ceil((g.target_amount - (g.saved_amount || 0)) / g.monthly_contribution) 
-        : 0,
-    }));
-
-  const totalMonthlyContribution = monthlySchedule.reduce((sum, s) => sum + s.amount, 0);
+  const totalMonthlyContribution = goals
+    .filter(g => g.status === 'active')
+    .reduce((sum, g) => sum + (g.monthly_contribution || 0), 0);
 
   if (loading) {
     return (
-      <AppLayout title="Metas de Poupança" subtitle="Alcance seus objetivos financeiros">
+      <AppLayout title="Poupança" subtitle="Carregando seus planos...">
         <div className="flex items-center justify-center h-64">
           <div className="h-12 w-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
@@ -307,506 +339,327 @@ export default function Savings() {
   }
 
   return (
-    <AppLayout title="Metas de Poupança" subtitle="Alcance seus objetivos financeiros">
+    <AppLayout title="Minha Poupança" subtitle="Gerencie suas metas de economia">
       <div className="space-y-6 animate-fade-in">
-        {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="stat-card-savings p-6">
+          <div className="card-finance p-6 border-l-4 border-savings bg-savings/5">
             <div className="flex items-center gap-3 mb-2">
               <PiggyBank className="h-5 w-5 text-savings" />
-              <span className="text-sm text-muted-foreground">Total Poupado</span>
+              <span className="text-sm font-medium text-muted-foreground">Total Poupado</span>
             </div>
-            <p className="text-2xl font-display font-bold text-foreground">
-              Kz {totalSaved.toLocaleString('pt-AO')}
-            </p>
+            <p className="text-2xl font-bold">Kz {totalSaved.toLocaleString('pt-AO')}</p>
           </div>
 
-          <div className="stat-card-investment p-6">
+          <div className="card-finance p-6 border-l-4 border-primary bg-primary/5">
             <div className="flex items-center gap-3 mb-2">
-              <Target className="h-5 w-5 text-investment" />
-              <span className="text-sm text-muted-foreground">Meta Total</span>
+              <Target className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium text-muted-foreground">Meta Total</span>
             </div>
-            <p className="text-2xl font-display font-bold text-foreground">
-              Kz {totalTarget.toLocaleString('pt-AO')}
-            </p>
+            <p className="text-2xl font-bold">Kz {totalTarget.toLocaleString('pt-AO')}</p>
           </div>
 
-          <div className="stat-card-income p-6">
+          <div className="card-finance p-6 border-l-4 border-success bg-success/5">
             <div className="flex items-center gap-3 mb-2">
               <Trophy className="h-5 w-5 text-success" />
-              <span className="text-sm text-muted-foreground">Metas Concluídas</span>
+              <span className="text-sm font-medium text-muted-foreground">Concluídas</span>
             </div>
-            <p className="text-2xl font-display font-bold text-foreground">{completedGoals}</p>
+            <p className="text-2xl font-bold">{completedGoals}</p>
           </div>
 
-          <div className="card-finance p-6">
+          <div className="card-finance p-6 border-l-4 border-accent bg-accent/5">
             <div className="flex items-center gap-3 mb-2">
               <Calendar className="h-5 w-5 text-accent" />
-              <span className="text-sm text-muted-foreground">Poupança Mensal</span>
+              <span className="text-sm font-medium text-muted-foreground">Poupança Mensal</span>
             </div>
-            <p className="text-2xl font-display font-bold text-foreground">
-              Kz {totalMonthlyContribution.toLocaleString('pt-AO')}
-            </p>
+            <p className="text-2xl font-bold text-accent">Kz {totalMonthlyContribution.toLocaleString('pt-AO')}</p>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex flex-wrap gap-3">
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="accent">
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Meta
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Criar Meta de Poupança</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                {/* Icon Selection */}
-                <div className="space-y-2">
-                  <Label>Tipo de Meta</Label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {GOAL_ICONS.map((g) => (
-                      <button
-                        key={g.name}
-                        type="button"
-                        className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
-                          newGoal.icon === g.icon 
-                            ? 'border-primary bg-primary/10' 
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                        onClick={() => setNewGoal({ ...newGoal, icon: g.icon, color: g.color })}
-                      >
-                        <span className="text-2xl">{g.icon}</span>
-                        <span className="text-xs text-muted-foreground">{g.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label>Nome da Meta</Label>
-                  <Input
-                    placeholder="Ex: Fundo de emergência"
-                    value={newGoal.name}
-                    onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
-                  />
-                </div>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold">Objetivos de Poupança</h3>
+            <Button onClick={() => setDialogOpen(true)} className="gradient-primary">
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Meta
+            </Button>
+          </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Valor da Meta (Kz)</Label>
-                    <Input
-                      type="number"
-                      placeholder="500000"
-                      value={newGoal.target_amount}
-                      onChange={(e) => setNewGoal({ ...newGoal, target_amount: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Contribuição Mensal (Kz)</Label>
-                    <Input
-                      type="number"
-                      placeholder="25000"
-                      value={newGoal.monthly_contribution}
-                      onChange={(e) => setNewGoal({ ...newGoal, monthly_contribution: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Taxa de Juros Anual (%)</Label>
-                    <Input
-                      type="number"
-                      placeholder="5"
-                      value={newGoal.interest_rate}
-                      onChange={(e) => setNewGoal({ ...newGoal, interest_rate: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Data Limite (Opcional)</Label>
-                    <Input
-                      type="date"
-                      value={newGoal.end_date}
-                      onChange={(e) => setNewGoal({ ...newGoal, end_date: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <Button onClick={createGoal} className="w-full" variant="accent">
-                  <Target className="h-4 w-4 mr-2" />
-                  Criar Meta
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={simulatorOpen} onOpenChange={setSimulatorOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Sparkles className="h-4 w-4 mr-2" />
-                Simulador de Poupança
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Simulador de Crescimento</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-6 mt-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="space-y-2">
-                    <Label>Valor Inicial (Kz)</Label>
-                    <Input
-                      type="number"
-                      value={simulator.initial}
-                      onChange={(e) => setSimulator({ ...simulator, initial: parseFloat(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Depósito Mensal (Kz)</Label>
-                    <Input
-                      type="number"
-                      value={simulator.monthly}
-                      onChange={(e) => setSimulator({ ...simulator, monthly: parseFloat(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Taxa Anual (%)</Label>
-                    <Input
-                      type="number"
-                      value={simulator.rate}
-                      onChange={(e) => setSimulator({ ...simulator, rate: parseFloat(e.target.value) || 0 })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Período (Anos)</Label>
-                    <Input
-                      type="number"
-                      value={simulator.years}
-                      onChange={(e) => setSimulator({ ...simulator, years: parseFloat(e.target.value) || 1 })}
-                    />
-                  </div>
-                </div>
-
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={simulationData}>
-                      <defs>
-                        <linearGradient id="saldoGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(200 90% 45%)" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="hsl(200 90% 45%)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis 
-                        dataKey="month" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tickFormatter={(v) => `${Math.floor(v/12)}a`}
-                      />
-                      <YAxis 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tickFormatter={(v) => `${(v/1000000).toFixed(1)}M`}
-                      />
-                      <Tooltip 
-                        formatter={(v: number) => `Kz ${v.toLocaleString()}`}
-                        labelFormatter={(v) => `Mês ${v}`}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="saldo" 
-                        stroke="hsl(200 90% 45%)" 
-                        fill="url(#saldoGrad)" 
-                        strokeWidth={2}
-                        name="Saldo Total"
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="contribuido" 
-                        stroke="hsl(220 10% 45%)" 
-                        strokeDasharray="5 5"
-                        name="Total Contribuído"
-                        dot={false}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="card-finance p-4 text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Saldo Final</p>
-                    <p className="text-xl font-bold text-savings">Kz {finalBalance.toLocaleString()}</p>
-                  </div>
-                  <div className="card-finance p-4 text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Total Contribuído</p>
-                    <p className="text-xl font-bold text-foreground">Kz {totalContributed.toLocaleString()}</p>
-                  </div>
-                  <div className="card-finance p-4 text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Juros Ganhos</p>
-                    <p className="text-xl font-bold text-success">Kz {totalInterest.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Tabs */}
-        <Tabs defaultValue="goals" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="goals">Metas</TabsTrigger>
-            <TabsTrigger value="schedule">Cronograma</TabsTrigger>
-            <TabsTrigger value="achievements">Conquistas</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="goals" className="mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {goals.length === 0 ? (
-              <div className="card-finance p-12 text-center">
-                <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">Nenhuma meta criada</h3>
-                <p className="text-muted-foreground mb-4">
-                  Comece a poupar criando sua primeira meta financeira.
-                </p>
-                <Button variant="accent" onClick={() => setDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Criar Primeira Meta
-                </Button>
+              <div className="col-span-full py-12 text-center card-finance">
+                <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">Você ainda não tem metas. Comece agora!</p>
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {goals.map((goal) => {
-                  const progress = (goal.saved_amount / goal.target_amount) * 100;
-                  const remaining = goal.target_amount - goal.saved_amount;
-                  const monthsLeft = goal.monthly_contribution > 0 
-                    ? Math.ceil(remaining / goal.monthly_contribution) 
-                    : null;
-                  
-                  return (
-                    <div 
-                      key={goal.id} 
-                      className={`card-finance group relative ${goal.status === 'completed' ? 'ring-2 ring-success' : ''}`}
-                    >
-                      {goal.status === 'completed' && (
-                        <div className="absolute -top-2 -right-2 bg-success text-success-foreground rounded-full p-1">
-                          <Trophy className="h-4 w-4" />
+              goals.map((goal) => {
+                const progress = Math.min(((goal.saved_amount || 0) / goal.target_amount) * 100, 100);
+                const isCompleted = (goal.saved_amount || 0) >= goal.target_amount;
+
+                return (
+                  <Card key={goal.id} className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg ${isCompleted ? 'border-success/30 bg-success/5' : ''}`}>
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className={`text-4xl p-3 rounded-2xl bg-${goal.color || 'gray'}-500/10`}>
+                          {goal.icon}
                         </div>
-                      )}
-                      
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <span className="text-3xl">{goal.icon || '🎯'}</span>
-                          <div>
-                            <h4 className="font-semibold text-foreground">{goal.name}</h4>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              goal.status === 'active' ? 'bg-success/20 text-success' :
-                              goal.status === 'completed' ? 'bg-primary/20 text-primary' :
-                              goal.status === 'paused' ? 'bg-warning/20 text-warning' :
-                              'bg-muted text-muted-foreground'
-                            }`}>
-                              {goal.status === 'active' ? 'Ativa' :
-                               goal.status === 'completed' ? 'Concluída' :
-                               goal.status === 'paused' ? 'Pausada' : 'Cancelada'}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {goal.status !== 'completed' && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => toggleGoalStatus(goal)}
-                            >
-                              {goal.status === 'paused' ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-                            </Button>
-                          )}
+                        <div className="flex gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => deleteGoal(goal.id)}
+                            className="h-8 w-8 text-primary"
+                            onClick={() => {
+                              setEditingGoal(goal);
+                              setEditDialogOpen(true);
+                            }}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => {
+                              if (confirm("Tem certeza que deseja excluir esta meta?")) {
+                                deleteGoal(goal.id);
+                              }
+                            }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
 
-                      <div className="space-y-3">
-                        <div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="text-muted-foreground">Progresso</span>
-                            <span className="font-medium text-foreground">{progress.toFixed(1)}%</span>
-                          </div>
-                          <Progress value={progress} className="h-2" />
-                        </div>
-
-                        <div className="flex justify-between">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Poupado</p>
-                            <p className="font-semibold text-success">
-                              Kz {goal.saved_amount.toLocaleString()}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-muted-foreground">Meta</p>
-                            <p className="font-semibold text-foreground">
-                              Kz {goal.target_amount.toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-
-                        {monthsLeft && goal.status === 'active' && (
-                          <p className="text-xs text-muted-foreground text-center">
-                            ~{monthsLeft} {monthsLeft === 1 ? 'mês' : 'meses'} restantes
-                          </p>
-                        )}
-
-                        {goal.status === 'active' && (
-                          <Button
-                            variant="outline"
-                            className="w-full mt-2"
-                            onClick={() => {
-                              setSelectedGoal(goal);
-                              setDepositDialogOpen(true);
-                            }}
-                          >
-                            <PiggyBank className="h-4 w-4 mr-2" />
-                            Depositar
-                          </Button>
-                        )}
+                      <h4 className="text-xl font-bold mb-1">{goal.name}</h4>
+                      <div className="flex justify-between text-sm mb-4">
+                        <span className="text-muted-foreground">
+                          {goal.monthly_contribution ? `Kz ${goal.monthly_contribution.toLocaleString()}/mês` : 'Sem contribuição'}
+                        </span>
+                        <span className={`${isCompleted ? 'text-success font-bold' : 'text-primary'}`}>
+                          {progress.toFixed(0)}%
+                        </span>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </TabsContent>
 
-          <TabsContent value="schedule" className="mt-6">
-            <div className="card-finance">
-              <h3 className="font-display text-lg font-semibold text-foreground mb-4">
-                Cronograma de Poupança Mensal
-              </h3>
-              
-              {monthlySchedule.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Nenhuma contribuição mensal programada.</p>
-                  <p className="text-sm mt-1">Defina contribuições mensais nas suas metas.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {monthlySchedule.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-savings/20 flex items-center justify-center">
-                          <PiggyBank className="h-5 w-5 text-savings" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">{item.goal}</p>
+                      <Progress value={progress} className={`h-3 mb-2 ${isCompleted ? 'bg-success/20' : ''}`} />
+
+                      {!isCompleted && goal.monthly_contribution && goal.monthly_contribution > 0 && (
+                        <div className="text-center mb-4">
                           <p className="text-xs text-muted-foreground">
-                            {item.remaining} {item.remaining === 1 ? 'mês' : 'meses'} restantes
+                            {(() => {
+                              const remaining = goal.target_amount - (goal.saved_amount || 0);
+                              const monthsRemaining = Math.ceil(remaining / goal.monthly_contribution);
+                              const years = Math.floor(monthsRemaining / 12);
+                              const months = monthsRemaining % 12;
+
+                              if (monthsRemaining <= 0) return "Meta atingida!";
+                              if (years > 0 && months > 0) return `Faltam ${years} ${years === 1 ? 'ano' : 'anos'} e ${months} ${months === 1 ? 'mês' : 'meses'}`;
+                              if (years > 0) return `Faltam ${years} ${years === 1 ? 'ano' : 'anos'}`;
+                              return `Faltam ${months} ${months === 1 ? 'mês' : 'meses'}`;
+                            })()}
                           </p>
                         </div>
-                      </div>
-                      <p className="font-semibold text-savings">
-                        Kz {item.amount.toLocaleString()}/mês
-                      </p>
-                    </div>
-                  ))}
-                  
-                  <div className="border-t border-border pt-4 mt-4">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-foreground">Total Mensal</p>
-                      <p className="text-xl font-bold text-savings">
-                        Kz {totalMonthlyContribution.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </TabsContent>
+                      )}
 
-          <TabsContent value="achievements" className="mt-6">
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {achievements.map((ach) => {
-                const isUnlocked = userAchievements.includes(ach.id);
-                return (
-                  <div 
-                    key={ach.id}
-                    className={`card-finance relative transition-all ${
-                      isUnlocked ? 'ring-2 ring-accent' : 'opacity-60'
-                    }`}
-                  >
-                    {isUnlocked && (
-                      <div className="absolute -top-2 -right-2">
-                        <Star className="h-6 w-6 text-accent fill-accent" />
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center gap-4">
-                      <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl ${
-                        isUnlocked ? 'bg-accent/20' : 'bg-muted'
-                      }`}>
-                        {ach.icon === 'PiggyBank' ? <PiggyBank className="h-7 w-7" /> :
-                         ach.icon === 'Target' ? <Target className="h-7 w-7" /> :
-                         <Award className="h-7 w-7" />}
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-foreground">{ach.name}</h4>
-                        <p className="text-sm text-muted-foreground">{ach.description}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Zap className="h-3 w-3 text-accent" />
-                          <span className="text-xs font-medium text-accent">{ach.points} pontos</span>
+                      <div className="flex justify-between items-end mb-6">
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Acumulado</p>
+                          <p className="text-lg font-bold">Kz {(goal.saved_amount || 0).toLocaleString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Objetivo</p>
+                          <p className="text-lg font-medium">Kz {goal.target_amount.toLocaleString()}</p>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </TabsContent>
-        </Tabs>
 
-        {/* Deposit Dialog */}
-        <Dialog open={depositDialogOpen} onOpenChange={setDepositDialogOpen}>
-          <DialogContent className="sm:max-w-md">
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1 gradient-savings h-9 text-xs"
+                          onClick={() => {
+                            setSelectedGoal(goal);
+                            setTransactionType('deposit');
+                            setDepositDialogOpen(true);
+                          }}
+                        >
+                          Poupar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1 h-9 text-xs border-destructive/20 text-destructive hover:bg-destructive/10"
+                          onClick={() => {
+                            setSelectedGoal(goal);
+                            setTransactionType('withdraw');
+                            setDepositDialogOpen(true);
+                          }}
+                        >
+                          Retirar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="h-9 w-9 p-0 rounded-full hover:bg-muted"
+                          onClick={() => {
+                            setActiveHistoryGoal(goal);
+                            fetchGoalHistory(goal.id);
+                            setHistoryDialogOpen(true);
+                          }}
+                        >
+                          <History className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="h-9 w-9 p-0 rounded-full hover:bg-muted"
+                          onClick={() => toggleGoalStatus(goal)}
+                        >
+                          {goal.status === 'active' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+
+        {/* Dialogs */}
+        {/* Create Goal Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Fazer Depósito</DialogTitle>
+              <DialogTitle>Nova Meta</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                {GOAL_ICONS.map((g) => (
+                  <button
+                    key={g.name}
+                    className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${newGoal.icon === g.icon ? 'border-primary bg-primary/10' : 'border-border'}`}
+                    onClick={() => setNewGoal({ ...newGoal, icon: g.icon, color: g.color })}
+                  >
+                    <span className="text-2xl">{g.icon}</span>
+                    <span className="text-[10px] truncate w-full text-center">{g.name}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="grid gap-2">
+                <Label>Nome da Meta</Label>
+                <Input value={newGoal.name} onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Valor Alvo (Kz)</Label>
+                  <Input type="number" value={newGoal.target_amount} onChange={(e) => setNewGoal({ ...newGoal, target_amount: e.target.value })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Contribuição Mensal</Label>
+                  <Input type="number" value={newGoal.monthly_contribution} onChange={(e) => setNewGoal({ ...newGoal, monthly_contribution: e.target.value })} />
+                </div>
+              </div>
+              <Button onClick={createGoal} className="w-full gradient-primary">Criar Meta</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Transaction Dialog */}
+        <Dialog open={depositDialogOpen} onOpenChange={setDepositDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{transactionType === 'deposit' ? 'Reforçar Poupança' : 'Retirar Valor'}</DialogTitle>
             </DialogHeader>
             {selectedGoal && (
-              <div className="space-y-4 mt-4">
-                <div className="p-4 rounded-lg bg-secondary/50">
-                  <p className="text-sm text-muted-foreground">Meta</p>
-                  <p className="font-semibold text-foreground">{selectedGoal.name}</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Faltam Kz {(selectedGoal.target_amount - selectedGoal.saved_amount).toLocaleString()}
-                  </p>
+              <div className="space-y-4 py-4">
+                <div className="text-center p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">Meta Selecionada</p>
+                  <p className="font-bold text-lg">{selectedGoal.icon} {selectedGoal.name}</p>
                 </div>
-
-                <div className="space-y-2">
-                  <Label>Valor do Depósito (Kz)</Label>
+                <div className="grid gap-2">
+                  <Label>Valor</Label>
                   <Input
                     type="number"
-                    placeholder="10000"
+                    placeholder="0,00"
                     value={depositAmount}
                     onChange={(e) => setDepositAmount(e.target.value)}
                   />
                 </div>
-
-                <Button onClick={makeDeposit} className="w-full" variant="accent">
-                  <PiggyBank className="h-4 w-4 mr-2" />
-                  Confirmar Depósito
-                </Button>
+                <Button onClick={handleTransaction} className="w-full gradient-savings">{transactionType === 'deposit' ? 'Confirmar Depósito' : 'Confirmar Retirada'}</Button>
               </div>
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Edit Goal Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Editar Meta</DialogTitle>
+            </DialogHeader>
+            {editingGoal && (
+              <div className="space-y-4 mt-4">
+                <div className="grid gap-2">
+                  <Label>Nome da Meta</Label>
+                  <Input value={editingGoal.name} onChange={(e) => setEditingGoal({ ...editingGoal, name: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Valor Alvo (Kz)</Label>
+                    <Input type="number" value={editingGoal.target_amount} onChange={(e) => setEditingGoal({ ...editingGoal, target_amount: parseFloat(e.target.value) })} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Contribuição Mensal</Label>
+                    <Input type="number" value={editingGoal.monthly_contribution || ''} onChange={(e) => setEditingGoal({ ...editingGoal, monthly_contribution: parseFloat(e.target.value) })} />
+                  </div>
+                </div>
+                <Button onClick={() => updateGoal(editingGoal.id, editingGoal)} className="w-full gradient-primary">Salvar Alterações</Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Savings History Dialog */}
+        <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="h-5 w-5 text-primary" />
+                Histórico: {activeHistoryGoal?.name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {loadingHistory ? (
+                <div className="flex justify-center py-8">
+                  <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : goalTransactions.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Nenhum registo encontrado para esta meta.</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                  {goalTransactions.map((tx) => (
+                    <div key={tx.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">
+                          {format(parseISO(tx.date), 'dd/MM/yyyy')}
+                        </span>
+                        <span className="text-sm font-medium">{tx.description}</span>
+                      </div>
+                      <span className={cn(
+                        "font-bold text-sm",
+                        tx.type === 'income' ? "text-success" : "text-destructive"
+                      )}>
+                        {tx.type === 'income' ? '+' : '-'} Kz {tx.amount.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Button onClick={() => setHistoryDialogOpen(false)} className="w-full">
+                Fechar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
-    </AppLayout>
+    </AppLayout >
   );
 }

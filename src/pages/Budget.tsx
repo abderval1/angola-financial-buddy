@@ -5,16 +5,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { 
+import {
   Plus, TrendingUp, TrendingDown, Trash2, Edit2, AlertTriangle,
-  Briefcase, Car, Home, Heart, GraduationCap, Gamepad2, Shirt, FileText, UtensilsCrossed, Laptop
+  Briefcase, Car, Home, Heart, GraduationCap, Gamepad2, Shirt, FileText, UtensilsCrossed, Laptop,
+  ChevronLeft, ChevronRight, Calendar, Layers
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, startOfMonth, endOfMonth, parseISO } from "date-fns";
+import { format, startOfMonth, endOfMonth, parseISO, subMonths, addMonths } from "date-fns";
 import { pt } from "date-fns/locale";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAchievements } from "@/hooks/useAchievements";
 
 interface Transaction {
   id: string;
@@ -38,6 +44,7 @@ interface BudgetAlert {
   id: string;
   category_id: string;
   limit_amount: number;
+  period: 'monthly' | 'yearly';
   is_active: boolean;
   category_name?: string;
   spent?: number;
@@ -60,13 +67,24 @@ const COLOR_MAP: Record<string, string> = {
 
 export default function Budget() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { unlockAchievement } = useAchievements();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [alerts, setAlerts] = useState<BudgetAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'monthly' | 'yearly' | 'all'>('monthly');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [alertDialogOpen, setAlertDialogOpen] = useState(false);
-  
+  const [showNewCategoryForm, setShowNewCategoryForm] = useState(false);
+  const [newCategory, setNewCategory] = useState({
+    name: '',
+    type: 'expense' as 'income' | 'expense',
+    icon: 'FileText',
+    color: 'emerald',
+  });
+
   const [newTransaction, setNewTransaction] = useState({
     type: 'expense' as 'income' | 'expense',
     amount: '',
@@ -78,17 +96,17 @@ export default function Budget() {
   const [newAlert, setNewAlert] = useState({
     category_id: '',
     limit_amount: '',
+    period: 'monthly' as 'monthly' | 'yearly',
   });
-
-  const currentMonth = new Date();
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
 
   useEffect(() => {
     if (user) {
       fetchData();
     }
-  }, [user]);
+  }, [user, currentDate, viewMode]);
+
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
 
   const fetchData = async () => {
     setLoading(true);
@@ -97,12 +115,15 @@ export default function Budget() {
   };
 
   const fetchTransactions = async () => {
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .gte('date', format(monthStart, 'yyyy-MM-dd'))
-      .lte('date', format(monthEnd, 'yyyy-MM-dd'))
-      .order('date', { ascending: false });
+    let query = supabase.from('transactions').select('*');
+
+    if (viewMode !== 'all') {
+      const yearStart = `${currentDate.getFullYear()}-01-01`;
+      const yearEnd = `${currentDate.getFullYear()}-12-31`;
+      query = query.gte('date', yearStart).lte('date', yearEnd);
+    }
+
+    const { data, error } = await query.order('date', { ascending: false });
 
     if (error) {
       toast.error("Erro ao carregar transações");
@@ -133,7 +154,7 @@ export default function Budget() {
       .eq('is_active', true);
 
     if (!error && data) {
-      setAlerts(data);
+      setAlerts(data as BudgetAlert[]);
     }
   };
 
@@ -169,6 +190,7 @@ export default function Budget() {
       date: format(new Date(), 'yyyy-MM-dd'),
     });
     fetchTransactions();
+    queryClient.invalidateQueries({ queryKey: ["dashboard-transactions"] });
     checkBudgetAlerts();
   };
 
@@ -185,6 +207,7 @@ export default function Budget() {
 
     toast.success("Transação excluída");
     fetchTransactions();
+    queryClient.invalidateQueries({ queryKey: ["dashboard-transactions"] });
   };
 
   const addBudgetAlert = async () => {
@@ -199,6 +222,7 @@ export default function Budget() {
         user_id: user?.id,
         category_id: newAlert.category_id,
         limit_amount: parseFloat(newAlert.limit_amount),
+        period: newAlert.period,
         is_active: true,
       });
 
@@ -208,47 +232,125 @@ export default function Budget() {
     }
 
     toast.success("Alerta de orçamento criado!");
+    unlockAchievement('organized', 'Organizado', 2);
     setAlertDialogOpen(false);
-    setNewAlert({ category_id: '', limit_amount: '' });
+    setNewAlert({ category_id: '', limit_amount: '', period: 'monthly' });
     fetchAlerts();
   };
 
+  const deleteBudgetAlert = async (id: string) => {
+    const { error } = await supabase
+      .from('budget_alerts')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast.error("Erro ao excluir alerta");
+      return;
+    }
+
+    toast.success("Alerta excluído");
+    fetchAlerts();
+  };
+
+  const addCategory = async () => {
+    if (!newCategory.name) {
+      toast.error("Informe o nome da categoria");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('transaction_categories')
+      .insert({
+        user_id: user?.id,
+        name: newCategory.name,
+        type: newCategory.type,
+        icon: newCategory.icon,
+        color: newCategory.color,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error("Erro ao criar categoria");
+      return;
+    }
+
+    toast.success("Categoria criada com sucesso!");
+    setCategories(prev => [...prev, data]);
+    setNewTransaction(prev => ({ ...prev, category_id: data.id }));
+    setShowNewCategoryForm(false);
+    setNewCategory({ name: '', type: 'expense', icon: 'FileText', color: 'emerald' });
+  };
+
   const checkBudgetAlerts = () => {
+    const monthPrefix = format(new Date(), 'yyyy-MM');
+    const yearPrefix = format(new Date(), 'yyyy');
+
     alerts.forEach(alert => {
       const category = categories.find(c => c.id === alert.category_id);
       if (!category) return;
 
       const spent = transactions
-        .filter(t => t.category_id === alert.category_id && t.type === 'expense')
+        .filter(t => {
+          const isSameCategory = t.category_id === alert.category_id;
+          const isExpense = t.type === 'expense';
+          if (!isSameCategory || !isExpense) return false;
+
+          if (alert.period === 'monthly') {
+            return t.date.startsWith(monthPrefix);
+          } else {
+            return t.date.startsWith(yearPrefix);
+          }
+        })
         .reduce((sum, t) => sum + t.amount, 0);
 
       if (spent >= alert.limit_amount * 0.8) {
-        toast.warning(`Atenção: Você já gastou ${((spent / alert.limit_amount) * 100).toFixed(0)}% do limite de ${category.name}`, {
+        const periodLabel = alert.period === 'monthly' ? 'mensal' : 'anual';
+        toast.warning(`Atenção: Você já gastou ${((spent / alert.limit_amount) * 100).toFixed(0)}% do limite ${periodLabel} de ${category.name}`, {
           duration: 5000,
         });
       }
     });
   };
 
-  const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  const getCategoryInfo = (categoryId: string | null) => {
+    const cat = categories.find(c => c.id === categoryId);
+    return cat || { name: 'Sem categoria', icon: 'FileText', color: 'gray' };
+  };
+
+  const monthPrefix = format(currentDate, 'yyyy-MM');
+  const yearPrefix = format(currentDate, 'yyyy');
+
+  const filteredTransactionsByMode = transactions.filter(t => {
+    if (viewMode === 'monthly') return t.date.startsWith(monthPrefix);
+    if (viewMode === 'yearly') return t.date.startsWith(yearPrefix);
+    return true; // mode 'all'
+  });
+
+  const totalIncome = filteredTransactionsByMode.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+  const totalExpense = filteredTransactionsByMode.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
-  const expensesByCategory = categories
-    .filter(c => c.type === 'expense')
-    .map(category => {
-      const total = transactions
-        .filter(t => t.category_id === category.id && t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
-      return {
-        name: category.name,
-        value: total,
-        color: COLOR_MAP[category.color] || COLOR_MAP.gray,
-      };
-    })
-    .filter(c => c.value > 0);
+  const expensesByCategory = filteredTransactionsByMode
+    .filter(t => t.type === 'expense')
+    .reduce((acc, t) => {
+      const catInfo = getCategoryInfo(t.category_id);
+      const existing = acc.find(item => item.name === catInfo.name);
+      if (existing) {
+        existing.value += t.amount;
+      } else {
+        acc.push({
+          name: catInfo.name,
+          value: t.amount,
+          color: COLOR_MAP[catInfo.color] || COLOR_MAP.gray,
+        });
+      }
+      return acc;
+    }, [] as { name: string; value: number; color: string }[])
+    .sort((a, b) => b.value - a.value);
 
-  // Chart data for daily expenses
+  // Chart data for daily expenses (always show last 14 days from transactions)
   const dailyData = Array.from({ length: 30 }, (_, i) => {
     const date = new Date();
     date.setDate(date.getDate() - 29 + i);
@@ -263,11 +365,6 @@ export default function Budget() {
 
   const filteredCategories = categories.filter(c => c.type === newTransaction.type);
 
-  const getCategoryInfo = (categoryId: string | null) => {
-    const cat = categories.find(c => c.id === categoryId);
-    return cat || { name: 'Sem categoria', icon: 'FileText', color: 'gray' };
-  };
-
   if (loading) {
     return (
       <AppLayout title="Orçamento" subtitle="Gerencie suas receitas e despesas">
@@ -281,6 +378,50 @@ export default function Budget() {
   return (
     <AppLayout title="Orçamento" subtitle="Gerencie suas receitas e despesas">
       <div className="space-y-6 animate-fade-in">
+        {/* Period Selector */}
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+          <Tabs value={viewMode} onValueChange={(v: any) => setViewMode(v)} className="w-full md:w-auto">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="monthly">Mensal</TabsTrigger>
+              <TabsTrigger value="yearly">Anual</TabsTrigger>
+              <TabsTrigger value="all">Total</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {viewMode !== 'all' && (
+            <div className="flex items-center gap-4 bg-card px-4 py-2 rounded-xl border-2 border-primary/10">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  if (viewMode === 'monthly') setCurrentDate(prev => subMonths(prev, 1));
+                  if (viewMode === 'yearly') setCurrentDate(prev => new Date(prev.setFullYear(prev.getFullYear() - 1)));
+                }}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <div className="text-center min-w-[120px]">
+                <h2 className="text-sm font-bold capitalize">
+                  {viewMode === 'monthly'
+                    ? format(currentDate, 'MMMM yyyy', { locale: pt })
+                    : format(currentDate, 'yyyy', { locale: pt })
+                  }
+                </h2>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  if (viewMode === 'monthly') setCurrentDate(prev => addMonths(prev, 1));
+                  if (viewMode === 'yearly') setCurrentDate(prev => new Date(prev.setFullYear(prev.getFullYear() + 1)));
+                }}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+          )}
+        </div>
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="stat-card-income p-6">
@@ -369,22 +510,66 @@ export default function Budget() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Categoria</Label>
-                  <Select
-                    value={newTransaction.category_id}
-                    onValueChange={(value) => setNewTransaction({ ...newTransaction, category_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredCategories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex justify-between items-center">
+                    <Label>Categoria</Label>
+                    <Button
+                      variant="link"
+                      className="h-auto p-0 text-xs"
+                      onClick={() => {
+                        setShowNewCategoryForm(!showNewCategoryForm);
+                        setNewCategory(prev => ({ ...prev, type: newTransaction.type }));
+                      }}
+                    >
+                      {showNewCategoryForm ? "Selecionar Existente" : "+ Nova Categoria"}
+                    </Button>
+                  </div>
+
+                  {showNewCategoryForm ? (
+                    <div className="p-3 border rounded-lg bg-secondary/30 space-y-3 animate-in fade-in slide-in-from-top-1">
+                      <Input
+                        placeholder="Nome da categoria"
+                        value={newCategory.name}
+                        onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                      />
+                      <div className="flex gap-2">
+                        <Select
+                          value={newCategory.color}
+                          onValueChange={(v: any) => setNewCategory({ ...newCategory, color: v })}
+                        >
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue placeholder="Cor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.keys(COLOR_MAP).map(color => (
+                              <SelectItem key={color} value={color}>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_MAP[color] }} />
+                                  <span className="capitalize">{color}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button className="flex-1" onClick={addCategory}>Criar</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Select
+                      value={newTransaction.category_id}
+                      onValueChange={(value) => setNewTransaction({ ...newTransaction, category_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredCategories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -435,13 +620,28 @@ export default function Budget() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Limite Mensal (Kz)</Label>
-                  <Input
-                    type="number"
-                    placeholder="Ex: 50000"
-                    value={newAlert.limit_amount}
-                    onChange={(e) => setNewAlert({ ...newAlert, limit_amount: e.target.value })}
-                  />
+                  <Label>Limite (Kz)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Ex: 50000"
+                      className="flex-1"
+                      value={newAlert.limit_amount}
+                      onChange={(e) => setNewAlert({ ...newAlert, limit_amount: e.target.value })}
+                    />
+                    <Select
+                      value={newAlert.period}
+                      onValueChange={(v: any) => setNewAlert({ ...newAlert, period: v })}
+                    >
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue placeholder="Período" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Mensal</SelectItem>
+                        <SelectItem value="yearly">Anual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <Button onClick={addBudgetAlert} className="w-full" variant="accent">
@@ -454,6 +654,8 @@ export default function Budget() {
 
         {/* Charts Row */}
         <div className="grid lg:grid-cols-2 gap-6">
+          {/* - **Fixed Cash Flow Chart**: The **"Fluxo de Caixa (14 dias)"** now correctly shows both income and expenses for a true 14-day rolling window, independent of your monthly/yearly view filter.
+    - **Savings Goal History**: Each goal now has a **"Histórico"** button that reveals a detailed list of all deposits and withdrawals, linked directly to that specific goal. */}
           {/* Cash Flow Chart */}
           <div className="card-finance">
             <h3 className="font-display text-lg font-semibold text-foreground mb-4">Fluxo de Caixa (14 dias)</h3>
@@ -503,11 +705,14 @@ export default function Budget() {
                     <Tooltip formatter={(v: number) => `Kz ${v.toLocaleString()}`} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="space-y-2 ml-4">
-                  {expensesByCategory.slice(0, 5).map((cat, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
-                      <span className="text-muted-foreground">{cat.name}</span>
+                <div className="space-y-2 flex-1 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                  {expensesByCategory.map((cat, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm gap-3">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                        <span className="text-muted-foreground truncate" title={cat.name}>{cat.name}</span>
+                      </div>
+                      <span className="font-semibold whitespace-nowrap">Kz {cat.value.toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
@@ -520,32 +725,123 @@ export default function Budget() {
           </div>
         </div>
 
-        {/* Transactions List */}
+        {/* Budget Alerts Management */}
+        {alerts.length > 0 && (
+          <div className="card-finance">
+            <h3 className="font-display text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Gestão de Alertas
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {alerts.map((alert) => {
+                const category = categories.find(c => c.id === alert.category_id);
+                if (!category) return null;
+
+                const spent = transactions
+                  .filter(t => {
+                    const isSameCategory = t.category_id === alert.category_id;
+                    const isExpense = t.type === 'expense';
+                    if (!isSameCategory || !isExpense) return false;
+
+                    if (alert.period === 'monthly') {
+                      return t.date.startsWith(monthPrefix);
+                    } else {
+                      return t.date.startsWith(yearPrefix);
+                    }
+                  })
+                  .reduce((sum, t) => sum + t.amount, 0);
+
+                const progress = Math.min((spent / alert.limit_amount) * 100, 100);
+                const isOverLimit = spent >= alert.limit_amount;
+                const isWarning = spent >= alert.limit_amount * 0.8;
+
+                return (
+                  <div key={alert.id} className="p-4 rounded-xl border bg-secondary/30 relative group">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center"
+                          style={{ backgroundColor: `${COLOR_MAP[category.color || 'gray']}20` }}
+                        >
+                          {ICON_MAP[category.icon || 'FileText'] && (
+                            <div style={{ color: COLOR_MAP[category.color || 'gray'] }}>
+                              {(() => {
+                                const Icon = ICON_MAP[category.icon || 'FileText'];
+                                return <Icon className="h-4 w-4" />;
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm flex items-center gap-2">
+                            {category.name}
+                            <Badge variant="outline" className="text-[10px] h-4 px-1 uppercase opacity-70">
+                              {alert.period === 'monthly' ? 'Mensal' : 'Anual'}
+                            </Badge>
+                          </p>
+                          <p className="text-xs text-muted-foreground">Limite: Kz {alert.limit_amount.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => deleteBudgetAlert(alert.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className={isOverLimit ? "text-destructive font-bold" : isWarning ? "text-amber-600 font-bold" : "text-muted-foreground"}>
+                          Gasto: Kz {spent.toLocaleString()}
+                        </span>
+                        <span className="font-medium">{progress.toFixed(0)}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full transition-all duration-500",
+                            isOverLimit ? "bg-destructive" : isWarning ? "bg-amber-500" : "bg-primary"
+                          )}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div className="card-finance">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-lg font-semibold text-foreground">
-              Transações de {format(currentMonth, 'MMMM yyyy', { locale: pt })}
+              {viewMode === 'monthly' && `Transações de ${format(currentDate, 'MMMM yyyy', { locale: pt })}`}
+              {viewMode === 'yearly' && `Transações de ${format(currentDate, 'yyyy')}`}
+              {viewMode === 'all' && "Todas as Transações"}
             </h3>
           </div>
-          
+
           <div className="space-y-3">
-            {transactions.length === 0 ? (
+            {filteredTransactionsByMode.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <p>Nenhuma transação registrada este mês.</p>
+                <p>Nenhuma transação registrada neste período.</p>
                 <p className="text-sm mt-1">Clique em "Nova Transação" para começar.</p>
               </div>
             ) : (
-              transactions.map((tx) => {
+              filteredTransactionsByMode.map((tx) => {
                 const catInfo = getCategoryInfo(tx.category_id);
                 const IconComponent = ICON_MAP[catInfo.icon] || FileText;
                 return (
                   <div key={tx.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 group hover:bg-secondary/70 transition-colors">
                     <div className="flex items-center gap-4">
-                      <div 
+                      <div
                         className="w-10 h-10 rounded-lg flex items-center justify-center"
                         style={{ backgroundColor: `${COLOR_MAP[catInfo.color] || COLOR_MAP.gray}20` }}
                       >
-                        <IconComponent 
+                        <IconComponent
                           className="h-5 w-5"
                           style={{ color: COLOR_MAP[catInfo.color] || COLOR_MAP.gray }}
                         />

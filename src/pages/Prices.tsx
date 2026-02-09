@@ -15,6 +15,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
 import {
   TrendingDown,
@@ -40,6 +42,7 @@ import {
   BellOff,
   Heart,
   HeartOff,
+  ChevronsUpDown,
 } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -118,6 +121,8 @@ export default function Prices() {
   const [newEntry, setNewEntry] = useState({
     product_name: "",
     store_name: "",
+    category: "Alimentação",
+    brand: "",
     price: "",
     quantity: "1",
     unit: "unidade",
@@ -203,28 +208,127 @@ export default function Prices() {
   // Add entry mutation
   const addEntryMutation = useMutation({
     mutationFn: async (entry: typeof newEntry) => {
+      // 1. Ensure Product exists or create it
+      let productId = productsCatalog.find(p => p.name.toLowerCase() === entry.product_name.toLowerCase())?.id;
+
+      if (!productId) {
+        const { data: newProd, error: prodErr } = await supabase
+          .from("price_products")
+          .insert({
+            name: entry.product_name,
+            category: entry.category,
+            is_essential: entry.is_essential,
+            unit: entry.unit
+          })
+          .select()
+          .single();
+
+        if (prodErr) throw prodErr;
+        productId = newProd.id;
+      }
+
+      // 2. Ensure Store exists or create it
+      let storeId = stores.find(s => s.name.toLowerCase() === entry.store_name.toLowerCase())?.id;
+
+      if (!storeId) {
+        const { data: newStore, error: storeErr } = await supabase
+          .from("stores")
+          .insert({
+            name: entry.store_name,
+            created_by: user?.id
+          })
+          .select()
+          .single();
+
+        if (storeErr) throw storeErr;
+        storeId = newStore.id;
+      }
+
+      // 3. Insert the entry
+      const brandNote = entry.brand ? `[MARCA: ${entry.brand}] ` : "";
       const { error } = await supabase.from("price_entries").insert({
         user_id: user?.id,
+        product_id: productId,
         product_name: entry.product_name,
+        store_id: storeId,
         store_name: entry.store_name,
         price: parseFloat(entry.price),
         quantity: parseFloat(entry.quantity),
         unit: entry.unit,
         is_essential: entry.is_essential,
-        notes: entry.notes || null,
+        notes: brandNote + (entry.notes || ""),
         purchase_date: entry.purchase_date,
       });
 
       if (error) throw error;
+
+      // 4. Trigger Notifications for followers
+      const newPrice = parseFloat(entry.price);
+      const { data: followers } = await supabase
+        .from("user_product_follows")
+        .select("*")
+        .or(`product_id.eq.${productId},product_name.ilike.${entry.product_name}`);
+
+      if (followers && followers.length > 0) {
+        for (const follower of followers) {
+          // Don't notify the person who just registered the price
+          if (follower.user_id === user?.id) continue;
+
+          if (!follower.lowest_price_seen || newPrice < follower.lowest_price_seen) {
+            // Create notification
+            await supabase.from("notifications").insert({
+              user_id: follower.user_id,
+              title: "Preço Baixou! 📉",
+              message: `O produto ${entry.product_name} agora custa ${formatCurrency(newPrice)} no ${entry.store_name}. Aproveite para poupar!`,
+              type: "price_drop",
+              action_url: "/prices",
+              metadata: {
+                product_id: productId,
+                price: newPrice,
+                store_name: entry.store_name
+              }
+            });
+
+            // Update lowest price seen for the follower
+            await supabase
+              .from("user_product_follows")
+              .update({ lowest_price_seen: newPrice })
+              .eq("id", follower.id);
+          }
+        }
+      }
+
+      return {
+        price: newPrice,
+        productName: entry.product_name,
+        storeName: entry.store_name
+      };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["price-entries"] });
       queryClient.invalidateQueries({ queryKey: ["my-price-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["price-products"] });
+      queryClient.invalidateQueries({ queryKey: ["stores"] });
+
       toast.success("Preço registrado com sucesso!");
       setShowAddDialog(false);
+
+      // Intelligent Coach Feedback
+      const productStats = pricesByProduct[data.productName.toLowerCase().trim()];
+      if (productStats) {
+        if (data.price <= productStats.minPrice) {
+          toast("Bravo! 🏆 Registraste o preço mais baixo até agora para este produto.");
+        } else {
+          const savingsPossible = data.price - productStats.minPrice;
+          toast.info(`Dica do Coach: Já vimos este produto por ${formatCurrency(productStats.minPrice)} no ${productStats.bestStore}. Estás a pagar ${formatCurrency(savingsPossible)} a mais.`);
+        }
+      }
+
       setNewEntry({
         product_name: "",
         store_name: "",
+        category: "Alimentação",
+        brand: "",
         price: "",
         quantity: "1",
         unit: "unidade",
@@ -280,7 +384,7 @@ export default function Prices() {
   const unfollowProductMutation = useMutation({
     mutationFn: async ({ productId, productName }: { productId?: string; productName?: string }) => {
       let query = supabase.from("user_product_follows").delete().eq("user_id", user?.id);
-      
+
       if (productId) {
         query = query.eq("product_id", productId);
       } else if (productName) {
@@ -325,6 +429,13 @@ export default function Prices() {
       };
     }
     acc[key].entries.push(entry);
+
+    // Capture category from entry if available or from catalog
+    if (!acc[key].category) {
+      const catalogProd = productsCatalog.find(p => p.name.toLowerCase() === key);
+      acc[key].category = catalogProd?.category || "Geral";
+    }
+
     if (entry.price < acc[key].minPrice) {
       acc[key].minPrice = entry.price;
       acc[key].bestStore = entry.store_name;
@@ -348,8 +459,7 @@ export default function Prices() {
     .filter((product: any) => {
       const matchesSearch = product.product_name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesEssential = !showEssentialOnly || product.is_essential;
-      const matchesCategory = selectedCategory === "all" || 
-        productsCatalog.find(p => p.name.toLowerCase() === product.product_name.toLowerCase())?.category === selectedCategory;
+      const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
       return matchesSearch && matchesEssential && matchesCategory;
     })
     .sort((a: any, b: any) => b.entries.length - a.entries.length);
@@ -362,15 +472,36 @@ export default function Prices() {
     ? filteredProducts.reduce((sum: number, p: any) => sum + (p.savingsPercent || 0), 0) / filteredProducts.length
     : 0;
 
-  // Best deals (products with biggest savings)
   const bestDeals = Object.values(pricesByProduct)
     .filter((p: any) => p.entries.length >= 2)
     .sort((a: any, b: any) => b.savingsPercent - a.savingsPercent)
     .slice(0, 5);
 
+  const filteredFollows = productFollows.filter(f => {
+    const productName = f.product_name || productsCatalog.find(p => p.id === f.product_id)?.name || "";
+    const catalogProd = productsCatalog.find(p => p.name.toLowerCase() === productName.toLowerCase());
+    const matchesCategory = selectedCategory === "all" || catalogProd?.category === selectedCategory;
+    const matchesSearch = productName.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  const filteredSuggestions = productsCatalog.filter(p => {
+    const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesEssential = !showEssentialOnly || p.is_essential;
+    return matchesCategory && matchesSearch && matchesEssential;
+  });
+
+  const filteredMyEntries = myEntries.filter(e => {
+    const catalogProd = productsCatalog.find(p => p.name.toLowerCase() === e.product_name.toLowerCase());
+    const matchesCategory = selectedCategory === "all" || catalogProd?.category === selectedCategory;
+    const matchesSearch = e.product_name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   return (
-    <AppLayout 
-      title="Comparador de Preços" 
+    <AppLayout
+      title="Comparador de Preços"
       subtitle="Compare preços e encontre onde comprar mais barato em Angola"
     >
       <div className="space-y-6">
@@ -379,8 +510,9 @@ export default function Prices() {
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center relative">
                   <TrendingDown className="h-7 w-7 text-primary-foreground" />
+                  <Badge className="absolute -top-2 -right-2 bg-success text-success-foreground border-none text-[10px] px-1">COMUNIDADE</Badge>
                 </div>
                 <div>
                   <h2 className="text-xl font-bold">Economize nas suas compras</h2>
@@ -396,147 +528,250 @@ export default function Prices() {
                     Registrar Preço
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
+                  <DialogHeader className="p-6 pb-2">
                     <DialogTitle>Registrar Preço de Produto</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Produto *</Label>
-                      <Select
-                        value={newEntry.product_name}
-                        onValueChange={(value) => {
-                          const product = productsCatalog.find(p => p.name === value);
-                          setNewEntry({
-                            ...newEntry,
-                            product_name: value,
-                            unit: product?.unit || "unidade",
-                            is_essential: product?.is_essential ?? true,
-                          });
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione ou digite um produto" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {productsCatalog.map((product) => (
-                            <SelectItem key={product.id} value={product.name}>
-                              <div className="flex items-center gap-2">
-                                <span>{product.name}</span>
-                                <Badge variant="outline" className="text-xs">
-                                  {product.category}
-                                </Badge>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        placeholder="Ou digite o nome do produto..."
-                        value={newEntry.product_name}
-                        onChange={(e) => setNewEntry({ ...newEntry, product_name: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Loja/Mercado *</Label>
-                      <Select
-                        value={newEntry.store_name}
-                        onValueChange={(value) => setNewEntry({ ...newEntry, store_name: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione ou digite" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {stores.map((store) => (
-                            <SelectItem key={store.id} value={store.name}>
-                              <div className="flex items-center gap-2">
-                                <span>{store.name}</span>
-                                {store.is_verified && (
-                                  <Check className="h-3 w-3 text-success" />
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        placeholder="Ou digite o nome da loja..."
-                        value={newEntry.store_name}
-                        onChange={(e) => setNewEntry({ ...newEntry, store_name: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Preço (Kz) *</Label>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          value={newEntry.price}
-                          onChange={(e) => setNewEntry({ ...newEntry, price: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Quantidade</Label>
-                        <Input
-                          type="number"
-                          placeholder="1"
-                          value={newEntry.quantity}
-                          onChange={(e) => setNewEntry({ ...newEntry, quantity: e.target.value })}
-                        />
+                  <div className="flex-1 overflow-hidden">
+                    <div className="px-6">
+                      <div className="bg-primary/5 p-3 rounded-lg border border-primary/20 flex items-start gap-3 mb-4">
+                        <Sparkles className="h-5 w-5 text-primary shrink-0 mt-1" />
+                        <div>
+                          <p className="text-sm font-bold text-primary">Ganhe Pontos de Contribuidor! 🌟</p>
+                          <p className="text-xs text-muted-foreground">Cada preço que registras ajuda a comunidade a poupar e aumenta o teu nível de Reputação Financeira na rede.</p>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex-1 overflow-y-auto pr-2 scrollbar-gutter-stable" style={{ maxHeight: "calc(90vh - 180px)" }}>
+                      <div className="px-6 space-y-4 pb-6">
+                        <div className="space-y-2">
+                          <Label>Categoria *</Label>
+                          <Select
+                            value={newEntry.category}
+                            onValueChange={(value) => setNewEntry({ ...newEntry, category: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a categoria" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CATEGORIES.filter(c => c.value !== "all").map((cat) => (
+                                <SelectItem key={cat.value} value={cat.value}>
+                                  <div className="flex items-center gap-2">
+                                    <cat.icon className="h-4 w-4" />
+                                    {cat.label}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Unidade</Label>
-                        <Select
-                          value={newEntry.unit}
-                          onValueChange={(value) => setNewEntry({ ...newEntry, unit: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unidade">Unidade</SelectItem>
-                            <SelectItem value="kg">Kg</SelectItem>
-                            <SelectItem value="litro">Litro</SelectItem>
-                            <SelectItem value="pacote">Pacote</SelectItem>
-                            <SelectItem value="cartela">Cartela</SelectItem>
-                            <SelectItem value="caixa">Caixa</SelectItem>
-                            <SelectItem value="garrafa">Garrafa</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="space-y-2">
+                          <Label>Produto *</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className="w-full justify-between font-normal"
+                              >
+                                {newEntry.product_name || "Selecione ou pesquise um produto..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Pesquisar produto..." />
+                                <CommandList>
+                                  <CommandEmpty className="p-2 text-xs flex flex-col gap-2">
+                                    Nenhum produto encontrado.
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      className="h-7 text-[10px]"
+                                      onClick={() => {
+                                        // The search text is preserved in the CommandInput usually, 
+                                        // but for simplicity we allow manual typing too.
+                                      }}
+                                    >
+                                      Usar nome digitado
+                                    </Button>
+                                  </CommandEmpty>
+                                  <CommandGroup>
+                                    {productsCatalog.map((product) => (
+                                      <CommandItem
+                                        key={product.id}
+                                        value={product.name}
+                                        onSelect={(value) => {
+                                          const prod = productsCatalog.find(p => p.name.toLowerCase() === value.toLowerCase());
+                                          setNewEntry({
+                                            ...newEntry,
+                                            product_name: prod?.name || value,
+                                            unit: prod?.unit || "unidade",
+                                            is_essential: prod?.is_essential ?? true,
+                                          });
+                                        }}
+                                      >
+                                        <Check
+                                          className={`mr-2 h-4 w-4 ${newEntry.product_name === product.name ? "opacity-100" : "opacity-0"}`}
+                                        />
+                                        <div className="flex flex-col">
+                                          <span>{product.name}</span>
+                                          <span className="text-[10px] text-muted-foreground">{product.category}</span>
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                          <Input
+                            placeholder="Ou digite um novo produto..."
+                            value={newEntry.product_name}
+                            onChange={(e) => setNewEntry({ ...newEntry, product_name: e.target.value })}
+                            className="mt-2"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Loja/Mercado *</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className="w-full justify-between font-normal"
+                                >
+                                  {newEntry.store_name || "Selecione ou pesquise..."}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-full p-0" align="start">
+                                <Command>
+                                  <CommandInput placeholder="Pesquisar loja..." />
+                                  <CommandList>
+                                    <CommandEmpty className="p-2 text-xs">Nenhuma loja encontrada.</CommandEmpty>
+                                    <CommandGroup>
+                                      {stores.map((store) => (
+                                        <CommandItem
+                                          key={store.id}
+                                          value={store.name}
+                                          onSelect={(value) => {
+                                            const s = stores.find(st => st.name.toLowerCase() === value.toLowerCase());
+                                            setNewEntry({ ...newEntry, store_name: s?.name || value });
+                                          }}
+                                        >
+                                          <Check
+                                            className={`mr-2 h-4 w-4 ${newEntry.store_name === store.name ? "opacity-100" : "opacity-0"}`}
+                                          />
+                                          <div className="flex items-center gap-2">
+                                            {store.name}
+                                            {store.is_verified && <Check className="h-3 w-3 text-success" />}
+                                          </div>
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                            <Input
+                              placeholder="Ou nome da loja..."
+                              value={newEntry.store_name}
+                              onChange={(e) => setNewEntry({ ...newEntry, store_name: e.target.value })}
+                              className="mt-2"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Marca (Opcional)</Label>
+                            <Input
+                              placeholder="Ex: Fula, Tio Lucas..."
+                              value={newEntry.brand}
+                              onChange={(e) => setNewEntry({ ...newEntry, brand: e.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Preço (Kz) *</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={newEntry.price}
+                              onChange={(e) => setNewEntry({ ...newEntry, price: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Quantidade</Label>
+                            <Input
+                              type="number"
+                              placeholder="1"
+                              value={newEntry.quantity}
+                              onChange={(e) => setNewEntry({ ...newEntry, quantity: e.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Unidade</Label>
+                            <Select
+                              value={newEntry.unit}
+                              onValueChange={(value) => setNewEntry({ ...newEntry, unit: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unidade">Unidade</SelectItem>
+                                <SelectItem value="kg">1 Kg</SelectItem>
+                                <SelectItem value="5kg">5 Kg</SelectItem>
+                                <SelectItem value="10kg">10 Kg</SelectItem>
+                                <SelectItem value="25kg">25 Kg</SelectItem>
+                                <SelectItem value="50kg">50 Kg</SelectItem>
+                                <SelectItem value="100kg">100 Kg</SelectItem>
+                                <SelectItem value="litro">Litro</SelectItem>
+                                <SelectItem value="pacote">Pacote</SelectItem>
+                                <SelectItem value="cartela">Cartela</SelectItem>
+                                <SelectItem value="caixa">Caixa</SelectItem>
+                                <SelectItem value="garrafa">Garrafa</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Data da Compra</Label>
+                            <Input
+                              type="date"
+                              value={newEntry.purchase_date}
+                              onChange={(e) => setNewEntry({ ...newEntry, purchase_date: e.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={newEntry.is_essential}
+                            onCheckedChange={(checked) => setNewEntry({ ...newEntry, is_essential: checked })}
+                          />
+                          <Label>Produto essencial</Label>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Observações (opcional)</Label>
+                          <Textarea
+                            placeholder="Ex: Promoção de fim de semana..."
+                            value={newEntry.notes}
+                            onChange={(e) => setNewEntry({ ...newEntry, notes: e.target.value })}
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Data da Compra</Label>
-                        <Input
-                          type="date"
-                          value={newEntry.purchase_date}
-                          onChange={(e) => setNewEntry({ ...newEntry, purchase_date: e.target.value })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={newEntry.is_essential}
-                        onCheckedChange={(checked) => setNewEntry({ ...newEntry, is_essential: checked })}
-                      />
-                      <Label>Produto essencial</Label>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Observações (opcional)</Label>
-                      <Textarea
-                        placeholder="Ex: Promoção de fim de semana..."
-                        value={newEntry.notes}
-                        onChange={(e) => setNewEntry({ ...newEntry, notes: e.target.value })}
-                      />
                     </div>
                   </div>
-                  <DialogFooter>
+                  <DialogFooter className="p-6 pt-2 border-t mt-0">
                     <Button variant="outline" onClick={() => setShowAddDialog(false)}>
                       Cancelar
                     </Button>
@@ -613,6 +848,23 @@ export default function Prices() {
           </Card>
         </div>
 
+        {/* Community Info Section */}
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex flex-col md:flex-row items-center gap-4">
+          <div className="bg-primary/10 p-3 rounded-full">
+            <Users className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm">Transparência e Colaboração 🇦🇴</h3>
+            <p className="text-xs text-muted-foreground">
+              Os preços apresentados são registados por utilizadores como tu. Ao registar um preço, estás a ajudar toda a comunidade angolana a encontrar as melhores oportunidades de poupança.
+            </p>
+          </div>
+          <div className="ml-auto flex flex-col items-center gap-2">
+            <Badge variant="outline" className="text-primary border-primary/30">Dados Partilhados</Badge>
+            <p className="text-[10px] font-bold text-success animate-pulse">#AngolaPoupeMais</p>
+          </div>
+        </div>
+
         {/* Best Deals */}
         {bestDeals.length > 0 && (
           <Card className="border-amber-500/30">
@@ -675,6 +927,21 @@ export default function Prices() {
           </div>
         </div>
 
+        <div className="flex flex-wrap gap-2">
+          {CATEGORIES.map((cat) => (
+            <Button
+              key={cat.value}
+              variant={selectedCategory === cat.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory(cat.value)}
+              className={selectedCategory === cat.value ? "gradient-primary" : ""}
+            >
+              <cat.icon className="h-4 w-4 mr-2" />
+              {cat.label}
+            </Button>
+          ))}
+        </div>
+
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4">
@@ -703,19 +970,6 @@ export default function Prices() {
 
           {/* Compare Tab */}
           <TabsContent value="compare" className="mt-6">
-            <div className="flex flex-wrap gap-2 mb-4">
-              {CATEGORIES.map((cat) => (
-                <Button
-                  key={cat.value}
-                  variant={selectedCategory === cat.value ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedCategory(cat.value)}
-                  className={selectedCategory === cat.value ? "gradient-primary" : ""}
-                >
-                  {cat.label}
-                </Button>
-              ))}
-            </div>
 
             {loadingEntries ? (
               <div className="flex justify-center py-12">
@@ -742,7 +996,7 @@ export default function Prices() {
                     (p) => p.name.toLowerCase() === product.product_name.toLowerCase()
                   );
                   const isFollowed = isProductFollowed(product.product_name, catalogProduct?.id);
-                  
+
                   return (
                     <Card key={index} className={`hover:shadow-md transition-shadow ${isFollowed ? 'ring-2 ring-primary/30' : ''}`}>
                       <CardContent className="p-4">
@@ -851,9 +1105,9 @@ export default function Prices() {
                           <p className="text-xs text-muted-foreground mb-2">Histórico de preços:</p>
                           <div className="flex flex-wrap gap-2">
                             {product.entries.slice(0, 5).map((entry: PriceEntry) => (
-                              <Badge 
-                                key={entry.id} 
-                                variant="outline" 
+                              <Badge
+                                key={entry.id}
+                                variant="outline"
                                 className={`text-xs ${entry.price === product.minPrice ? 'border-success text-success' : ''}`}
                               >
                                 <Store className="h-3 w-3 mr-1" />
@@ -919,11 +1173,11 @@ export default function Prices() {
                   </CardContent>
                 </Card>
 
-                {productFollows.map((follow) => {
-                  const productName = follow.product_name || 
+                {filteredFollows.map((follow) => {
+                  const productName = follow.product_name ||
                     productsCatalog.find(p => p.id === follow.product_id)?.name || "Produto";
                   const productData = pricesByProduct[productName.toLowerCase().trim()];
-                  
+
                   return (
                     <Card key={follow.id} className="hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
@@ -996,12 +1250,11 @@ export default function Prices() {
               <CardContent>
                 <ScrollArea className="h-[500px] pr-4">
                   <div className="space-y-4">
-                    {productsCatalog
-                      .filter(p => p.is_essential)
+                    {filteredSuggestions
                       .map((catalogProduct) => {
                         const productData = pricesByProduct[catalogProduct.name.toLowerCase().trim()];
                         const isFollowed = isProductFollowed(catalogProduct.name, catalogProduct.id);
-                        
+
                         return (
                           <div key={catalogProduct.id} className={`flex items-center justify-between p-4 rounded-lg ${isFollowed ? 'bg-primary/10 ring-1 ring-primary/30' : 'bg-muted/50'}`}>
                             <div className="flex items-center gap-3">
@@ -1088,17 +1341,15 @@ export default function Prices() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {myEntries.map((entry) => (
+                {filteredMyEntries.map((entry) => (
                   <Card key={entry.id}>
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
-                            entry.is_essential ? 'bg-primary/10' : 'bg-muted'
-                          }`}>
-                            <ShoppingCart className={`h-5 w-5 ${
-                              entry.is_essential ? 'text-primary' : 'text-muted-foreground'
-                            }`} />
+                          <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${entry.is_essential ? 'bg-primary/10' : 'bg-muted'
+                            }`}>
+                            <ShoppingCart className={`h-5 w-5 ${entry.is_essential ? 'text-primary' : 'text-muted-foreground'
+                              }`} />
                           </div>
                           <div>
                             <h4 className="font-medium">{entry.product_name}</h4>

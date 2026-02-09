@@ -25,6 +25,7 @@ import {
   ExternalLink,
   BookOpen,
   User,
+  FileText,
 } from "lucide-react";
 
 interface Subscription {
@@ -41,6 +42,8 @@ interface Subscription {
     name: string;
     price: number;
     ebook_limit: number;
+    module_key: string | null;
+    tier_level: number | null;
   } | null;
   profiles?: {
     name: string | null;
@@ -54,11 +57,31 @@ export function AdminSubscriptions() {
   const [selectedSub, setSelectedSub] = useState<Subscription | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [customExpiryDate, setCustomExpiryDate] = useState(
+    format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd")
+  );
+  const [expiryDays, setExpiryDays] = useState("30");
+  const [viewingReceipt, setViewingReceipt] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  // Helper function to get the public URL from receipts bucket
+  const getReceiptUrl = (url: string | null): string | null => {
+    if (!url) return null;
+    // If the URL contains a path to a specific bucket, extract the file path and get from receipts bucket
+    // Handle both old payment-proofs URLs and direct paths
+    const match = url.match(/\/storage\/v1\/object\/public\/[^/]+\/(.+)/);
+    if (match) {
+      const filePath = match[1];
+      return supabase.storage.from("receipts").getPublicUrl(filePath).data.publicUrl;
+    }
+    // If it's already a full URL, return as is
+    return url;
+  };
 
   const { data: subscriptions = [], isLoading } = useQuery({
     queryKey: ["admin-subscriptions"],
     queryFn: async () => {
+      console.log("Fetching subscriptions...");
       const { data, error } = await supabase
         .from("user_subscriptions")
         .select(`
@@ -66,19 +89,26 @@ export function AdminSubscriptions() {
           subscription_plans(name, price, ebook_limit)
         `)
         .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      
-      // Fetch user profiles separately
-      const userIds = data.map((s: any) => s.user_id);
+
+      if (error) {
+        console.error("Error fetching subscriptions:", error);
+        throw error;
+      }
+
+      console.log("Subscriptions fetched:", data?.length);
+
+      // Fetch user profiles manually to ensure we get the names
+      if (!data || data.length === 0) return [];
+
+      const userIds = [...new Set(data.map((s: any) => s.user_id))];
       const { data: profiles } = await supabase
         .from("profiles")
         .select("user_id, name, email")
         .in("user_id", userIds);
-      
+
       return data.map((sub: any) => ({
         ...sub,
-        profiles: profiles?.find((p: any) => p.user_id === sub.user_id) || null,
+        profiles: profiles?.find((p: any) => p.user_id === sub.user_id) || { name: 'Usuário Desconhecido', email: 'Sem email' },
       }));
     },
   });
@@ -94,16 +124,16 @@ export function AdminSubscriptions() {
         `)
         .order("downloaded_at", { ascending: false })
         .limit(100);
-      
+
       if (error) throw error;
-      
+
       // Fetch user profiles
       const userIds = [...new Set(data.map((d: any) => d.user_id))];
       const { data: profiles } = await supabase
         .from("profiles")
         .select("user_id, name, email")
         .in("user_id", userIds);
-      
+
       return data.map((dl: any) => ({
         ...dl,
         profiles: profiles?.find((p: any) => p.user_id === dl.user_id) || null,
@@ -118,11 +148,11 @@ export function AdminSubscriptions() {
         .update({
           status: "active",
           started_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          expires_at: new Date(customExpiryDate).toISOString(),
           approved_at: new Date().toISOString(),
         })
         .eq("id", subId);
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -144,7 +174,7 @@ export function AdminSubscriptions() {
           rejection_reason: reason,
         })
         .eq("id", subId);
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -158,11 +188,100 @@ export function AdminSubscriptions() {
     },
   });
 
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ subId, currentStatus }: { subId: string; currentStatus: string }) => {
+      const newStatus = currentStatus === "active" ? "cancelled" : "active";
+      const updates: any = { status: newStatus };
+
+      if (newStatus === "active") {
+        updates.started_at = new Date().toISOString();
+        updates.approved_at = new Date().toISOString();
+        if (!selectedSub?.expires_at) {
+          updates.expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        }
+      }
+
+      const { error } = await supabase
+        .from("user_subscriptions")
+        .update(updates)
+        .eq("id", subId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Status atualizado com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
+    },
+    onError: () => {
+      toast.error("Erro ao atualizar status");
+    },
+  });
+
+  const updateExpiryMutation = useMutation({
+    mutationFn: async ({ subId, expiryDate }: { subId: string; expiryDate: string }) => {
+      console.log("Updating expiry for subscription:", subId, "to date:", expiryDate);
+      const { error } = await supabase
+        .from("user_subscriptions")
+        .update({ expires_at: new Date(expiryDate).toISOString() })
+        .eq("id", subId);
+
+      if (error) {
+        console.error("Error updating expiry:", error);
+        throw error;
+      }
+      console.log("Expiry updated successfully");
+    },
+    onSuccess: () => {
+      toast.success("Data de expiração atualizada!");
+      queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
+    },
+    onError: (error: any) => {
+      console.error("Mutation error:", error);
+      toast.error("Erro ao atualizar data de expiração: " + error.message);
+    },
+  });
+
+  const changeStatusMutation = useMutation({
+    mutationFn: async ({ subId, newStatus }: { subId: string; newStatus: string }) => {
+      const updates: any = { status: newStatus };
+
+      // Set appropriate timestamps based on status
+      if (newStatus === "active") {
+        updates.started_at = new Date().toISOString();
+        updates.approved_at = new Date().toISOString();
+        // Use the custom expiry date from the form
+        updates.expires_at = new Date(customExpiryDate).toISOString();
+      } else if (newStatus === "expired") {
+        updates.expires_at = new Date().toISOString(); // Set to now
+      }
+
+      console.log("Changing status to:", newStatus, "with updates:", updates);
+      const { error } = await supabase
+        .from("user_subscriptions")
+        .update(updates)
+        .eq("id", subId);
+
+      if (error) {
+        console.error("Error changing status:", error);
+        throw error;
+      }
+      console.log("Status changed successfully");
+    },
+    onSuccess: () => {
+      toast.success("Status alterado com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
+    },
+    onError: (error: any) => {
+      console.error("Status change error:", error);
+      toast.error("Erro ao alterar status: " + error.message);
+    },
+  });
+
   const filteredSubs = subscriptions.filter((sub: Subscription) => {
-    const matchesSearch = 
+    const matchesSearch =
       sub.profiles?.name?.toLowerCase().includes(search.toLowerCase()) ||
       sub.profiles?.email?.toLowerCase().includes(search.toLowerCase());
-    
+
     if (activeTab === "all") return matchesSearch !== false;
     return sub.status === activeTab && matchesSearch !== false;
   });
@@ -278,9 +397,11 @@ export function AdminSubscriptions() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => window.open(sub.payment_proof_url!, "_blank")}
+                            className="h-8 gap-2"
+                            onClick={() => setViewingReceipt(getReceiptUrl(sub.payment_proof_url))}
                           >
-                            <ExternalLink className="h-4 w-4" />
+                            <FileText className="h-4 w-4" />
+                            Ver Recibo
                           </Button>
                         ) : (
                           <span className="text-muted-foreground text-sm">-</span>
@@ -383,9 +504,9 @@ export function AdminSubscriptions() {
           <DialogHeader>
             <DialogTitle>Detalhes da Assinatura</DialogTitle>
           </DialogHeader>
-          
+
           {selectedSub && (
-            <div className="space-y-6 py-4">
+            <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto pr-2">
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Usuário</p>
@@ -401,43 +522,146 @@ export function AdminSubscriptions() {
                 </div>
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Status</p>
-                  <div className="mt-1">{getStatusBadge(selectedSub.status)}</div>
-                </div>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">Limite de Ebooks</p>
-                  <p className="font-medium">{selectedSub.subscription_plans?.ebook_limit} ebooks grátis</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {getStatusBadge(selectedSub.status)}
+                  </div>
                 </div>
               </div>
 
               {selectedSub.payment_proof_url && (
                 <div className="space-y-2">
                   <Label>Comprovativo de Pagamento</Label>
-                  <div className="border rounded-lg overflow-hidden">
-                    {selectedSub.payment_proof_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                      <img 
-                        src={selectedSub.payment_proof_url} 
-                        alt="Comprovativo" 
-                        className="w-full max-h-64 object-contain"
-                      />
-                    ) : (
-                      <div className="p-4 flex items-center justify-between bg-muted">
-                        <span>Arquivo PDF</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(selectedSub.payment_proof_url!, "_blank")}
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Abrir
-                        </Button>
-                      </div>
-                    )}
+                  <div className="border rounded-lg overflow-hidden bg-muted/20 p-4">
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() => setViewingReceipt(getReceiptUrl(selectedSub.payment_proof_url))}
+                    >
+                      <FileText className="h-4 w-4" />
+                      Ver Comprovativo de Pagamento
+                      <ExternalLink className="h-4 w-4 ml-auto" />
+                    </Button>
                   </div>
                 </div>
               )}
 
+              {/* Admin Controls - Always visible */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="space-y-3">
+                  <Label className="font-medium">Alterar Status da Assinatura</Label>
+                  <p className="text-sm text-muted-foreground">Mude o status para qualquer estado, independentemente do estado atual</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant={selectedSub.status === "active" ? "default" : "outline"}
+                      className="w-full"
+                      onClick={() => changeStatusMutation.mutate({ subId: selectedSub.id, newStatus: "active" })}
+                      disabled={changeStatusMutation.isPending || selectedSub.status === "active"}
+                    >
+                      <Check className="mr-2 h-4 w-4" />
+                      Aprovar/Ativar
+                    </Button>
+                    <Button
+                      variant={selectedSub.status === "pending" ? "default" : "outline"}
+                      className="w-full"
+                      onClick={() => changeStatusMutation.mutate({ subId: selectedSub.id, newStatus: "pending" })}
+                      disabled={changeStatusMutation.isPending || selectedSub.status === "pending"}
+                    >
+                      <Clock className="mr-2 h-4 w-4" />
+                      Pendente
+                    </Button>
+                    <Button
+                      variant={selectedSub.status === "cancelled" ? "destructive" : "outline"}
+                      className="w-full"
+                      onClick={() => changeStatusMutation.mutate({ subId: selectedSub.id, newStatus: "cancelled" })}
+                      disabled={changeStatusMutation.isPending || selectedSub.status === "cancelled"}
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      Rejeitar/Cancelar
+                    </Button>
+                    <Button
+                      variant={selectedSub.status === "expired" ? "secondary" : "outline"}
+                      className="w-full"
+                      onClick={() => changeStatusMutation.mutate({ subId: selectedSub.id, newStatus: "expired" })}
+                      disabled={changeStatusMutation.isPending || selectedSub.status === "expired"}
+                    >
+                      <AlertCircle className="mr-2 h-4 w-4" />
+                      Expirar
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Definir Data de Expiração</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="days" className="text-xs">Número de Dias</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="days"
+                          type="number"
+                          min="1"
+                          value={expiryDays}
+                          onChange={(e) => {
+                            setExpiryDays(e.target.value);
+                            const days = parseInt(e.target.value) || 30;
+                            setCustomExpiryDate(format(new Date(Date.now() + days * 24 * 60 * 60 * 1000), "yyyy-MM-dd"));
+                          }}
+                          placeholder="30"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const days = parseInt(expiryDays) || 30;
+                            const newDate = format(new Date(Date.now() + days * 24 * 60 * 60 * 1000), "yyyy-MM-dd");
+                            updateExpiryMutation.mutate({ subId: selectedSub.id, expiryDate: newDate });
+                          }}
+                          disabled={updateExpiryMutation.isPending}
+                        >
+                          Aplicar
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="expiry-date" className="text-xs">Data Específica</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="expiry-date"
+                          type="date"
+                          value={customExpiryDate}
+                          onChange={(e) => setCustomExpiryDate(e.target.value)}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => updateExpiryMutation.mutate({ subId: selectedSub.id, expiryDate: customExpiryDate })}
+                          disabled={updateExpiryMutation.isPending}
+                        >
+                          Aplicar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  {selectedSub.expires_at && (
+                    <p className="text-xs text-muted-foreground">
+                      Expira em: {format(new Date(selectedSub.expires_at), "dd/MM/yyyy HH:mm", { locale: pt })}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               {selectedSub.status === "pending" && (
                 <div className="space-y-4 pt-4 border-t">
+                  <div className="space-y-2">
+                    <Label htmlFor="expiry">Data de Expiração (Padrão: 30 dias)</Label>
+                    <Input
+                      id="expiry"
+                      type="date"
+                      value={customExpiryDate}
+                      onChange={(e) => setCustomExpiryDate(e.target.value)}
+                    />
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Motivo da Rejeição (opcional)</Label>
                     <Textarea
@@ -447,7 +671,7 @@ export function AdminSubscriptions() {
                       rows={2}
                     />
                   </div>
-                  
+
                   <div className="flex gap-3">
                     <Button
                       className="flex-1"
@@ -478,6 +702,49 @@ export function AdminSubscriptions() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Receipt Viewer Modal - Same pattern as AdminSalesManager */}
+      <Dialog open={!!viewingReceipt} onOpenChange={() => setViewingReceipt(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <div className="flex items-center justify-between pr-8">
+              <DialogTitle>Comprovativo de Pagamento</DialogTitle>
+              {viewingReceipt && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(viewingReceipt, '_blank')}
+                  className="gap-2"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Abrir em nova aba
+                </Button>
+              )}
+            </div>
+          </DialogHeader>
+          <div className="flex-1 flex items-center justify-center p-4 overflow-hidden min-h-[50vh]">
+            {viewingReceipt && (
+              viewingReceipt.split('?')[0].toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={viewingReceipt}
+                  className="w-full h-full min-h-[60vh] border-0 rounded-md"
+                  title="Recibo PDF"
+                />
+              ) : (
+                <img
+                  src={viewingReceipt}
+                  alt="Comprovativo"
+                  className="max-w-full max-h-[70vh] object-contain"
+                  onError={(e) => {
+                    e.currentTarget.src = '';
+                    e.currentTarget.alt = 'Erro ao carregar imagem';
+                  }}
+                />
+              )
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

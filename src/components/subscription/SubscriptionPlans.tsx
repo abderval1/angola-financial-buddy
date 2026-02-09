@@ -39,7 +39,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
         .select("*")
         .eq("is_active", true)
         .order("price", { ascending: true });
-      
+
       if (error) throw error;
       return data as Plan[];
     },
@@ -55,7 +55,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      
+
       if (error) throw error;
       return data;
     },
@@ -70,7 +70,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
         .select("id", { count: "exact" })
         .eq("user_id", user?.id)
         .eq("is_free_download", true);
-      
+
       if (error) throw error;
       return data?.length || 0;
     },
@@ -85,7 +85,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
         payment_proof_url: proofUrl,
         status: "pending",
       });
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -108,15 +108,15 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      
+
       const { error: uploadError } = await supabase.storage
-        .from("payment-proofs")
+        .from("receipts")
         .upload(fileName, file);
-      
+
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage
-        .from("payment-proofs")
+        .from("receipts")
         .getPublicUrl(fileName);
 
       await subscribeMutation.mutateAsync({
@@ -171,13 +171,13 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     Status: {" "}
-                    <Badge 
+                    <Badge
                       variant={currentSubscription.status === "active" ? "default" : "secondary"}
                       className={currentSubscription.status === "active" ? "bg-success" : ""}
                     >
-                      {currentSubscription.status === "active" ? "Ativo" : 
-                       currentSubscription.status === "pending" ? "Pendente" : 
-                       currentSubscription.status === "expired" ? "Expirado" : "Cancelado"}
+                      {currentSubscription.status === "active" ? "Ativo" :
+                        currentSubscription.status === "pending" ? "Pendente" :
+                          currentSubscription.status === "expired" ? "Expirado" : "Cancelado"}
                     </Badge>
                   </p>
                 </div>
@@ -199,7 +199,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
           const PlanIcon = getPlanIcon(plan.name);
           const isCurrent = isCurrentPlan(plan.id);
           const features = Array.isArray(plan.features) ? plan.features : [];
-          
+
           return (
             <div key={plan.id} className={getPlanStyle(index)}>
               {index === 2 && (
@@ -207,23 +207,22 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                   Mais Popular
                 </Badge>
               )}
-              
+
               <div className="flex items-center gap-3 mb-4">
-                <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${
-                  index === 2 ? "bg-accent/20" : "bg-primary/10"
-                }`}>
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${index === 2 ? "bg-accent/20" : "bg-primary/10"
+                  }`}>
                   <PlanIcon className={`h-5 w-5 ${index === 2 ? "text-accent" : "text-primary"}`} />
                 </div>
                 <h3 className="font-display text-xl font-bold">{plan.name}</h3>
               </div>
-              
+
               <div className="mb-6">
                 <span className="text-4xl font-bold text-foreground">
                   {new Intl.NumberFormat("pt-AO").format(plan.price)}
                 </span>
                 <span className="text-muted-foreground ml-1">Kz/mês</span>
               </div>
-              
+
               <ul className="space-y-3 mb-6">
                 <li className="flex items-center gap-2 text-sm">
                   <Check className="h-4 w-4 text-success shrink-0" />
@@ -236,16 +235,16 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                   </li>
                 ))}
               </ul>
-              
+
               <Button
                 className="w-full"
                 variant={isCurrent ? "outline" : index === 2 ? "default" : "outline"}
                 disabled={isCurrent || currentSubscription?.status === "pending"}
                 onClick={() => { setSelectedPlan(plan); setDialogOpen(true); }}
               >
-                {isCurrent ? "Plano Atual" : 
-                 currentSubscription?.status === "pending" ? "Aguardando Aprovação" :
-                 "Assinar Agora"}
+                {isCurrent ? "Plano Atual" :
+                  currentSubscription?.status === "pending" ? "Aguardando Aprovação" :
+                    "Assinar Agora"}
               </Button>
             </div>
           );
@@ -261,7 +260,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
               Envie o comprovativo de pagamento para ativar sua assinatura.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-6 py-4">
             <div className="p-4 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground mb-2">Valor a pagar:</p>
@@ -269,7 +268,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                 {selectedPlan && new Intl.NumberFormat("pt-AO", { style: "currency", currency: "AOA" }).format(selectedPlan.price)}
               </p>
             </div>
-            
+
             <div className="space-y-2">
               <Label>Dados para Transferência:</Label>
               <div className="p-4 bg-primary/5 rounded-lg space-y-2 text-sm">
@@ -278,7 +277,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                 <p><strong>Titular:</strong> Kuanza Finance, Lda</p>
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label>Comprovativo de Pagamento</Label>
               <input
@@ -311,7 +310,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
               </p>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar

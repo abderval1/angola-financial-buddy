@@ -110,6 +110,7 @@ export function AdminCourseManager() {
     is_published: false,
     thumbnail_url: "",
     points_reward: 50,
+    price: null as number | null,
   });
 
   // Module form
@@ -149,7 +150,7 @@ export function AdminCourseManager() {
         .select("*")
         .eq("content_type", "course")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data;
     },
@@ -164,7 +165,7 @@ export function AdminCourseManager() {
         .select("*")
         .eq("course_id", selectedCourseId)
         .order("order_index", { ascending: true });
-      
+
       if (error) throw error;
       return data as Module[];
     },
@@ -180,7 +181,7 @@ export function AdminCourseManager() {
         .select("*, quiz_questions(*)")
         .eq("course_id", selectedCourseId)
         .order("order_index", { ascending: true });
-      
+
       if (error) throw error;
       return data as Quiz[];
     },
@@ -189,7 +190,7 @@ export function AdminCourseManager() {
 
   // File upload handler
   const handleFileUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>, 
+    e: React.ChangeEvent<HTMLInputElement>,
     type: "image" | "video",
     target: "course" | "module"
   ) => {
@@ -244,6 +245,7 @@ export function AdminCourseManager() {
         is_published: data.is_published,
         thumbnail_url: data.thumbnail_url || null,
         points_reward: data.points_reward,
+        price: data.is_premium ? data.price : null,
         slug,
       });
       if (error) throw error;
@@ -268,6 +270,7 @@ export function AdminCourseManager() {
         is_published: data.is_published,
         thumbnail_url: data.thumbnail_url || null,
         points_reward: data.points_reward,
+        price: data.is_premium ? data.price : null,
       }).eq("id", id);
       if (error) throw error;
     },
@@ -367,12 +370,12 @@ export function AdminCourseManager() {
   const moveModule = (moduleId: string, direction: "up" | "down") => {
     const currentIndex = modules.findIndex(m => m.id === moduleId);
     if (currentIndex === -1) return;
-    
+
     const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
     if (newIndex < 0 || newIndex >= modules.length) return;
 
     const otherModule = modules[newIndex];
-    
+
     // Swap order indices
     reorderModuleMutation.mutate({ id: moduleId, newIndex });
     reorderModuleMutation.mutate({ id: otherModule.id, newIndex: currentIndex });
@@ -394,7 +397,7 @@ export function AdminCourseManager() {
         })
         .select()
         .single();
-      
+
       if (quizError) throw quizError;
 
       if (data.questions.length > 0) {
@@ -412,7 +415,7 @@ export function AdminCourseManager() {
         const { error: questionsError } = await supabase
           .from("quiz_questions")
           .insert(questions);
-        
+
         if (questionsError) throw questionsError;
       }
 
@@ -438,7 +441,7 @@ export function AdminCourseManager() {
           is_final_quiz: data.is_final_quiz,
         })
         .eq("id", id);
-      
+
       if (quizError) throw quizError;
 
       // Delete existing questions
@@ -460,7 +463,7 @@ export function AdminCourseManager() {
         const { error: questionsError } = await supabase
           .from("quiz_questions")
           .insert(questions);
-        
+
         if (questionsError) throw questionsError;
       }
     },
@@ -498,6 +501,7 @@ export function AdminCourseManager() {
       is_published: false,
       thumbnail_url: "",
       points_reward: 50,
+      price: null,
     });
   };
 
@@ -543,6 +547,7 @@ export function AdminCourseManager() {
       is_published: course.is_published || false,
       thumbnail_url: course.thumbnail_url || "",
       points_reward: course.points_reward || 50,
+      price: course.price || null,
     });
     setCourseDialogOpen(true);
   };
@@ -588,6 +593,11 @@ export function AdminCourseManager() {
   const handleCourseSubmit = () => {
     if (!courseForm.title.trim()) {
       toast.error("O título do curso é obrigatório");
+      return;
+    }
+    // Validate price for premium courses
+    if (courseForm.is_premium && (!courseForm.price || courseForm.price <= 0)) {
+      toast.error("O preço é obrigatório para cursos premium");
       return;
     }
     if (editingCourse) {
@@ -647,7 +657,7 @@ export function AdminCourseManager() {
   const updateQuestion = (index: number, field: keyof Question, value: any) => {
     setQuizForm(prev => ({
       ...prev,
-      questions: prev.questions.map((q, i) => 
+      questions: prev.questions.map((q, i) =>
         i === index ? { ...q, [field]: value } : q
       ),
     }));
@@ -656,8 +666,8 @@ export function AdminCourseManager() {
   const updateQuestionOption = (questionIndex: number, optionIndex: number, value: string) => {
     setQuizForm(prev => ({
       ...prev,
-      questions: prev.questions.map((q, i) => 
-        i === questionIndex 
+      questions: prev.questions.map((q, i) =>
+        i === questionIndex
           ? { ...q, options: q.options.map((opt, oi) => oi === optionIndex ? value : opt) }
           : q
       ),
@@ -731,9 +741,9 @@ export function AdminCourseManager() {
                   <div className="p-6 text-center">
                     <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
                     <p className="text-sm text-muted-foreground">Nenhum curso criado</p>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="mt-3"
                       onClick={() => setCourseDialogOpen(true)}
                     >
@@ -746,17 +756,16 @@ export function AdminCourseManager() {
                     {courses.map((course: any) => (
                       <div
                         key={course.id}
-                        className={`p-3 cursor-pointer transition-all hover:bg-muted/50 ${
-                          selectedCourseId === course.id ? "bg-primary/5 border-l-2 border-l-primary" : ""
-                        }`}
+                        className={`p-3 cursor-pointer transition-all hover:bg-muted/50 ${selectedCourseId === course.id ? "bg-primary/5 border-l-2 border-l-primary" : ""
+                          }`}
                         onClick={() => setSelectedCourseId(course.id)}
                       >
                         <div className="flex items-start gap-3">
                           {course.thumbnail_url ? (
-                            <img 
-                              src={course.thumbnail_url} 
-                              alt="" 
-                              className="h-12 w-16 rounded object-cover flex-shrink-0" 
+                            <img
+                              src={course.thumbnail_url}
+                              alt=""
+                              className="h-12 w-16 rounded object-cover flex-shrink-0"
                             />
                           ) : (
                             <div className="h-12 w-16 rounded bg-muted flex items-center justify-center flex-shrink-0">
@@ -819,10 +828,10 @@ export function AdminCourseManager() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4">
                       {selectedCourse.thumbnail_url ? (
-                        <img 
-                          src={selectedCourse.thumbnail_url} 
-                          alt="" 
-                          className="h-20 w-28 rounded-lg object-cover" 
+                        <img
+                          src={selectedCourse.thumbnail_url}
+                          alt=""
+                          className="h-20 w-28 rounded-lg object-cover"
                         />
                       ) : (
                         <div className="h-20 w-28 rounded-lg bg-muted flex items-center justify-center">
@@ -856,9 +865,9 @@ export function AdminCourseManager() {
                         <Edit2 className="h-4 w-4 mr-1" />
                         Editar
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="text-destructive hover:text-destructive"
                         onClick={() => {
                           if (confirm("Tem certeza que deseja excluir este curso?")) {
@@ -929,9 +938,9 @@ export function AdminCourseManager() {
                             <div className="flex items-start gap-3">
                               {/* Order Controls */}
                               <div className="flex flex-col items-center gap-0.5 pt-1">
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   className="h-6 w-6"
                                   onClick={() => moveModule(mod.id, "up")}
                                   disabled={idx === 0}
@@ -939,9 +948,9 @@ export function AdminCourseManager() {
                                   <ArrowUp className="h-3 w-3" />
                                 </Button>
                                 <span className="text-xs font-bold text-muted-foreground">{idx + 1}</span>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   className="h-6 w-6"
                                   onClick={() => moveModule(mod.id, "down")}
                                   disabled={idx === modules.length - 1}
@@ -952,10 +961,10 @@ export function AdminCourseManager() {
 
                               {/* Thumbnail */}
                               {mod.thumbnail_url ? (
-                                <img 
-                                  src={mod.thumbnail_url} 
-                                  alt="" 
-                                  className="h-16 w-24 rounded-lg object-cover flex-shrink-0" 
+                                <img
+                                  src={mod.thumbnail_url}
+                                  alt=""
+                                  className="h-16 w-24 rounded-lg object-cover flex-shrink-0"
                                 />
                               ) : (
                                 <div className="h-16 w-24 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
@@ -981,8 +990,8 @@ export function AdminCourseManager() {
                                     )}
                                   </div>
                                   <div className="flex items-center gap-1 ml-2">
-                                    <Button 
-                                      variant="ghost" 
+                                    <Button
+                                      variant="ghost"
                                       size="sm"
                                       className="h-8"
                                       onClick={() => toggleModuleExpanded(mod.id)}
@@ -999,8 +1008,8 @@ export function AdminCourseManager() {
                                         </>
                                       )}
                                     </Button>
-                                    <Button 
-                                      variant="outline" 
+                                    <Button
+                                      variant="outline"
                                       size="sm"
                                       className="h-8"
                                       onClick={() => openEditModule(mod)}
@@ -1008,8 +1017,8 @@ export function AdminCourseManager() {
                                       <Edit2 className="h-3.5 w-3.5 mr-1" />
                                       Editar
                                     </Button>
-                                    <Button 
-                                      variant="ghost" 
+                                    <Button
+                                      variant="ghost"
                                       size="sm"
                                       className="h-8 text-destructive hover:text-destructive"
                                       onClick={() => {
@@ -1022,7 +1031,7 @@ export function AdminCourseManager() {
                                     </Button>
                                   </div>
                                 </div>
-                                
+
                                 {/* Module Meta */}
                                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                                   <Badge variant="outline" className="text-xs h-5 gap-1">
@@ -1059,7 +1068,7 @@ export function AdminCourseManager() {
                                 {mod.description && (
                                   <p className="text-sm text-muted-foreground mb-4 italic">"{mod.description}"</p>
                                 )}
-                                
+
                                 {/* Video/YouTube Preview */}
                                 {mod.media_type === "youtube" && mod.video_url && (
                                   <div className="aspect-video rounded-lg overflow-hidden bg-black mb-4 max-w-2xl">
@@ -1075,7 +1084,7 @@ export function AdminCourseManager() {
                                     <video src={mod.video_url} controls className="w-full h-full" />
                                   </div>
                                 )}
-                                
+
                                 {/* Content Preview */}
                                 {mod.content && (
                                   <div className="bg-background rounded-lg p-4 border">
@@ -1084,7 +1093,7 @@ export function AdminCourseManager() {
                                       Conteúdo do Módulo
                                     </h5>
                                     <ScrollArea className="max-h-[300px]">
-                                      <div 
+                                      <div
                                         className="prose prose-sm dark:prose-invert max-w-none"
                                         dangerouslySetInnerHTML={{ __html: mod.content }}
                                       />
@@ -1096,9 +1105,9 @@ export function AdminCourseManager() {
                                   <div className="text-center py-8 text-muted-foreground">
                                     <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
                                     <p className="text-sm">Este módulo ainda não tem conteúdo</p>
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm" 
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
                                       className="mt-2"
                                       onClick={() => openEditModule(mod)}
                                     >
@@ -1120,9 +1129,9 @@ export function AdminCourseManager() {
                             <span className="text-muted-foreground">
                               Total: {modules.length} módulos • {totalModulesDuration} minutos de conteúdo
                             </span>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="h-7 text-xs"
                               onClick={() => setModuleDialogOpen(true)}
                             >
@@ -1180,15 +1189,15 @@ export function AdminCourseManager() {
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 onClick={() => openEditQuiz(quiz)}
                               >
                                 <Edit2 className="h-4 w-4" />
                               </Button>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 className="text-destructive hover:text-destructive"
                                 onClick={() => {
@@ -1333,9 +1342,9 @@ export function AdminCourseManager() {
               <div className="flex items-center gap-2">
                 <Switch
                   checked={courseForm.is_premium}
-                  onCheckedChange={(checked) => setCourseForm({ ...courseForm, is_premium: checked })}
+                  onCheckedChange={(checked) => setCourseForm({ ...courseForm, is_premium: checked, price: checked ? courseForm.price : null })}
                 />
-                <Label className="cursor-pointer">Curso Premium</Label>
+                <Label className="cursor-pointer">Curso Premium (Venda Separada)</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Switch
@@ -1345,13 +1354,42 @@ export function AdminCourseManager() {
                 <Label className="cursor-pointer">Publicar Curso</Label>
               </div>
             </div>
+
+            {/* Price field - only shown when is_premium is checked */}
+            {courseForm.is_premium && (
+              <div className="p-4 border border-amber-500/30 rounded-lg bg-amber-500/5 space-y-3">
+                <div className="flex items-center gap-2 text-amber-600">
+                  <Star className="h-4 w-4" />
+                  <span className="font-medium text-sm">Configuração de Curso Premium</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Este curso será vendido separadamente e não estará incluído em nenhum plano de assinatura.
+                </p>
+                <div className="space-y-2">
+                  <Label>Preço do Curso (Kz) *</Label>
+                  <Input
+                    type="number"
+                    value={courseForm.price || ""}
+                    onChange={(e) => setCourseForm({ ...courseForm, price: e.target.value ? parseFloat(e.target.value) : null })}
+                    placeholder="Ex: 15000"
+                    min="0"
+                    step="100"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={resetCourseForm}>Cancelar</Button>
-            <Button 
-              onClick={handleCourseSubmit} 
-              disabled={!courseForm.title.trim() || createCourseMutation.isPending || updateCourseMutation.isPending}
+            <Button
+              onClick={handleCourseSubmit}
+              disabled={
+                !courseForm.title.trim() ||
+                (courseForm.is_premium && (!courseForm.price || courseForm.price <= 0)) ||
+                createCourseMutation.isPending ||
+                updateCourseMutation.isPending
+              }
             >
               <Save className="h-4 w-4 mr-2" />
               {editingCourse ? "Salvar Alterações" : "Criar Curso"}
@@ -1564,7 +1602,7 @@ export function AdminCourseManager() {
 
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={resetModuleForm}>Cancelar</Button>
-            <Button 
+            <Button
               onClick={handleModuleSubmit}
               disabled={!moduleForm.title.trim() || createModuleMutation.isPending || updateModuleMutation.isPending}
             >
@@ -1650,9 +1688,9 @@ export function AdminCourseManager() {
                       <CardHeader className="py-3 px-4">
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-sm font-medium">Questão {qIdx + 1}</CardTitle>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="text-destructive h-7"
                             onClick={() => removeQuestion(qIdx)}
                           >
@@ -1737,7 +1775,7 @@ export function AdminCourseManager() {
 
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={resetQuizForm}>Cancelar</Button>
-            <Button 
+            <Button
               onClick={handleQuizSubmit}
               disabled={!quizForm.title.trim() || quizForm.questions.length === 0 || createQuizMutation.isPending || updateQuizMutation.isPending}
             >

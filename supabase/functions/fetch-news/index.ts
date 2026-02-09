@@ -24,18 +24,18 @@ async function fetchExchangeRates(): Promise<NewsItem[]> {
   try {
     const response = await fetch(`${ANGOLA_API_BASE}/taxas/cambio`);
     if (!response.ok) return [];
-    
+
     const data = await response.json();
     const rates = data.data || data;
-    
+
     if (!rates || !Array.isArray(rates)) return [];
-    
+
     // Create a news item summarizing exchange rates
     const usdRate = rates.find((r: any) => r.moeda === 'USD' || r.currency === 'USD');
     const eurRate = rates.find((r: any) => r.moeda === 'EUR' || r.currency === 'EUR');
-    
+
     const summary = `Taxas de câmbio atualizadas: ${usdRate ? `USD: ${usdRate.venda || usdRate.sell} Kz` : ''} ${eurRate ? `| EUR: ${eurRate.venda || eurRate.sell} Kz` : ''}`;
-    
+
     return [{
       title: 'Taxas de Câmbio do BNA Atualizadas',
       summary,
@@ -55,9 +55,9 @@ async function fetchInflationRate(): Promise<NewsItem[]> {
   try {
     const response = await fetch(`${ANGOLA_API_BASE}/taxas/inflacao`);
     if (!response.ok) return [];
-    
+
     const data = await response.json();
-    
+
     return [{
       title: `Taxa de Inflação em Angola: ${data.taxa || data.rate || 'N/A'}%`,
       summary: `A taxa de inflação atual em Angola está em ${data.taxa || data.rate}%. Acompanhe as atualizações económicas do Banco Nacional de Angola.`,
@@ -77,9 +77,9 @@ async function fetchBNAInterestRate(): Promise<NewsItem[]> {
   try {
     const response = await fetch(`${ANGOLA_API_BASE}/taxas/juro-bna`);
     if (!response.ok) return [];
-    
+
     const data = await response.json();
-    
+
     return [{
       title: `Taxa de Juro do BNA: ${data.taxa || data.rate || 'N/A'}%`,
       summary: `A taxa de juro de referência do Banco Nacional de Angola está em ${data.taxa || data.rate}%. Esta taxa influencia o custo do crédito em todo o sistema bancário.`,
@@ -99,12 +99,12 @@ async function fetchLuiborRates(): Promise<NewsItem[]> {
   try {
     const response = await fetch(`${ANGOLA_API_BASE}/taxas/luibor`);
     if (!response.ok) return [];
-    
+
     const data = await response.json();
     const rates = data.data || data;
-    
+
     if (!rates) return [];
-    
+
     return [{
       title: 'Taxas Luibor Atualizadas',
       summary: `As taxas interbancárias de oferta de fundos do mercado de Luanda (LUIBOR) foram atualizadas. Estas taxas são referência para empréstimos entre bancos.`,
@@ -157,6 +157,35 @@ function generateFinancialTips(): NewsItem[] {
   }));
 }
 
+// Fetch news from NewsData.io for Angola
+async function fetchNewsDataIO(): Promise<NewsItem[]> {
+  try {
+    const API_KEY = 'api_live_3tK47lmZGyCDONJAH80pzlgXOLPOQWLJ9CJ02UXi21imAHabPuwbq1hu';
+    const response = await fetch(`https://api.apitube.io/v1/news/everything?per_page=30&api_key=${API_KEY}&source.country.code=ao&source.domain=expansao.co.ao&is_duplicate=0`);
+
+    if (!response.ok) {
+      console.error('APITube.io response not ok:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    if (!data.results) return [];
+
+    return data.results.map((item: any) => ({
+      title: item.title,
+      summary: item.description || '',
+      source: typeof item.source === 'string' ? item.source : (item.source?.name || 'Expansão'),
+      category: 'economia',
+      url: item.url,
+      image_url: item.image,
+      published_at: item.published_at,
+    }));
+  } catch (error) {
+    console.error('Error fetching APITube.io:', error);
+    return [];
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -171,11 +200,12 @@ serve(async (req) => {
     console.log('Starting news fetch...');
 
     // Fetch news from all sources in parallel
-    const [exchangeRates, inflation, bnaRate, luibor] = await Promise.all([
+    const [exchangeRates, inflation, bnaRate, luibor, externalNews] = await Promise.all([
       fetchExchangeRates(),
       fetchInflationRate(),
       fetchBNAInterestRate(),
       fetchLuiborRates(),
+      fetchNewsDataIO(),
     ]);
 
     // Get financial tips
@@ -187,57 +217,63 @@ serve(async (req) => {
       ...inflation,
       ...bnaRate,
       ...luibor,
+      ...externalNews,
       ...tips,
     ];
 
-    console.log(`Fetched ${allNews.length} news items`);
+    console.log(`Fetched ${allNews.length} news items total`);
 
     // Insert news into database (upsert based on title to avoid duplicates)
     let insertedCount = 0;
     for (const news of allNews) {
-      // Check if news with same title already exists today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const { data: existing } = await supabase
-        .from('news')
-        .select('id')
-        .eq('title', news.title)
-        .gte('created_at', today.toISOString())
-        .maybeSingle();
-
-      if (!existing) {
-        const { error } = await supabase
+      try {
+        // Check if news with same title already exists
+        const { data: existing, error: fetchError } = await supabase
           .from('news')
-          .insert({
-            title: news.title,
-            summary: news.summary,
-            source: news.source,
-            category: news.category,
-            url: news.url,
-            image_url: news.image_url,
-            published_at: news.published_at,
-            is_approved: true, // Auto-approve API-fetched news
-          });
+          .select('id')
+          .eq('title', news.title)
+          .maybeSingle();
 
-        if (!error) {
-          insertedCount++;
-        } else {
-          console.error('Error inserting news:', error);
+        if (fetchError) {
+          console.error('Error checking existing news:', fetchError);
+          continue;
         }
+
+        if (!existing) {
+          const { error: insertError } = await supabase
+            .from('news')
+            .insert({
+              title: news.title,
+              summary: news.summary,
+              source: news.source,
+              category: news.category,
+              url: news.url,
+              image_url: news.image_url,
+              published_at: news.published_at,
+              is_approved: true, // Auto-approve API-fetched news
+            });
+
+          if (!insertError) {
+            insertedCount++;
+          } else {
+            console.error('Error inserting news article:', news.title, insertError);
+          }
+        }
+      } catch (e) {
+        console.error('Unexpected error processing news item:', e);
       }
     }
 
     console.log(`Inserted ${insertedCount} new articles`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: `Fetched ${allNews.length} news items, inserted ${insertedCount} new articles`,
         total: allNews.length,
         inserted: insertedCount,
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       }
@@ -247,7 +283,7 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       }

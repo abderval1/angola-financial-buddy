@@ -24,6 +24,7 @@ import {
   Package,
   ExternalLink,
   CreditCard,
+  RefreshCw,
 } from "lucide-react";
 import { SubscriptionStatus } from "@/components/subscription/SubscriptionStatus";
 
@@ -66,16 +67,16 @@ export default function Marketplace() {
   });
 
   // Fetch user purchases
-  const { data: purchases = [] } = useQuery({
+  const { data: userPurchases = [] } = useQuery({
     queryKey: ["user-purchases"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("marketplace_purchases")
-        .select("product_id")
+        .select("product_id, status")
         .eq("user_id", user?.id);
 
       if (error) throw error;
-      return data?.map((p) => p.product_id) || [];
+      return data || [];
     },
     enabled: !!user?.id,
   });
@@ -87,6 +88,7 @@ export default function Marketplace() {
         user_id: user?.id,
         product_id: product.id,
         purchase_price: product.price,
+        status: product.price > 0 ? "pending" : "completed",
       });
 
       if (error) throw error;
@@ -100,7 +102,7 @@ export default function Marketplace() {
     onSuccess: (_, product) => {
       queryClient.invalidateQueries({ queryKey: ["user-purchases"] });
       queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
-      toast.success("Produto adquirido com sucesso!");
+      toast.success(product.price > 0 ? "Solicitação enviada! Aguarde a aprovação." : "Produto adquirido com sucesso!");
       setSelectedProduct(null);
       // Open file if free
       if (product.price === 0 && product.file_url) {
@@ -112,6 +114,26 @@ export default function Marketplace() {
     },
   });
 
+  // Buy again mutation (resets status to pending)
+  const buyAgainMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      const { error } = await supabase
+        .from("marketplace_purchases")
+        .update({ status: "pending" } as any)
+        .eq("user_id", user?.id)
+        .eq("product_id", productId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-purchases"] });
+      toast.success("Solicitação reenviada! Aguarde a aprovação.");
+    },
+    onError: () => {
+      toast.error("Erro ao processar solicitação");
+    },
+  });
+
   const filteredProducts = products.filter((product: any) => {
     const matchesType = selectedType === "all" || product.product_type === selectedType;
     const matchesSearch =
@@ -120,7 +142,9 @@ export default function Marketplace() {
     return matchesType && matchesSearch;
   });
 
-  const isPurchased = (productId: string) => purchases.includes(productId);
+  const getPurchaseStatus = (productId: string) => {
+    return userPurchases.find((p: any) => p.product_id === productId)?.status;
+  };
 
   const getProductIcon = (type: string) => {
     switch (type) {
@@ -181,7 +205,7 @@ export default function Marketplace() {
               </div>
             </CardContent>
           </Card>
-          
+
           {/* Subscription Status Widget */}
           <div>
             <SubscriptionStatus />
@@ -211,7 +235,7 @@ export default function Marketplace() {
                   <Download className="h-5 w-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{purchases.length}</p>
+                  <p className="text-2xl font-bold">{userPurchases.length}</p>
                   <p className="text-xs md:text-sm text-muted-foreground">Comprados</p>
                 </div>
               </div>
@@ -298,7 +322,6 @@ export default function Marketplace() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredProducts.map((product: any) => {
                   const ProductIcon = getProductIcon(product.product_type);
-                  const owned = isPurchased(product.id);
 
                   return (
                     <Card
@@ -343,6 +366,22 @@ export default function Marketplace() {
                           </div>
                         </div>
 
+                        <div className="mb-2">
+                          {(() => {
+                            const status = getPurchaseStatus(product.id);
+                            if (status === "pending") {
+                              return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Aguardando Aprovação</Badge>;
+                            }
+                            if (status === "rejected") {
+                              return <Badge variant="destructive">Compra Rejeitada</Badge>;
+                            }
+                            if (status === "completed") {
+                              return <Badge className="bg-green-100 text-green-800 border-green-200">Adquirido</Badge>;
+                            }
+                            return null;
+                          })()}
+                        </div>
+
                         <h3 className="font-semibold text-lg mb-2 line-clamp-1">
                           {product.title}
                         </h3>
@@ -350,29 +389,70 @@ export default function Marketplace() {
                           {product.description}
                         </p>
 
-                        <div className="flex items-center justify-between">
-                          <span className="text-xl font-bold text-primary">
-                            {product.price === 0 ? "Grátis" : formatCurrency(product.price)}
-                          </span>
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xl font-bold text-primary">
+                              {product.price === 0 ? "Grátis" : formatCurrency(product.price)}
+                            </span>
 
-                          {owned ? (
+                            {(() => {
+                              const status = getPurchaseStatus(product.id);
+                              if (status === "completed") {
+                                return (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDownload(product)}
+                                    className="border-success text-success hover:bg-success/10"
+                                  >
+                                    <Download className="h-4 w-4 mr-1" />
+                                    Baixar
+                                  </Button>
+                                );
+                              }
+                              if (status === "pending") {
+                                return (
+                                  <Button size="sm" variant="outline" disabled className="bg-muted text-muted-foreground">
+                                    Pendente
+                                  </Button>
+                                );
+                              }
+                              if (status === "rejected") {
+                                return (
+                                  <Button
+                                    size="sm"
+                                    className="gradient-primary"
+                                    onClick={() => buyAgainMutation.mutate(product.id)}
+                                  >
+                                    <RefreshCw className="h-4 w-4 mr-1" />
+                                    Comprar Novamente
+                                  </Button>
+                                );
+                              }
+                              return (
+                                <Button
+                                  size="sm"
+                                  className="gradient-primary"
+                                  onClick={() => handleBuy(product)}
+                                >
+                                  <ShoppingCart className="h-4 w-4 mr-1" />
+                                  {product.price === 0 ? "Obter" : "Comprar"}
+                                </Button>
+                              );
+                            })()}
+                          </div>
+
+                          {getPurchaseStatus(product.id) === "rejected" && (
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
-                              onClick={() => handleDownload(product)}
-                              className="border-success text-success hover:bg-success/10"
+                              className="w-full text-xs text-muted-foreground hover:text-primary"
+                              asChild
                             >
-                              <Download className="h-4 w-4 mr-1" />
-                              Baixar
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              className="gradient-primary"
-                              onClick={() => handleBuy(product)}
-                            >
-                              <ShoppingCart className="h-4 w-4 mr-1" />
-                              {product.price === 0 ? "Obter" : "Comprar"}
+                              <a href="mailto:rosarioabderval@gmail.com">
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                Entrar em contacto com o suporte
+                              </a>
                             </Button>
                           )}
                         </div>

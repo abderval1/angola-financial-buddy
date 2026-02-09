@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
 import {
   Briefcase,
   Plus,
@@ -27,12 +29,17 @@ import {
   MoreVertical,
   ArrowUpRight,
   ArrowDownRight,
+  Clock,
+  Scale,
+  Activity,
+  Zap,
 } from "lucide-react";
+import { IncomeAnalysisCard } from "@/components/income/IncomeAnalysisCard";
 
 const businessTypes = [
-  { value: "side_hustle", label: "Biscate", icon: Wrench },
-  { value: "freelance", label: "Freelance", icon: Laptop },
-  { value: "small_business", label: "Pequeno Negócio", icon: Building },
+  { value: "bico", label: "Bico (Biscate)", icon: Wrench },
+  { value: "micro_business", label: "Micro-negócio", icon: ShoppingCart },
+  { value: "business", label: "Negócio Estruturado", icon: Building },
   { value: "investment", label: "Investimento", icon: TrendingUp },
   { value: "passive_income", label: "Renda Passiva", icon: Home },
 ];
@@ -61,16 +68,29 @@ export default function Income() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isOpsDialogOpen, setIsOpsDialogOpen] = useState(false);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [selectedSource, setSelectedSource] = useState<any>(null);
+  const [opType, setOpType] = useState<'deposit' | 'withdraw'>('deposit');
+  const [opAmount, setOpAmount] = useState("");
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    business_type: "side_hustle" as const,
+    business_type: "bico" as const,
     category: "",
     monthly_revenue: "",
     monthly_expenses: "",
     initial_investment: "",
     start_date: "",
+    hours_per_week: "",
+    income_type: "active",
+    scalability: "non_scalable",
+    risk_level: "low",
+    risk_type: "financial",
+    growth_potential: "medium",
+    seasonality: "none",
   });
 
   // Fetch income sources
@@ -82,7 +102,7 @@ export default function Income() {
         .select("*")
         .eq("user_id", user?.id)
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -92,7 +112,7 @@ export default function Income() {
   // Create income source mutation
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const { error } = await supabase.from("income_sources").insert({
+      const incomeData = {
         user_id: user?.id,
         name: data.name,
         description: data.description || null,
@@ -102,31 +122,183 @@ export default function Income() {
         monthly_expenses: parseFloat(data.monthly_expenses) || 0,
         initial_investment: parseFloat(data.initial_investment) || 0,
         start_date: data.start_date || null,
-      });
+        hours_per_week: parseFloat(data.hours_per_week) || 0,
+        income_type: data.income_type,
+        scalability: data.scalability,
+        risk_level: data.risk_level,
+        risk_type: data.risk_type,
+        growth_potential: data.growth_potential,
+        seasonality: data.seasonality,
+        // Calculate/Guess action based on simple logic (can be refined)
+        action_recommendation: 'maintain'
+      };
+
+      if (editingId) {
+        const { user_id, ...updateData } = incomeData;
+        const { error } = await supabase
+          .from("income_sources")
+          .update(updateData)
+          .eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("income_sources")
+          .insert(incomeData);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["income-sources"] });
+      toast.success(editingId ? "Fonte de renda atualizada!" : "Fonte de renda criada!");
+      setIsDialogOpen(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      console.error("Erro na fonte de renda:", error);
+      toast.error(
+        (editingId ? "Erro ao atualizar: " : "Erro ao criar: ") +
+        (error.message || "Erro desconhecido")
+      );
+    },
+  });
+
+  // Operation mutation (Deposit/Withdraw)
+  const operationMutation = useMutation({
+    mutationFn: async ({ sourceId, amount, type, currentBalance }: { sourceId: string, amount: number, type: 'deposit' | 'withdraw', currentBalance: number }) => {
+      const newBalance = type === 'deposit' ? currentBalance + amount : currentBalance - amount;
+
+      // 1. Update income source balance
+      const { error: updateError } = await (supabase
+        .from("income_sources") as any)
+        .update({ current_balance: newBalance })
+        .eq("id", sourceId);
+
+      if (updateError) throw updateError;
+
+      // 2. Create corresponding transaction
+      const { error: transError } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user?.id,
+          amount: amount,
+          type: type === 'deposit' ? 'expense' : 'income',
+          description: type === 'deposit' ? `Investimento em ${selectedSource?.name}` : `Retirada de lucro de ${selectedSource?.name}`,
+          income_source_id: sourceId,
+          date: new Date().toISOString().split('T')[0]
+        });
+
+      if (transError) throw transError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["income-sources"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-transactions"] });
+      toast.success(opType === 'deposit' ? "Depósito realizado!" : "Retirada realizada!");
+      setIsOpsDialogOpen(false);
+      setOpAmount("");
+    },
+    onError: (error: any) => {
+      toast.error("Erro na operação: " + (error.message || "Erro desconhecido"));
+    }
+  });
+
+  // Fetch history
+  const { data: history = [] } = useQuery({
+    queryKey: ["income-history", selectedSource?.id],
+    queryFn: async () => {
+      const { data, error } = await (supabase
+        .from("transactions") as any)
+        .select("*")
+        .eq("income_source_id", selectedSource?.id)
+        .order("date", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedSource?.id && isHistoryDialogOpen,
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("income_sources")
+        .delete()
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["income-sources"] });
-      toast.success("Fonte de renda criada!");
-      setIsDialogOpen(false);
-      resetForm();
+      toast.success("Fonte de renda eliminada!");
     },
     onError: () => {
-      toast.error("Erro ao criar fonte de renda");
+      toast.error("Erro ao eliminar fonte de renda");
     },
   });
+
+  const handleEdit = (source: any) => {
+    setEditingId(source.id);
+    setFormData({
+      name: source.name,
+      description: source.description || "",
+      business_type: source.business_type,
+      category: source.category || "",
+      monthly_revenue: source.monthly_revenue?.toString() || "",
+      monthly_expenses: source.monthly_expenses?.toString() || "",
+      initial_investment: source.initial_investment?.toString() || "",
+      start_date: source.start_date || "",
+      hours_per_week: source.hours_per_week?.toString() || "",
+      income_type: source.income_type || "active",
+      scalability: source.scalability || "non_scalable",
+      risk_level: source.risk_level || "low",
+      risk_type: source.risk_type || "financial",
+      growth_potential: source.growth_potential || "medium",
+      seasonality: source.seasonality || "none",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Tem certeza que deseja eliminar esta fonte de renda?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const handleDeposit = (source: any) => {
+    setSelectedSource(source);
+    setOpType('deposit');
+    setIsOpsDialogOpen(true);
+  };
+
+  const handleWithdraw = (source: any) => {
+    setSelectedSource(source);
+    setOpType('withdraw');
+    setIsOpsDialogOpen(true);
+  };
+
+  const handleHistory = (source: any) => {
+    setSelectedSource(source);
+    setIsHistoryDialogOpen(true);
+  };
 
   const resetForm = () => {
     setFormData({
       name: "",
       description: "",
-      business_type: "side_hustle",
+      business_type: "bico",
       category: "",
       monthly_revenue: "",
       monthly_expenses: "",
       initial_investment: "",
       start_date: "",
+      hours_per_week: "",
+      income_type: "active",
+      scalability: "non_scalable",
+      risk_level: "low",
+      risk_type: "financial",
+      growth_potential: "medium",
+      seasonality: "none",
     });
+    setEditingId(null);
   };
 
   // Calculate totals
@@ -181,9 +353,8 @@ export default function Income() {
           <Card className={netIncome >= 0 ? "stat-card-income" : "stat-card-expense"}>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
-                  netIncome >= 0 ? "bg-success/20" : "bg-destructive/20"
-                }`}>
+                <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${netIncome >= 0 ? "bg-success/20" : "bg-destructive/20"
+                  }`}>
                   <DollarSign className={`h-5 w-5 ${netIncome >= 0 ? "text-success" : "text-destructive"}`} />
                 </div>
                 <div>
@@ -243,16 +414,19 @@ export default function Income() {
         {/* Income Sources List */}
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Minhas Fontes de Renda</h2>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            if (!open) resetForm();
+            setIsDialogOpen(open);
+          }}>
             <DialogTrigger asChild>
               <Button className="gradient-primary">
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar Fonte
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Nova Fonte de Renda</DialogTitle>
+                <DialogTitle>{editingId ? "Editar Fonte de Renda" : "Nova Fonte de Renda"}</DialogTitle>
               </DialogHeader>
               <form
                 onSubmit={(e) => {
@@ -276,7 +450,7 @@ export default function Income() {
                     <Label>Tipo de Negócio</Label>
                     <Select
                       value={formData.business_type}
-                      onValueChange={(value: typeof formData.business_type) => 
+                      onValueChange={(value: typeof formData.business_type) =>
                         setFormData(prev => ({ ...prev, business_type: value }))
                       }
                     >
@@ -357,6 +531,124 @@ export default function Income() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Horas por Semana</Label>
+                    <Input
+                      type="number"
+                      value={formData.hours_per_week}
+                      onChange={(e) => setFormData(prev => ({ ...prev, hours_per_week: e.target.value }))}
+                      placeholder="Ex: 10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Renda</Label>
+                    <Select
+                      value={formData.income_type}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, income_type: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">🕒 Ativa (Troca tempo por dinheiro)</SelectItem>
+                        <SelectItem value="semi_passive">⚙️ Semi-Passiva</SelectItem>
+                        <SelectItem value="passive">💰 Passiva</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Escalabilidade</Label>
+                    <Select
+                      value={formData.scalability}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, scalability: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="scalable">🚀 Escalável</SelectItem>
+                        <SelectItem value="non_scalable">❌ Não Escalável</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Potencial de Crescimento</Label>
+                    <Select
+                      value={formData.growth_potential}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, growth_potential: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">Alto</SelectItem>
+                        <SelectItem value="medium">Médio</SelectItem>
+                        <SelectItem value="low">Baixo</SelectItem>
+                        <SelectItem value="stagnant">Estagnado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Sazonalidade (Comum em Angola)</Label>
+                  <Select
+                    value={formData.seasonality}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, seasonality: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma (Estável)</SelectItem>
+                      <SelectItem value="festive">Festas (Dezembro/Festas)</SelectItem>
+                      <SelectItem value="dry_season">Cacimbo (Jun-Ago)</SelectItem>
+                      <SelectItem value="rainy_season">Chuvas (Set-Abr)</SelectItem>
+                      <SelectItem value="school">Escolar (Início de aulas)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Nível de Risco</Label>
+                    <Select
+                      value={formData.risk_level}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, risk_level: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">🟢 Baixo</SelectItem>
+                        <SelectItem value="medium">🟡 Médio</SelectItem>
+                        <SelectItem value="high">🔴 Alto</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de Risco</Label>
+                    <Select
+                      value={formData.risk_type}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, risk_type: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="financial">Financeiro</SelectItem>
+                        <SelectItem value="physical">Físico</SelectItem>
+                        <SelectItem value="legal">Legal</SelectItem>
+                        <SelectItem value="market">Mercado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label>Descrição (opcional)</Label>
                   <Textarea
@@ -368,7 +660,7 @@ export default function Income() {
                 </div>
 
                 <Button type="submit" className="w-full gradient-primary" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Criando..." : "Criar Fonte de Renda"}
+                  {createMutation.isPending ? "Salvando..." : editingId ? "Atualizar Fonte" : "Criar Fonte de Renda"}
                 </Button>
               </form>
             </DialogContent>
@@ -400,65 +692,108 @@ export default function Income() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {incomeSources.map((source) => {
-              const BusinessIcon = getBusinessTypeIcon(source.business_type);
-              const profit = (source.monthly_revenue || 0) - (source.monthly_expenses || 0);
-              const roi = source.initial_investment && source.initial_investment > 0
-                ? ((profit * 12) / source.initial_investment) * 100
-                : 0;
-
-              return (
-                <Card key={source.id} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <BusinessIcon className="h-6 w-6 text-primary" />
-                      </div>
-                      <Badge variant="outline">
-                        {getBusinessTypeLabel(source.business_type)}
-                      </Badge>
-                    </div>
-
-                    <h3 className="font-semibold text-lg mb-1">{source.name}</h3>
-                    {source.category && (
-                      <p className="text-sm text-muted-foreground mb-4">{source.category}</p>
-                    )}
-
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Receita</span>
-                        <span className="font-medium text-success">
-                          +{formatCurrency(source.monthly_revenue || 0)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Despesas</span>
-                        <span className="font-medium text-destructive">
-                          -{formatCurrency(source.monthly_expenses || 0)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm pt-2 border-t">
-                        <span className="font-medium">Lucro</span>
-                        <span className={`font-bold ${profit >= 0 ? "text-success" : "text-destructive"}`}>
-                          {formatCurrency(profit)}
-                        </span>
-                      </div>
-                      {roi > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">ROI Anual</span>
-                          <span className="font-medium text-finance-investment">
-                            {roi.toFixed(1)}%
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {incomeSources.map((source) => (
+              <IncomeAnalysisCard
+                key={source.id}
+                income={source}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onDeposit={handleDeposit}
+                onWithdraw={handleWithdraw}
+                onHistory={handleHistory}
+              />
+            ))}
           </div>
         )}
+
+        {/* Operations Dialog */}
+        <Dialog open={isOpsDialogOpen} onOpenChange={setIsOpsDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {opType === 'deposit' ? `Depositar em ${selectedSource?.name}` : `Retirar de ${selectedSource?.name}`}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Valor (Kz)</Label>
+                <Input
+                  type="number"
+                  value={opAmount}
+                  onChange={(e) => setOpAmount(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+              <Button
+                className="w-full gradient-primary"
+                onClick={() => {
+                  const amount = parseFloat(opAmount);
+                  if (isNaN(amount) || amount <= 0) {
+                    toast.error("Insira um valor válido");
+                    return;
+                  }
+                  operationMutation.mutate({
+                    sourceId: selectedSource.id,
+                    amount,
+                    type: opType,
+                    currentBalance: selectedSource.current_balance || 0
+                  });
+                }}
+                disabled={operationMutation.isPending}
+              >
+                {operationMutation.isPending ? "Processando..." : opType === 'deposit' ? "Confirmar Depósito" : "Confirmar Retirada"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* History Dialog */}
+        <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Histórico: {selectedSource?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 mt-4">
+              {history.length > 0 ? (
+                history.map((h: any) => {
+                  const isInvestment = h.description?.includes("Investimento");
+                  const isWithdrawal = h.description?.includes("Retirada");
+
+                  return (
+                    <div key={h.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/50">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isInvestment ? 'bg-investment/20 text-investment' :
+                          isWithdrawal ? 'bg-destructive/20 text-destructive' :
+                            h.type === 'income' ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'
+                          }`}>
+                          {isInvestment ? <ArrowUpRight className="h-4 w-4" /> :
+                            isWithdrawal ? <ArrowDownRight className="h-4 w-4" /> :
+                              h.type === 'income' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{h.description}</p>
+                          <p className="text-xs text-muted-foreground">{format(new Date(h.date), "dd/MM/yyyy")}</p>
+                        </div>
+                      </div>
+                      <span className={`font-bold ${isInvestment ? 'text-investment' :
+                        isWithdrawal ? 'text-destructive' :
+                          h.type === 'income' ? 'text-success' : 'text-destructive'
+                        }`}>
+                        {isInvestment ? '+' : isWithdrawal ? '-' : h.type === 'income' ? '+' : '-'}{h.amount.toLocaleString()} Kz
+                      </span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Activity className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm">Nenhum movimento registrado</p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

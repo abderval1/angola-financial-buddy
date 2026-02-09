@@ -28,7 +28,11 @@ import {
   Eye,
   Bell,
   Send,
+  Globe,
+  Save,
 } from "lucide-react";
+
+const API_KEY = 'api_live_3tK47lmZGyCDONJAH80pzlgXOLPOQWLJ9CJ02UXi21imAHabPuwbq1hu';
 
 const categories = [
   { value: "bodiva", label: "BODIVA" },
@@ -38,14 +42,26 @@ const categories = [
   { value: "poupanca", label: "Poupança" },
 ];
 
+interface ApiNewsItem {
+  title: string;
+  summary: string;
+  source: string;
+  category: string;
+  url: string;
+  image_url?: string;
+  published_at: string;
+}
+
 export function AdminNewsManager() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
   const [editingNews, setEditingNews] = useState<any>(null);
-  const [filter, setFilter] = useState<"all" | "pending" | "approved">("all");
+  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "live_api">("all");
   const [searchQuery, setSearchQuery] = useState("");
-  
+  const [apiResults, setApiResults] = useState<ApiNewsItem[]>([]);
+  const [isFetchingApi, setIsFetchingApi] = useState(false);
+
   const [formData, setFormData] = useState({
     title: "",
     summary: "",
@@ -66,7 +82,7 @@ export function AdminNewsManager() {
     action_url: "",
   });
 
-  // Fetch news
+  // Fetch news from DB
   const { data: news = [], isLoading, refetch } = useQuery({
     queryKey: ["admin-news"],
     queryFn: async () => {
@@ -74,7 +90,7 @@ export function AdminNewsManager() {
         .from("news")
         .select("*")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data;
     },
@@ -87,13 +103,68 @@ export function AdminNewsManager() {
       const { data, error } = await supabase
         .from("profiles")
         .select("user_id, name, email");
-      
+
       if (error) throw error;
       return data;
     },
   });
 
-  // Create news mutation
+  // Fetch from live API
+  const fetchLiveApi = async () => {
+    setIsFetchingApi(true);
+    setFilter("live_api");
+    try {
+      const response = await fetch(`https://api.apitube.io/v1/news/everything?per_page=30&api_key=${API_KEY}&source.country.code=ao&source.domain=expansao.co.ao&is_duplicate=0`);
+      const data = await response.json();
+
+      if (data.results) {
+        setApiResults(data.results.map((item: any) => ({
+          title: item.title,
+          summary: item.description || 'Sem descrição.',
+          source: typeof item.source === 'string' ? item.source : (item.source?.name || 'Expansão'),
+          category: 'economia',
+          url: item.url,
+          image_url: item.image,
+          published_at: item.published_at || new Date().toISOString()
+        })));
+        toast.success("Resultados da API carregados!");
+      } else {
+        throw new Error(data.message || "Erro na API");
+      }
+    } catch (error: any) {
+      toast.error(`Erro ao carregar API: ${error.message}`);
+    } finally {
+      setIsFetchingApi(false);
+    }
+  };
+
+  const saveToDb = async (item: ApiNewsItem) => {
+    const { error } = await supabase.from('news').insert({
+      title: item.title,
+      summary: item.summary,
+      source: item.source,
+      category: item.category,
+      url: item.url,
+      image_url: item.image_url,
+      published_at: item.published_at,
+      is_approved: true
+    });
+
+    if (error) {
+      toast.error(`Erro ao salvar: ${error.message}`);
+    } else {
+      toast.success("Notícia importada para a base de dados!");
+      setApiResults(prev => prev.filter(n => n.title !== item.title));
+      queryClient.invalidateQueries({ queryKey: ["admin-news"] });
+    }
+  };
+
+  const discardApiItem = (title: string) => {
+    setApiResults(prev => prev.filter(n => n.title !== title));
+    toast.info("Item descartado da lista temporária");
+  };
+
+  // Mutations
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       const { error } = await supabase.from("news").insert({
@@ -107,10 +178,9 @@ export function AdminNewsManager() {
       toast.success("Notícia criada!");
       resetForm();
     },
-    onError: () => toast.error("Erro ao criar notícia"),
+    onError: (error: any) => toast.error(`Erro ao criar notícia: ${error.message}`),
   });
 
-  // Update news mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
       const { error } = await supabase.from("news").update(data).eq("id", id);
@@ -124,7 +194,6 @@ export function AdminNewsManager() {
     onError: () => toast.error("Erro ao atualizar notícia"),
   });
 
-  // Delete news mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("news").delete().eq("id", id);
@@ -137,7 +206,6 @@ export function AdminNewsManager() {
     onError: () => toast.error("Erro ao excluir notícia"),
   });
 
-  // Toggle approval mutation
   const toggleApprovalMutation = useMutation({
     mutationFn: async ({ id, approved }: { id: string; approved: boolean }) => {
       const { error } = await supabase
@@ -152,7 +220,6 @@ export function AdminNewsManager() {
     },
   });
 
-  // Toggle featured mutation
   const toggleFeaturedMutation = useMutation({
     mutationFn: async ({ id, featured }: { id: string; featured: boolean }) => {
       const { error } = await supabase
@@ -167,10 +234,8 @@ export function AdminNewsManager() {
     },
   });
 
-  // Send notification mutation
   const sendNotificationMutation = useMutation({
     mutationFn: async (data: typeof notificationForm) => {
-      // Insert notifications for all users
       const notifications = users.map((user: any) => ({
         user_id: user.user_id,
         title: data.title,
@@ -180,35 +245,15 @@ export function AdminNewsManager() {
         action_url: data.action_url,
         read: false,
       }));
-
       const { error } = await supabase.from("notifications").insert(notifications);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success(`Notificação enviada para ${users.length} usuários!`);
       setNotificationDialogOpen(false);
-      setNotificationForm({
-        title: "",
-        message: "",
-        type: "news",
-        priority: "normal",
-        action_url: "",
-      });
+      setNotificationForm({ title: "", message: "", type: "news", priority: "normal", action_url: "" });
     },
     onError: () => toast.error("Erro ao enviar notificações"),
-  });
-
-  // Refresh news from API
-  const refreshNewsMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.functions.invoke("fetch-news");
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      refetch();
-      toast.success("Notícias atualizadas do feed!");
-    },
-    onError: () => toast.error("Erro ao atualizar notícias"),
   });
 
   const resetForm = () => {
@@ -252,15 +297,8 @@ export function AdminNewsManager() {
   };
 
   const filteredNews = news.filter((item: any) => {
-    const matchesFilter = 
-      filter === "all" || 
-      (filter === "pending" && !item.is_approved) ||
-      (filter === "approved" && item.is_approved);
-    
-    const matchesSearch = 
-      item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.source?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+    const matchesFilter = filter === "all" || (filter === "pending" && !item.is_approved) || (filter === "approved" && item.is_approved);
+    const matchesSearch = item.title?.toLowerCase().includes(searchQuery.toLowerCase()) || item.source?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
@@ -271,377 +309,120 @@ export function AdminNewsManager() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold">Gestão de Notícias</h1>
-          <p className="text-muted-foreground">
-            {news.length} notícias • {pendingCount} pendentes
-          </p>
+          <p className="text-muted-foreground">{news.length} notícias • {pendingCount} pendentes • {apiResults.length} do API</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setNotificationDialogOpen(true)}>
-            <Bell className="h-4 w-4 mr-2" />
-            Enviar Notificação
+          <Button variant="outline" onClick={() => setNotificationDialogOpen(true)}><Bell className="h-4 w-4 mr-2" /> Notificar Todos</Button>
+          <Button variant="outline" onClick={fetchLiveApi} disabled={isFetchingApi}>
+            <Globe className={`h-4 w-4 mr-2 ${isFetchingApi ? "animate-spin" : ""}`} /> API Ao Vivo
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => refreshNewsMutation.mutate()}
-            disabled={refreshNewsMutation.isPending}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshNewsMutation.isPending ? "animate-spin" : ""}`} />
-            Atualizar Feed
-          </Button>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Notícia
-          </Button>
+          <Button onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-2" /> Nova Notícia</Button>
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar notícias..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+          <Input placeholder="Buscar notícias..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
         </div>
         <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
           <TabsList>
             <TabsTrigger value="all">Todas</TabsTrigger>
             <TabsTrigger value="pending" className="gap-1">
-              Pendentes
-              {pendingCount > 0 && (
-                <Badge className="h-5 w-5 p-0 justify-center bg-destructive text-destructive-foreground">
-                  {pendingCount}
-                </Badge>
-              )}
+              Pendentes {pendingCount > 0 && <Badge className="bg-destructive text-white h-5 w-5 p-0">{pendingCount}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="approved">Aprovadas</TabsTrigger>
+            <TabsTrigger value="live_api" className="gap-2"><Globe className="h-3 w-3" /> API Feed</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
-      {/* News Table */}
       <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Título</TableHead>
-              <TableHead>Fonte</TableHead>
-              <TableHead>Categoria</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Data</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
-                  <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
-                </TableCell>
-              </TableRow>
-            ) : filteredNews.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  Nenhuma notícia encontrada
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredNews.map((item: any) => (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2 max-w-xs">
-                      {item.is_featured && (
-                        <Star className="h-4 w-4 text-amber-500 shrink-0" />
-                      )}
-                      <span className="font-medium truncate">{item.title}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{item.source}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">
-                      {categories.find(c => c.value === item.category)?.label || item.category}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={item.is_approved ? "default" : "secondary"}>
-                      {item.is_approved ? "Aprovada" : "Pendente"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {item.published_at 
-                      ? format(new Date(item.published_at), "dd/MM/yyyy HH:mm", { locale: pt })
-                      : "-"
-                    }
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleFeaturedMutation.mutate({ 
-                          id: item.id, 
-                          featured: !item.is_featured 
-                        })}
-                        title={item.is_featured ? "Remover destaque" : "Destacar"}
-                      >
+        {filter === "live_api" ? (
+          <Table>
+            <TableHeader><TableRow><TableHead>Título (API)</TableHead><TableHead>Fonte</TableHead><TableHead>Data</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {apiResults.length === 0 ? (
+                <TableRow><TableCell colSpan={4} className="text-center py-8">Clica em "API Ao Vivo" para buscar notícias externas</TableCell></TableRow>
+              ) : (
+                apiResults.map((item, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="max-w-md font-medium truncate">{item.title}</TableCell>
+                    <TableCell><Badge variant="outline">{item.source}</Badge></TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{format(new Date(item.published_at), "dd/MM HH:mm")}</TableCell>
+                    <TableCell className="text-right space-x-2">
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => discardApiItem(item.title)}><Trash2 className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost" className="text-success" onClick={() => saveToDb(item)}><Save className="h-4 w-4" /></Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow><TableHead>Título</TableHead><TableHead>Fonte</TableHead><TableHead>Categoria</TableHead><TableHead>Status</TableHead><TableHead>Data</TableHead><TableHead className="text-right">Ações</TableHead></TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={6} className="text-center py-8"><RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+              ) : filteredNews.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhuma notícia encontrada</TableCell></TableRow>
+              ) : (
+                filteredNews.map((item: any) => (
+                  <TableRow key={item.id}>
+                    <TableCell><div className="flex items-center gap-2 max-w-xs">{item.is_featured && <Star className="h-4 w-4 text-amber-500 fill-amber-500 shrink-0" />} <span className="font-medium truncate">{item.title}</span></div></TableCell>
+                    <TableCell><Badge variant="outline">{item.source}</Badge></TableCell>
+                    <TableCell><Badge variant="secondary">{categories.find(c => c.value === item.category)?.label || item.category}</Badge></TableCell>
+                    <TableCell><Badge variant={item.is_approved ? "default" : "secondary"}>{item.is_approved ? "Aprovada" : "Pendente"}</Badge></TableCell>
+                    <TableCell className="text-muted-foreground text-xs">{item.published_at ? format(new Date(item.published_at), "dd/MM/yy HH:mm", { locale: pt }) : "-"}</TableCell>
+                    <TableCell className="text-right space-x-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleFeaturedMutation.mutate({ id: item.id, featured: !item.is_featured })}>
                         <Star className={`h-4 w-4 ${item.is_featured ? "fill-amber-500 text-amber-500" : ""}`} />
                       </Button>
-                      {!item.is_approved ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-success"
-                          onClick={() => toggleApprovalMutation.mutate({ id: item.id, approved: true })}
-                          title="Aprovar"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-amber-500"
-                          onClick={() => toggleApprovalMutation.mutate({ id: item.id, approved: false })}
-                          title="Despublicar"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
-                        <Edit2 className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleApprovalMutation.mutate({ id: item.id, approved: !item.is_approved })}>
+                        {item.is_approved ? <XCircle className="h-4 w-4 text-amber-500" /> : <CheckCircle className="h-4 w-4 text-success" />}
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive"
-                        onClick={() => deleteMutation.mutate(item.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit2 className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
       </Card>
 
-      {/* News Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingNews ? "Editar Notícia" : "Nova Notícia"}
-            </DialogTitle>
-          </DialogHeader>
-
+          <DialogHeader><DialogTitle>{editingNews ? "Editar Notícia" : "Nova Notícia"}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Título *</Label>
-              <Input
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Título da notícia"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Resumo *</Label>
-              <Textarea
-                value={formData.summary}
-                onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-                placeholder="Breve resumo da notícia"
-                rows={2}
-              />
-            </div>
-
+            <div className="space-y-2"><Label>Título *</Label><Input value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="Título da notícia" /></div>
+            <div className="space-y-2"><Label>Resumo *</Label><Textarea value={formData.summary} onChange={(e) => setFormData({ ...formData, summary: e.target.value })} placeholder="Resumo..." rows={2} /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Fonte</Label>
-                <Input
-                  value={formData.source}
-                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                  placeholder="Ex: BNA, BODIVA"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Categoria</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="space-y-2"><Label>Fonte</Label><Input value={formData.source} onChange={(e) => setFormData({ ...formData, source: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Categoria</Label><Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{categories.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent></Select></div>
             </div>
-
-            <div className="space-y-2">
-              <Label>URL Externa (opcional)</Label>
-              <Input
-                value={formData.url}
-                onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                placeholder="https://..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>URL da Imagem (opcional)</Label>
-              <Input
-                value={formData.image_url}
-                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                placeholder="https://..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Conteúdo Completo (opcional)</Label>
-              <Textarea
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                placeholder="Conteúdo completo da notícia..."
-                rows={4}
-              />
-            </div>
-
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={formData.is_approved}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_approved: checked })}
-                />
-                <Label>Aprovada</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={formData.is_featured}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_featured: checked })}
-                />
-                <Label>Destaque</Label>
-              </div>
+            <div className="space-y-2"><Label>URL Externa</Label><Input value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} /></div>
+            <div className="flex gap-4">
+              <div className="flex items-center gap-2"><Switch checked={formData.is_approved} onCheckedChange={(v) => setFormData({ ...formData, is_approved: v })} /><Label>Aprovada</Label></div>
+              <div className="flex items-center gap-2"><Switch checked={formData.is_featured} onCheckedChange={(v) => setFormData({ ...formData, is_featured: v })} /><Label>Destaque</Label></div>
             </div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={resetForm}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSubmit} disabled={!formData.title || !formData.summary}>
-              {editingNews ? "Atualizar" : "Criar"}
-            </Button>
-          </DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={resetForm}>Cancelar</Button><Button onClick={handleSubmit}>{editingNews ? "Atualizar" : "Criar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Notification Dialog */}
       <Dialog open={notificationDialogOpen} onOpenChange={setNotificationDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              Enviar Notificação para Todos
-            </DialogTitle>
-          </DialogHeader>
-
+          <DialogHeader><DialogTitle>Enviar Notificação</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Título *</Label>
-              <Input
-                value={notificationForm.title}
-                onChange={(e) => setNotificationForm({ ...notificationForm, title: e.target.value })}
-                placeholder="Título da notificação"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Mensagem *</Label>
-              <Textarea
-                value={notificationForm.message}
-                onChange={(e) => setNotificationForm({ ...notificationForm, message: e.target.value })}
-                placeholder="Mensagem da notificação"
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select
-                  value={notificationForm.type}
-                  onValueChange={(value) => setNotificationForm({ ...notificationForm, type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="news">Notícia</SelectItem>
-                    <SelectItem value="info">Informação</SelectItem>
-                    <SelectItem value="alert">Alerta</SelectItem>
-                    <SelectItem value="success">Sucesso</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Prioridade</Label>
-                <Select
-                  value={notificationForm.priority}
-                  onValueChange={(value) => setNotificationForm({ ...notificationForm, priority: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Baixa</SelectItem>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="high">Alta</SelectItem>
-                    <SelectItem value="urgent">Urgente</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Link (opcional)</Label>
-              <Input
-                value={notificationForm.action_url}
-                onChange={(e) => setNotificationForm({ ...notificationForm, action_url: e.target.value })}
-                placeholder="/news ou URL externa"
-              />
-            </div>
-
-            <div className="p-3 bg-muted rounded-lg">
-              <p className="text-sm text-muted-foreground">
-                Esta notificação será enviada para <strong>{users.length} usuários</strong>.
-              </p>
-            </div>
+            <div className="space-y-2"><Label>Título</Label><Input value={notificationForm.title} onChange={(e) => setNotificationForm({ ...notificationForm, title: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Mensagem</Label><Textarea value={notificationForm.message} onChange={(e) => setNotificationForm({ ...notificationForm, message: e.target.value })} /></div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNotificationDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button 
-              onClick={() => sendNotificationMutation.mutate(notificationForm)}
-              disabled={!notificationForm.title || !notificationForm.message || sendNotificationMutation.isPending}
-            >
-              <Send className="h-4 w-4 mr-2" />
-              Enviar para Todos
-            </Button>
-          </DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setNotificationDialogOpen(false)}>Cancelar</Button><Button onClick={() => sendNotificationMutation.mutate(notificationForm)}>Enviar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

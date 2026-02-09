@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Send, MessageCircle, Users, Loader2, Smile, Reply, X } from "lucide-react";
+import { Send, MessageCircle, Users, Loader2, Reply, X, Pencil, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
+import { useAchievements } from "@/hooks/useAchievements";
 
 // User color palette for distinct message colors
 const USER_COLORS = [
@@ -27,7 +27,7 @@ const USER_COLORS = [
   "hsl(0, 70%, 55%)",     // Red
 ];
 
-const EMOJI_OPTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🎉", "🔥"];
+const EMOJI_OPTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 interface ChatMessage {
   id: string;
@@ -65,9 +65,12 @@ export function PublicChat() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
+  const { awardXP } = useAchievements();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
 
   // Fetch messages with user profiles
@@ -77,11 +80,11 @@ export function PublicChat() {
       const { data: chatData, error } = await supabase
         .from("chat_messages")
         .select("*")
-        .eq("room_id", "general")
-        .eq("is_deleted", false)
+        .is("room_id", null)
+        .or("is_deleted.is.null,is_deleted.eq.false")
         .order("created_at", { ascending: true })
         .limit(100);
-      
+
       if (error) throw error;
 
       // Fetch profiles for all unique user IDs
@@ -92,21 +95,21 @@ export function PublicChat() {
         .in("user_id", userIds);
 
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
-      
+
       // Create a map of messages for reply lookups
       const messageMap = new Map(chatData?.map(m => [m.id, m]) || []);
-      
+
       return (chatData || []).map(msg => {
         const replyToMsg = msg.reply_to_id ? messageMap.get(msg.reply_to_id) : null;
         const replyToProfile = replyToMsg ? profileMap.get(replyToMsg.user_id) : null;
-        
+
         return {
           ...msg,
           user_name: profileMap.get(msg.user_id)?.name || profileMap.get(msg.user_id)?.email?.split("@")[0] || "Usuário",
           reply_to_message: replyToMsg ? {
             id: replyToMsg.id,
             content: replyToMsg.content,
-            user_name: replyToProfile?.name || replyToProfile?.email?.split("@")[0] || "Usuário",
+            user_name: profileMap.get(replyToMsg.user_id)?.name || profileMap.get(replyToMsg.user_id)?.email?.split("@")[0] || "Usuário",
           } : null,
         };
       }) as ChatMessage[];
@@ -120,12 +123,12 @@ export function PublicChat() {
     queryFn: async () => {
       const messageIds = messages.map(m => m.id);
       if (messageIds.length === 0) return [];
-      
+
       const { data, error } = await supabase
         .from("chat_reactions")
         .select("*")
         .in("message_id", messageIds);
-      
+
       if (error) throw error;
       return (data || []) as ChatReaction[];
     },
@@ -135,7 +138,7 @@ export function PublicChat() {
   // Group reactions by message
   const reactionsByMessage = useMemo(() => {
     const grouped: Record<string, Record<string, string[]>> = {};
-    
+
     reactions.forEach(reaction => {
       if (!grouped[reaction.message_id]) {
         grouped[reaction.message_id] = {};
@@ -145,7 +148,7 @@ export function PublicChat() {
       }
       grouped[reaction.message_id][reaction.emoji].push(reaction.user_id);
     });
-    
+
     return grouped;
   }, [reactions]);
 
@@ -158,13 +161,24 @@ export function PublicChat() {
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "chat_messages",
-          filter: "room_id=eq.general",
+          // Listen to all room_id changes and filter in the callback or keep it simple
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+        (payload: any) => {
+          // If it's a delete, we might not have room_id in old, so just invalidate to be safe
+          if (payload.eventType === "DELETE") {
+            queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+            return;
+          }
+
+          // Only invalidate if it's the general chat (room_id is null)
+          if (payload.new && payload.new.room_id === null) {
+            queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+          } else if (payload.old && payload.old.room_id === null) {
+            queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+          }
         }
       )
       .subscribe();
@@ -231,21 +245,91 @@ export function PublicChat() {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
+      if (!user?.id) throw new Error("Usuário não autenticado");
+
       const { error } = await supabase.from("chat_messages").insert({
-        user_id: user?.id,
-        room_id: "general",
+        user_id: user.id,
+        room_id: null,
         content: content.trim(),
         reply_to_id: replyingTo?.id || null,
       });
-      
-      if (error) throw error;
+
+      if (error) {
+        console.error("Supabase insert error:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       setMessage("");
       setReplyingTo(null);
+      awardXP(1, "Mensagem enviada");
+      queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
     },
-    onError: () => {
-      toast.error("Erro ao enviar mensagem");
+    onError: (error: any) => {
+      console.error("Chat send error:", error);
+      toast.error(error.message || "Erro ao enviar mensagem");
+    },
+  });
+
+  // Edit message mutation
+  const editMessageMutation = useMutation({
+    mutationFn: async ({ id, content }: { id: string; content: string }) => {
+      if (!user?.id) throw new Error("Usuário não autenticado");
+
+      const { error } = await supabase
+        .from("chat_messages")
+        .update({ content: content.trim() })
+        .eq("id", id)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setEditingMessageId(null);
+      setEditingContent("");
+      queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+      toast.success("Mensagem editada!");
+    },
+    onError: (error: any) => {
+      toast.error("Erro ao editar mensagem");
+      console.error(error);
+    },
+  });
+
+  // Delete message mutation
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user?.id) throw new Error("Usuário não autenticado");
+
+      // Use SOFT DELETE to avoid foreign key constraint issues with reactions from others
+      // The query already filters out messages where is_deleted is true
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .update({ is_deleted: true })
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .select();
+
+      if (error) {
+        console.error("Soft delete message error:", error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error("Não foi possível apagar a mensagem. Verifique se você é o autor.");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
+      toast.success("Mensagem apagada!");
+    },
+    onError: (error: any) => {
+      if (error.message?.includes("row-level security")) {
+        toast.error("Erro de permissão! Verifique o SQL Console no Supabase.");
+      } else {
+        toast.error(error.message || "Erro ao apagar mensagem");
+      }
+      console.error(error);
     },
   });
 
@@ -255,7 +339,7 @@ export function PublicChat() {
       // Check if user already reacted with this emoji
       const existingReactions = reactionsByMessage[messageId]?.[emoji] || [];
       const hasReacted = existingReactions.includes(user?.id || "");
-      
+
       if (hasReacted) {
         // Remove reaction
         const { error } = await supabase
@@ -264,7 +348,7 @@ export function PublicChat() {
           .eq("message_id", messageId)
           .eq("user_id", user?.id)
           .eq("emoji", emoji);
-        
+
         if (error) throw error;
       } else {
         // Add reaction
@@ -275,7 +359,7 @@ export function PublicChat() {
             user_id: user?.id,
             emoji,
           });
-        
+
         if (error) throw error;
       }
     },
@@ -285,9 +369,22 @@ export function PublicChat() {
     },
   });
 
+  const scrollToMessage = (messageId: string) => {
+    const element = document.getElementById(`msg-${messageId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+      element.classList.add("bg-primary/20");
+      setTimeout(() => element.classList.remove("bg-primary/20"), 2000);
+    }
+  };
+
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
+    if (!user) {
+      toast.error("Você precisa estar logado para enviar mensagens");
+      return;
+    }
     sendMessageMutation.mutate(message);
   };
 
@@ -338,19 +435,19 @@ export function PublicChat() {
               {messages.map((msg) => {
                 const userColor = getUserColor(msg.user_id);
                 const messageReactions = reactionsByMessage[msg.id] || {};
-                
+
                 return (
                   <div
                     key={msg.id}
                     className={`flex gap-3 ${isOwnMessage(msg) ? "flex-row-reverse" : ""} group`}
                   >
-                    <Avatar 
+                    <Avatar
                       className="h-8 w-8 flex-shrink-0"
                       style={{ backgroundColor: isOwnMessage(msg) ? undefined : `${userColor}20` }}
                     >
-                      <AvatarFallback 
+                      <AvatarFallback
                         className="text-xs"
-                        style={{ 
+                        style={{
                           backgroundColor: isOwnMessage(msg) ? "hsl(var(--primary))" : `${userColor}30`,
                           color: isOwnMessage(msg) ? "hsl(var(--primary-foreground))" : userColor,
                         }}
@@ -361,96 +458,150 @@ export function PublicChat() {
 
                     <div className={`flex flex-col max-w-[70%] ${isOwnMessage(msg) ? "items-end" : ""}`}>
                       <div className={`flex items-center gap-2 mb-1 ${isOwnMessage(msg) ? "flex-row-reverse" : ""}`}>
-                        <span 
+                        <span
                           className="text-xs font-medium"
                           style={{ color: isOwnMessage(msg) ? "hsl(var(--foreground))" : userColor }}
                         >
                           {isOwnMessage(msg) ? "Você" : getName(msg)}
+                          {getName(msg) === "Usuário" && !isOwnMessage(msg) && (
+                            <span className="text-[10px] bg-muted px-1 rounded ml-1 opacity-50 font-normal">Sem nome</span>
+                          )}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(msg.created_at), { 
-                            addSuffix: true, 
-                            locale: pt 
+                          {formatDistanceToNow(new Date(msg.created_at), {
+                            addSuffix: true,
+                            locale: pt
                           })}
                         </span>
                       </div>
-                      
+
                       {/* Reply preview */}
                       {msg.reply_to_message && (
-                        <div 
-                          className={`text-xs px-2 py-1 rounded-lg mb-1 border-l-2 ${
-                            isOwnMessage(msg) ? "bg-primary/5 border-primary/50" : "bg-muted/50"
-                          }`}
-                          style={{ borderColor: isOwnMessage(msg) ? undefined : userColor }}
+                        <div
+                          className={`text-xs px-2 py-1.5 rounded-t-xl mb-0 border-l-4 cursor-pointer hover:opacity-80 transition-opacity ${isOwnMessage(msg) ? "bg-primary/10 border-primary/50" : "bg-muted border-primary/40"
+                            }`}
+                          style={{ borderLeftColor: isOwnMessage(msg) ? undefined : userColor }}
+                          onClick={() => scrollToMessage(msg.reply_to_message!.id)}
                         >
-                          <span className="font-medium">{msg.reply_to_message.user_name}: </span>
+                          <div className="flex items-center gap-1 mb-0.5 opacity-70">
+                            <Reply className="h-2.5 w-2.5" />
+                            <span className="font-bold">{msg.reply_to_message.user_name}</span>
+                          </div>
                           <span className="text-muted-foreground line-clamp-1">
                             {msg.reply_to_message.content}
                           </span>
                         </div>
                       )}
-                      
+
                       <div
-                        className={`px-3 py-2 rounded-2xl relative ${
-                          isOwnMessage(msg)
-                            ? "bg-primary text-primary-foreground rounded-tr-none"
-                            : "rounded-tl-none"
-                        }`}
+                        className={`px-3 py-2 relative transition-colors ${isOwnMessage(msg)
+                          ? `bg-primary text-primary-foreground ${msg.reply_to_message ? 'rounded-b-2xl rounded-tl-2xl' : 'rounded-2xl rounded-tr-none'}`
+                          : `rounded-2xl ${msg.reply_to_message ? 'rounded-t-none' : 'rounded-tl-none'}`
+                          }`}
+                        id={`msg-${msg.id}`}
                         style={{
                           backgroundColor: isOwnMessage(msg) ? undefined : `${userColor}15`,
                           borderLeft: isOwnMessage(msg) ? undefined : `3px solid ${userColor}`,
                         }}
                       >
-                        <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                        
-                        {/* Action buttons */}
-                        <div className={`absolute -bottom-2 ${isOwnMessage(msg) ? "left-0" : "right-0"} opacity-0 group-hover:opacity-100 transition-opacity flex gap-1`}>
+                        {editingMessageId === msg.id ? (
+                          <div className="flex flex-col gap-2 min-w-[200px]">
+                            <Input
+                              value={editingContent}
+                              onChange={(e) => setEditingContent(e.target.value)}
+                              autoFocus
+                              className="h-8 text-sm text-foreground bg-background"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") editMessageMutation.mutate({ id: msg.id, content: editingContent });
+                                if (e.key === "Escape") setEditingMessageId(null);
+                              }}
+                            />
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-[10px]"
+                                onClick={() => setEditingMessageId(null)}
+                              >
+                                Cancelar
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="h-6 px-2 text-[10px]"
+                                onClick={() => editMessageMutation.mutate({ id: msg.id, content: editingContent })}
+                                disabled={editMessageMutation.isPending}
+                              >
+                                {editMessageMutation.isPending ? "Salvando..." : "Salvar"}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                        )}
+
+                        {/* Action buttons - WhatsApp style */}
+                        <div className={`absolute -top-4 ${isOwnMessage(msg) ? "right-0" : "left-0"} hidden group-hover:flex gap-1 z-20`}>
+                          <div className="bg-popover border shadow-lg rounded-full px-2 py-1 flex gap-2">
+                            {EMOJI_OPTIONS.map((emoji) => (
+                              <button
+                                key={emoji}
+                                className="text-lg hover:scale-150 transition-transform duration-200"
+                                onClick={() => addReactionMutation.mutate({ messageId: msg.id, emoji })}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+
+                            {isOwnMessage(msg) && (
+                              <div className="flex gap-2 ml-1 border-l pl-2">
+                                <button
+                                  className="text-muted-foreground hover:text-primary transition-colors focus:outline-none"
+                                  onClick={() => {
+                                    setEditingMessageId(msg.id);
+                                    setEditingContent(msg.content);
+                                  }}
+                                  title="Editar"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  className="text-muted-foreground hover:text-destructive transition-colors focus:outline-none"
+                                  onClick={() => {
+                                    if (window.confirm("Apagar esta mensagem?")) {
+                                      deleteMessageMutation.mutate(msg.id);
+                                    }
+                                  }}
+                                  title="Eliminar"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className={`absolute -bottom-3 ${isOwnMessage(msg) ? "left-0" : "right-0"} flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity`}>
                           <Button
                             variant="secondary"
                             size="icon"
-                            className="h-6 w-6 rounded-full shadow-sm"
+                            className="h-6 w-6 rounded-full shadow-sm hover:bg-primary hover:text-primary-foreground transition-colors"
                             onClick={() => setReplyingTo(msg)}
                           >
                             <Reply className="h-3 w-3" />
                           </Button>
-                          <Popover open={showEmojiPicker === msg.id} onOpenChange={(open) => setShowEmojiPicker(open ? msg.id : null)}>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="secondary"
-                                size="icon"
-                                className="h-6 w-6 rounded-full shadow-sm"
-                              >
-                                <Smile className="h-3 w-3" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-2" side="top">
-                              <div className="flex gap-1">
-                                {EMOJI_OPTIONS.map((emoji) => (
-                                  <button
-                                    key={emoji}
-                                    className="text-lg hover:scale-125 transition-transform p-1"
-                                    onClick={() => addReactionMutation.mutate({ messageId: msg.id, emoji })}
-                                  >
-                                    {emoji}
-                                  </button>
-                                ))}
-                              </div>
-                            </PopoverContent>
-                          </Popover>
                         </div>
                       </div>
-                      
+
                       {/* Reactions display */}
                       {Object.keys(messageReactions).length > 0 && (
                         <div className={`flex gap-1 mt-1 flex-wrap ${isOwnMessage(msg) ? "justify-end" : ""}`}>
                           {Object.entries(messageReactions).map(([emoji, userIds]) => (
                             <button
                               key={emoji}
-                              className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 transition-colors ${
-                                userIds.includes(user?.id || "") 
-                                  ? "bg-primary/20 border border-primary/30" 
-                                  : "bg-muted hover:bg-muted/80"
-                              }`}
+                              className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 transition-colors ${userIds.includes(user?.id || "")
+                                ? "bg-primary/20 border border-primary/30"
+                                : "bg-muted hover:bg-muted/80"
+                                }`}
                               onClick={() => addReactionMutation.mutate({ messageId: msg.id, emoji })}
                             >
                               <span>{emoji}</span>
@@ -499,10 +650,10 @@ export function PublicChat() {
               className="flex-1"
               disabled={sendMessageMutation.isPending}
             />
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               size="icon"
-              disabled={!message.trim() || sendMessageMutation.isPending}
+              disabled={!message.trim() || sendMessageMutation.isPending || !user}
             >
               {sendMessageMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

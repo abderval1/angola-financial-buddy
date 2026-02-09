@@ -7,6 +7,8 @@ import { AdminSubscriptions } from "@/components/admin/AdminSubscriptions";
 import { AdminCourseManager as AdminCourses } from "@/components/admin/AdminCourseManager";
 import { AdminNewsManager as AdminNews } from "@/components/admin/AdminNewsManager";
 import { AdminPayouts } from "@/components/admin/AdminPayouts";
+import { AdminSalesManager } from "@/components/admin/AdminSalesManager";
+import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,7 +73,7 @@ export default function Admin() {
         .select("role")
         .eq("user_id", user?.id)
         .maybeSingle();
-      
+
       if (error) throw error;
       return data?.role;
     },
@@ -141,6 +143,7 @@ export default function Admin() {
     { id: "content", label: "Conteúdo Educativo", icon: GraduationCap },
     { id: "courses", label: "Gestão de Cursos", icon: BookOpen },
     { id: "news", label: "Notícias", icon: FileText },
+    { id: "analytics", label: "Mercado & Notícias", icon: BarChart3 },
     { id: "community", label: "Comunidade", icon: MessageSquare },
     { id: "chat", label: "Chat Público", icon: MessageCircle },
     { id: "challenges", label: "Desafios", icon: Trophy },
@@ -185,11 +188,10 @@ export default function Admin() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === item.id 
-                    ? "bg-primary text-primary-foreground" 
-                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                }`}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === item.id
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
@@ -204,10 +206,39 @@ export default function Admin() {
           {activeTab === "users" && <AdminUsers />}
           {activeTab === "subscriptions" && <AdminSubscriptions />}
           {activeTab === "payouts" && <AdminPayouts />}
-          {activeTab === "marketplace" && <AdminMarketplace />}
+          {activeTab === "marketplace" && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="font-display text-2xl font-bold">Gestão do Marketplace</h1>
+                <p className="text-muted-foreground">Gerencie produtos e visualize vendas realizadas</p>
+              </div>
+
+              <Tabs defaultValue="products" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                  <TabsTrigger value="products">Gestão de Produtos</TabsTrigger>
+                  <TabsTrigger value="sales">Gestão de Vendas</TabsTrigger>
+                </TabsList>
+                <TabsContent value="products" className="mt-6">
+                  <AdminMarketplace />
+                </TabsContent>
+                <TabsContent value="sales" className="mt-6">
+                  <AdminSalesManager />
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
           {activeTab === "content" && <AdminContent />}
           {activeTab === "courses" && <AdminCourses />}
           {activeTab === "news" && <AdminNews />}
+          {activeTab === "analytics" && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="font-display text-2xl font-bold">Gestão de Mercado</h1>
+                <p className="text-muted-foreground">Gerencie indicadores econômicos e relatórios semanais para assinantes avançados.</p>
+              </div>
+              <AdminAnalytics />
+            </div>
+          )}
           {activeTab === "community" && <AdminCommunity />}
           {activeTab === "chat" && <AdminChat />}
           {activeTab === "challenges" && <AdminChallenges />}
@@ -276,7 +307,7 @@ function AdminUsers() {
         .from("profiles")
         .select("*, user_roles(role)")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data;
     },
@@ -455,7 +486,7 @@ function AdminUsers() {
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Data de Cadastro</p>
                   <p className="font-medium">
-                    {selectedUser.created_at 
+                    {selectedUser.created_at
                       ? format(new Date(selectedUser.created_at), "dd/MM/yyyy HH:mm", { locale: pt })
                       : "-"
                     }
@@ -499,7 +530,7 @@ function AdminMarketplace() {
         .from("marketplace_products")
         .select("*")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data;
     },
@@ -508,17 +539,17 @@ function AdminMarketplace() {
   const uploadFile = async (file: File, folder: string) => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-    
+
     const { data, error } = await supabase.storage
       .from("marketplace")
       .upload(fileName, file);
-    
+
     if (error) throw error;
-    
+
     const { data: urlData } = supabase.storage
       .from("marketplace")
       .getPublicUrl(fileName);
-    
+
     return urlData.publicUrl;
   };
 
@@ -530,7 +561,7 @@ function AdminMarketplace() {
     try {
       const folder = type === "cover" ? "covers" : "files";
       const url = await uploadFile(file, folder);
-      
+
       if (type === "cover") {
         setFormData({ ...formData, cover_image_url: url });
       } else {
@@ -641,11 +672,7 @@ function AdminMarketplace() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold">Gestão do Marketplace</h1>
-          <p className="text-muted-foreground">{products.length} produtos</p>
-        </div>
+      <div className="flex items-center justify-end">
         <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); else setDialogOpen(true); }}>
           <DialogTrigger asChild>
             <Button>
@@ -849,7 +876,7 @@ function AdminMarketplace() {
                       <Badge variant="outline">{product.product_type}</Badge>
                     </TableCell>
                     <TableCell>
-                      {product.price > 0 
+                      {product.price > 0
                         ? new Intl.NumberFormat("pt-AO", { style: "currency", currency: "AOA" }).format(product.price)
                         : <Badge className="bg-success/10 text-success">Gratuito</Badge>
                       }
@@ -919,7 +946,7 @@ function AdminContent() {
         .from("educational_content")
         .select("*")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data;
     },
@@ -1253,7 +1280,7 @@ function AdminCommunity() {
         .from("community_posts")
         .select("*, profiles(name, email)")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data;
     },
@@ -1374,7 +1401,7 @@ function AdminChat() {
         .select("*, profiles:user_id(name, email)")
         .order("created_at", { ascending: false })
         .limit(100);
-      
+
       if (error) throw error;
       return data;
     },
@@ -1506,7 +1533,7 @@ function AdminChallenges() {
         .from("challenges")
         .select("*")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data;
     },
@@ -1804,7 +1831,7 @@ function AdminAchievements() {
         .from("achievements")
         .select("*")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data;
     },
@@ -1910,9 +1937,8 @@ function AdminAchievements() {
                     <button
                       key={icon}
                       type="button"
-                      className={`text-2xl p-2 rounded-lg border-2 transition-all ${
-                        formData.icon === icon ? "border-primary bg-primary/10" : "border-border"
-                      }`}
+                      className={`text-2xl p-2 rounded-lg border-2 transition-all ${formData.icon === icon ? "border-primary bg-primary/10" : "border-border"
+                        }`}
                       onClick={() => setFormData({ ...formData, icon })}
                     >
                       {icon}

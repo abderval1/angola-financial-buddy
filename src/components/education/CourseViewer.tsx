@@ -13,6 +13,7 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useAchievements } from "@/hooks/useAchievements";
 import {
   ChevronLeft,
   ChevronRight,
@@ -47,6 +48,7 @@ interface QuizQuestion {
 export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { unlockAchievement } = useAchievements();
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
   const [showCertificate, setShowCertificate] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
@@ -64,7 +66,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
         .select("*")
         .eq("id", courseId)
         .single();
-      
+
       if (error) throw error;
       return data;
     },
@@ -80,7 +82,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
         .select("*")
         .eq("course_id", courseId)
         .order("order_index", { ascending: true });
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -99,7 +101,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
         .select("*")
         .eq("user_id", user?.id)
         .in("module_id", moduleIds);
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -117,7 +119,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
         .eq("is_final_quiz", true)
         .eq("is_active", true)
         .maybeSingle();
-      
+
       if (error) throw error;
       return data;
     },
@@ -129,14 +131,14 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
     queryKey: ["user-quiz-attempts", courseId],
     queryFn: async () => {
       if (!finalQuiz) return [];
-      
+
       const { data, error } = await supabase
         .from("user_quiz_attempts")
         .select("*")
         .eq("user_id", user?.id)
         .eq("quiz_id", finalQuiz.id)
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -153,7 +155,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
         .eq("user_id", user?.id)
         .eq("course_id", courseId)
         .maybeSingle();
-      
+
       if (error) throw error;
       return data;
     },
@@ -171,12 +173,13 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
           is_completed: true,
           completed_at: new Date().toISOString(),
         });
-      
+
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user-module-progress", courseId] });
       toast.success("Módulo concluído! Próximo módulo desbloqueado.");
+      unlockAchievement('apprentice', 'Aprendiz', 2);
     },
   });
 
@@ -229,9 +232,12 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
       setQuizSubmitted(true);
       setQuizScore(result.scorePercent);
       queryClient.invalidateQueries({ queryKey: ["user-quiz-attempts", courseId] });
-      
+
       if (result.passed) {
         toast.success(`Parabéns! Você passou com ${result.scorePercent}%!`);
+        if (result.scorePercent === 100) {
+          unlockAchievement('financial_sage', 'Sábio Financeiro', 2);
+        }
       } else {
         toast.error(`Você obteve ${result.scorePercent}%. Nota mínima: ${finalQuiz?.passing_score || 70}%`);
       }
@@ -243,7 +249,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
   const generateCertificateMutation = useMutation({
     mutationFn: async () => {
       const certNumber = `KUANZA-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
-      
+
       const { error: certError } = await supabase
         .from("user_certificates")
         .insert({
@@ -254,7 +260,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
           course_title: course?.title,
           completion_date: new Date().toISOString(),
         });
-      
+
       if (certError) throw certError;
 
       // Update course progress
@@ -301,12 +307,12 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
   });
 
   const currentModule = modules[currentModuleIndex];
-  const isModuleCompleted = (moduleId: string) => 
+  const isModuleCompleted = (moduleId: string) =>
     moduleProgress.some(p => p.module_id === moduleId && p.is_completed);
-  
+
   const completedModulesCount = moduleProgress.filter(p => p.is_completed).length;
-  const progressPercentage = modules.length > 0 
-    ? Math.round((completedModulesCount / modules.length) * 100) 
+  const progressPercentage = modules.length > 0
+    ? Math.round((completedModulesCount / modules.length) * 100)
     : 0;
 
   const allModulesCompleted = modules.length > 0 && completedModulesCount === modules.length;
@@ -365,7 +371,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
 
   const renderYouTubeEmbed = (url: string) => {
     let videoId = "";
-    
+
     if (url.includes("youtube.com/watch?v=")) {
       videoId = url.split("v=")[1]?.split("&")[0] || "";
     } else if (url.includes("youtu.be/")) {
@@ -413,7 +419,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                     <p className="text-sm text-muted-foreground uppercase tracking-wider">Certificado de Conclusão</p>
                     <h1 className="text-3xl font-bold mt-2">Parabéns!</h1>
                   </div>
-                  
+
                   <div className="py-6 border-y">
                     <p className="text-muted-foreground">Este certificado atesta que</p>
                     <p className="text-2xl font-bold text-primary mt-2">
@@ -477,11 +483,10 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                   // Quiz Results
                   <Card className="p-6">
                     <div className="text-center space-y-4">
-                      <div className={`h-20 w-20 mx-auto rounded-full flex items-center justify-center ${
-                        quizScore >= (finalQuiz?.passing_score || 70) 
-                          ? "bg-success/20" 
-                          : "bg-destructive/20"
-                      }`}>
+                      <div className={`h-20 w-20 mx-auto rounded-full flex items-center justify-center ${quizScore >= (finalQuiz?.passing_score || 70)
+                        ? "bg-success/20"
+                        : "bg-destructive/20"
+                        }`}>
                         {quizScore >= (finalQuiz?.passing_score || 70) ? (
                           <CheckCircle className="h-10 w-10 text-success" />
                         ) : (
@@ -565,10 +570,10 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                             </RadioGroup>
                           </div>
                         </Card>
-                    ))}
+                      ))}
 
                     <div className="flex justify-center pt-4 pb-8">
-                      <Button 
+                      <Button
                         size="lg"
                         onClick={() => submitQuizMutation.mutate()}
                         disabled={submitQuizMutation.isPending || Object.keys(quizAnswers).length === 0}
@@ -618,15 +623,14 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                         key={mod.id}
                         onClick={() => !isLocked && setCurrentModuleIndex(index)}
                         disabled={isLocked}
-                        className={`w-full text-left p-3 rounded-lg transition-all ${
-                          isCurrent 
-                            ? "bg-primary text-primary-foreground" 
-                            : completed
-                              ? "bg-success/10 hover:bg-success/20"
-                              : isLocked
-                                ? "bg-muted opacity-50 cursor-not-allowed"
-                                : "hover:bg-muted"
-                        }`}
+                        className={`w-full text-left p-3 rounded-lg transition-all ${isCurrent
+                          ? "bg-primary text-primary-foreground"
+                          : completed
+                            ? "bg-success/10 hover:bg-success/20"
+                            : isLocked
+                              ? "bg-muted opacity-50 cursor-not-allowed"
+                              : "hover:bg-muted"
+                          }`}
                       >
                         <div className="flex items-start gap-3">
                           <div className="mt-0.5">
@@ -642,9 +646,8 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                             <p className={`font-medium text-sm ${isCurrent ? "text-primary-foreground" : ""}`}>
                               {index + 1}. {mod.title}
                             </p>
-                            <div className={`flex items-center gap-2 text-xs mt-1 ${
-                              isCurrent ? "text-primary-foreground/70" : "text-muted-foreground"
-                            }`}>
+                            <div className={`flex items-center gap-2 text-xs mt-1 ${isCurrent ? "text-primary-foreground/70" : "text-muted-foreground"
+                              }`}>
                               {mod.duration_minutes && <span>{mod.duration_minutes} min</span>}
                               {mod.is_free && <Badge variant="outline" className="text-[10px] h-4">Grátis</Badge>}
                             </div>
@@ -660,18 +663,16 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                       <button
                         onClick={handleStartQuiz}
                         disabled={!allModulesCompleted}
-                        className={`w-full text-left p-3 rounded-lg transition-all ${
-                          hasPassedQuiz
-                            ? "bg-success/10"
-                            : allModulesCompleted
-                              ? "bg-primary/10 hover:bg-primary/20"
-                              : "bg-muted opacity-50 cursor-not-allowed"
-                        }`}
+                        className={`w-full text-left p-3 rounded-lg transition-all ${hasPassedQuiz
+                          ? "bg-success/10"
+                          : allModulesCompleted
+                            ? "bg-primary/10 hover:bg-primary/20"
+                            : "bg-muted opacity-50 cursor-not-allowed"
+                          }`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                            hasPassedQuiz ? "bg-success/20" : "bg-primary/20"
-                          }`}>
+                          <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${hasPassedQuiz ? "bg-success/20" : "bg-primary/20"
+                            }`}>
                             {hasPassedQuiz ? (
                               <CheckCircle className="h-4 w-4 text-success" />
                             ) : (
@@ -744,14 +745,25 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                   {/* SCROLLABLE CONTENT AREA */}
                   <div className="flex-1 overflow-y-auto">
                     <div className="max-w-4xl mx-auto space-y-6 p-6 pb-12">
+                      {/* Course Cover Image */}
+                      {course?.thumbnail_url && (
+                        <div className="aspect-video w-full rounded-xl overflow-hidden mb-6 shadow-md border">
+                          <img
+                            src={course.thumbnail_url}
+                            alt={course.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+
                       {/* Video/YouTube Content */}
                       {currentModule.video_url && (
                         <div className="mb-6">
                           {(currentModule.media_type === "youtube" || currentModule.video_url.includes("youtube.com") || currentModule.video_url.includes("youtu.be")) ? (
                             renderYouTubeEmbed(currentModule.video_url)
                           ) : (
-                            <video 
-                              controls 
+                            <video
+                              controls
                               className="w-full rounded-lg"
                               src={currentModule.video_url}
                             >
@@ -763,9 +775,9 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
 
                       {/* Rich Text Content - properly rendered HTML from WYSIWYG editor */}
                       {currentModule.content && (
-                        <div 
+                        <div
                           className="prose prose-sm md:prose-base max-w-none dark:prose-invert prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:leading-relaxed prose-img:rounded-lg prose-a:text-primary"
-                          dangerouslySetInnerHTML={{ __html: currentModule.content }} 
+                          dangerouslySetInnerHTML={{ __html: currentModule.content }}
                         />
                       )}
 
@@ -824,7 +836,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
 
                         {/* CERTIFICATE BUTTON - If no quiz required or already passed */}
                         {isLastModule && isModuleCompleted(currentModule.id) && !hasFinalQuiz && !hasCertificate && (
-                          <Button 
+                          <Button
                             className="bg-primary"
                             onClick={() => generateCertificateMutation.mutate()}
                             disabled={generateCertificateMutation.isPending}

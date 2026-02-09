@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserProfileDropdown } from "@/components/profile/UserProfileDropdown";
 import { MobileNav } from "./MobileNav";
+import { NotificationCenter } from "./NotificationCenter";
 
 interface AppHeaderProps {
   title?: string;
@@ -15,7 +16,7 @@ export function AppHeader({ title = "Dashboard", subtitle }: AppHeaderProps) {
       <div className="flex items-center gap-3 sm:gap-4">
         {/* Mobile Menu */}
         <MobileNav />
-        
+
         <div className="min-w-0">
           <h1 className="font-display text-lg sm:text-xl font-semibold text-foreground truncate">{title}</h1>
           {subtitle && (
@@ -35,12 +36,7 @@ export function AppHeader({ title = "Dashboard", subtitle }: AppHeaderProps) {
         </div>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative h-9 w-9 sm:h-10 sm:w-10">
-          <Bell className="h-5 w-5" />
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
-            3
-          </span>
-        </Button>
+        <NotificationCenter />
 
         {/* User Profile Dropdown */}
         <UserProfileDropdown />
