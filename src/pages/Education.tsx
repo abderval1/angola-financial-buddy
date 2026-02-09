@@ -312,7 +312,7 @@ export default function Education() {
   };
 
   const isCoursePurchased = (courseId: string) => {
-    return hasPremiumPlanAccess || purchases.some(p => p.course_id === courseId && p.status === 'approved');
+    return hasPremiumPlanAccess || purchases.some((p: any) => p.course_id === courseId && p.status === 'approved');
   };
 
   const getCoursePurchaseStatus = (courseId: string) => {
