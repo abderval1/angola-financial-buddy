@@ -2,22 +2,24 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-export type ModuleKey = 'metas_fire' | 'education' | 'news' | 'premium_content';
+export type ModuleKey = 'basic' | 'metas_fire' | 'education' | 'news' | 'premium_content';
 
 // Map module keys to plan names and their hierarchy
 const MODULE_TO_PLAN: Record<ModuleKey, string> = {
-    'education': 'Iniciante',
+    'basic': 'Básico',
     'metas_fire': 'Essencial',
+    'education': 'Pro',
     'premium_content': 'Pro',
     'news': 'Avançado'
 };
 
 // Plan hierarchy (higher plans include lower tier features)
 const PLAN_HIERARCHY: Record<string, string[]> = {
-    'Iniciante': ['Iniciante'],
-    'Essencial': ['Iniciante', 'Essencial'],
-    'Pro': ['Iniciante', 'Essencial', 'Pro'],
-    'Avançado': ['Iniciante', 'Essencial', 'Pro', 'Avançado']
+    'Básico': ['Básico'],
+    'Essencial': ['Básico', 'Essencial'],
+    'Pro': ['Básico', 'Essencial', 'Pro'],
+    'Avançado': ['Básico', 'Essencial', 'Pro', 'Avançado'],
+    'Iniciante': ['Básico'] // Fallback for old data
 };
 
 export function useModuleAccess(moduleKey: ModuleKey) {
@@ -32,7 +34,8 @@ export function useModuleAccess(moduleKey: ModuleKey) {
                 .from("user_subscriptions")
                 .select("*, subscription_plans(name)")
                 .eq("user_id", user?.id)
-                .eq("status", "active");
+                .eq("status", "active")
+                .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
 
             if (error) {
                 console.error("Error checking module access:", error);

@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { CourseViewer } from "@/components/education/CourseViewer";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { toast } from "sonner";
 import {
   GraduationCap,
