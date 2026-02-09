@@ -13,16 +13,16 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { 
-  Users, 
-  Wallet, 
-  Gift, 
-  Copy, 
-  Share2, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  Users,
+  Wallet,
+  Gift,
+  Copy,
+  Share2,
+  TrendingUp,
+  Clock,
+  CheckCircle2,
+  XCircle,
   ArrowUpRight,
   Banknote,
   Smartphone,
@@ -58,26 +58,26 @@ export default function Monetization() {
         .select("*")
         .eq("user_id", user?.id)
         .maybeSingle();
-      
+
       if (error) throw error;
-      
+
       // If no code exists, call function to create one
       if (!data) {
         const { data: newCode, error: fnError } = await supabase
           .rpc("ensure_user_referral_code", { p_user_id: user?.id });
-        
+
         if (fnError) throw fnError;
-        
+
         // Fetch the newly created code
         const { data: createdCode } = await supabase
           .from("referral_codes")
           .select("*")
           .eq("user_id", user?.id)
           .single();
-        
+
         return createdCode;
       }
-      
+
       return data;
     },
     enabled: !!user?.id,
@@ -89,7 +89,7 @@ export default function Monetization() {
     queryFn: async () => {
       const { data, error } = await supabase
         .rpc("get_user_balance", { p_user_id: user?.id });
-      
+
       if (error) throw error;
       return data?.[0] || { total_earned: 0, total_pending: 0, total_paid: 0, available_balance: 0 };
     },
@@ -106,7 +106,7 @@ export default function Monetization() {
         .eq("user_id", user?.id)
         .order("created_at", { ascending: false })
         .limit(50);
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -122,7 +122,7 @@ export default function Monetization() {
         .select("*")
         .eq("referrer_id", user?.id)
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -138,7 +138,7 @@ export default function Monetization() {
         .select("*")
         .eq("user_id", user?.id)
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -152,9 +152,9 @@ export default function Monetization() {
       const { data, error } = await supabase
         .from("monetization_settings")
         .select("*");
-      
+
       if (error) throw error;
-      
+
       const settingsMap: Record<string, any> = {};
       data?.forEach(s => {
         settingsMap[s.setting_key] = s.setting_value;
@@ -183,7 +183,7 @@ export default function Monetization() {
           user_id: user?.id,
           amount,
           payment_method: payoutMethod,
-          payment_details: payoutMethod === "bank_transfer" 
+          payment_details: payoutMethod === "bank_transfer"
             ? { bank_name: payoutDetails.bank_name, account_number: payoutDetails.account_number, iban: payoutDetails.iban }
             : { phone: payoutDetails.phone },
         });
@@ -211,10 +211,10 @@ export default function Monetization() {
 
   const shareReferralLink = () => {
     const link = `${window.location.origin}/auth?ref=${referralCode?.code}`;
-    const text = `Junte-se a mim no Kuanza e ganhe ${settings.referral_signup_bonus?.referred || 250} Kz de bónus! Use o meu código: ${referralCode?.code}`;
-    
+    const text = `Junte-se a mim no Angola Finance e ganhe ${settings.referral_signup_bonus?.referred || 250} Kz de bónus! Use o meu código: ${referralCode?.code}`;
+
     if (navigator.share) {
-      navigator.share({ title: "Kuanza - Finanças Pessoais", text, url: link });
+      navigator.share({ title: "Angola Finance - Finanças Pessoais", text, url: link });
     } else {
       navigator.clipboard.writeText(`${text}\n${link}`);
       toast.success("Texto e link copiados!");
@@ -293,8 +293,8 @@ export default function Monetization() {
                 </div>
               </div>
               {availableBalance >= minPayout && (
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className="w-full mt-4"
                   onClick={() => setPayoutDialogOpen(true)}
                 >
@@ -376,10 +376,10 @@ export default function Monetization() {
                   <h3 className="text-lg font-semibold">Programa de Afiliados</h3>
                 </div>
                 <p className="text-muted-foreground mb-4">
-                  Convide amigos e ganhe <span className="font-bold text-primary">{settings.referral_signup_bonus?.referrer || 500} Kz</span> por cada registo. 
+                  Convide amigos e ganhe <span className="font-bold text-primary">{settings.referral_signup_bonus?.referrer || 500} Kz</span> por cada registo.
                   Seu amigo também ganha <span className="font-bold text-primary">{settings.referral_signup_bonus?.referred || 250} Kz</span>!
                 </p>
-                
+
                 <div className="flex items-center gap-3 p-3 bg-background/80 rounded-lg border">
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground mb-1">Seu código de convite</p>
@@ -413,8 +413,8 @@ export default function Monetization() {
             <div className="flex items-start gap-2">
               <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
               <p className="text-sm text-muted-foreground">
-                <strong>Como funciona:</strong> Partilhe seu código. Quando alguém se registar usando o código, 
-                ambos recebem bónus! Você também ganha {settings.referral_subscription_commission?.percentage || 10}% 
+                <strong>Como funciona:</strong> Partilhe seu código. Quando alguém se registar usando o código,
+                ambos recebem bónus! Você também ganha {settings.referral_subscription_commission?.percentage || 10}%
                 de comissão quando seus indicados fazem uma assinatura.
               </p>
             </div>
@@ -458,8 +458,8 @@ export default function Monetization() {
                 ) : (
                   <div className="space-y-3">
                     {earnings.map((earning: any) => (
-                      <div 
-                        key={earning.id} 
+                      <div
+                        key={earning.id}
                         className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-center gap-3">
@@ -505,8 +505,8 @@ export default function Monetization() {
                 ) : (
                   <div className="space-y-3">
                     {referrals.map((referral: any) => (
-                      <div 
-                        key={referral.id} 
+                      <div
+                        key={referral.id}
                         className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-center gap-3">
@@ -543,7 +543,7 @@ export default function Monetization() {
                     Histórico de pedidos de pagamento
                   </CardDescription>
                 </div>
-                <Button 
+                <Button
                   onClick={() => setPayoutDialogOpen(true)}
                   disabled={!canRequestPayout}
                 >
@@ -555,7 +555,7 @@ export default function Monetization() {
                 {!canRequestPayout && (
                   <div className="mb-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
                     <p className="text-sm text-amber-600 dark:text-amber-400">
-                      <strong>Saldo mínimo:</strong> Você precisa de pelo menos {minPayout.toLocaleString()} Kz 
+                      <strong>Saldo mínimo:</strong> Você precisa de pelo menos {minPayout.toLocaleString()} Kz
                       para solicitar um levantamento. Saldo atual: {availableBalance.toLocaleString()} Kz
                     </p>
                   </div>
@@ -569,8 +569,8 @@ export default function Monetization() {
                 ) : (
                   <div className="space-y-3">
                     {payouts.map((payout: any) => (
-                      <div 
-                        key={payout.id} 
+                      <div
+                        key={payout.id}
                         className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-center gap-3">
@@ -612,7 +612,7 @@ export default function Monetization() {
                 Saldo disponível: {availableBalance.toLocaleString()} Kz
               </DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Valor (Kz)</Label>
@@ -699,11 +699,11 @@ export default function Monetization() {
               <Button variant="outline" onClick={() => setPayoutDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button 
+              <Button
                 onClick={() => createPayoutMutation.mutate()}
                 disabled={
-                  createPayoutMutation.isPending || 
-                  !payoutMethod || 
+                  createPayoutMutation.isPending ||
+                  !payoutMethod ||
                   !payoutAmount ||
                   parseFloat(payoutAmount) < minPayout ||
                   (payoutMethod === "bank_transfer" && (!payoutDetails.bank_name || !payoutDetails.account_number)) ||

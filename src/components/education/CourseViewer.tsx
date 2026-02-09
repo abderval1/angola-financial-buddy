@@ -248,7 +248,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
   // Generate certificate mutation
   const generateCertificateMutation = useMutation({
     mutationFn: async () => {
-      const certNumber = `KUANZA-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
+      const certNumber = `ANGOLA-FINANCE-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
 
       const { error: certError } = await supabase
         .from("user_certificates")
@@ -446,7 +446,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                   </div>
 
                   <Badge className="bg-primary text-primary-foreground text-lg px-6 py-2">
-                    +{course?.points_reward || 50} Pontos Kuanza
+                    +{course?.points_reward || 50} Pontos Angola Finance
                   </Badge>
                 </div>
               </div>

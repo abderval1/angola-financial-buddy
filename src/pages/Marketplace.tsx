@@ -535,8 +535,7 @@ export default function Marketplace() {
                         AO06.0040.0000.0000.0000.0000.0
                       </p>
                       <p>
-                        <span className="text-muted-foreground">Titular:</span> Kuanza
-                        Finanças
+                        <span className="text-muted-foreground">Titular:</span> Angola Finance
                       </p>
                     </div>
                   </CardContent>

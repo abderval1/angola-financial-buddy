@@ -114,7 +114,6 @@ export function MobileNav() {
                 <span className="font-display text-xl font-bold text-sidebar-foreground">
                   Angola Finance
                 </span>
-                <span className="text-xs text-sidebar-foreground/60">Finanças Inteligentes</span>
               </div>
             </Link>
           </div>

@@ -50,7 +50,7 @@ const getSourceColor = (source: string) => {
   switch (source.toLowerCase()) {
     case "bna": return "bg-blue-600 text-white";
     case "bodiva": return "bg-primary text-primary-foreground";
-    case "kuanza": return "bg-gradient-to-r from-primary to-primary/80 text-white";
+    case "angola finance": return "bg-gradient-to-r from-primary to-primary/80 text-white";
     default: return "bg-muted text-muted-foreground";
   }
 };
