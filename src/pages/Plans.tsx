@@ -209,7 +209,7 @@ export default function Plans() {
                                             {`${new Intl.NumberFormat("pt-AO").format(plan.price)} Kz/mês`}
                                             {plan.trial_period_days > 0 && (
                                                 <div className="text-xs text-success font-semibold uppercase tracking-wider mt-1">
-                                                    7 Dias de Avaliação Gratuita
+                                                    7 dias grátis, depois 2.000 Kz/mês
                                                 </div>
                                             )}
                                         </CardDescription>
