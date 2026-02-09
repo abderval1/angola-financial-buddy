@@ -20,9 +20,6 @@ export function useModuleAccess(moduleKey: ModuleKey) {
         queryKey: ["module-access", user?.id, moduleKey],
         queryFn: async () => {
             if (!user?.id) return { hasAccess: false };
-
-
-
             const { data, error } = await supabase
                 .from("user_subscriptions")
                 .select("*, subscription_plans(name, tier_level)")
