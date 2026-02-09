@@ -638,18 +638,6 @@ export default function Monetization() {
                         Transferência Bancária
                       </div>
                     </SelectItem>
-                    <SelectItem value="mobile_money">
-                      <div className="flex items-center gap-2">
-                        <Smartphone className="h-4 w-4" />
-                        Mobile Money (Multicaixa Express)
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="express">
-                      <div className="flex items-center gap-2">
-                        <Zap className="h-4 w-4" />
-                        Unitel Money
-                      </div>
-                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -682,17 +670,6 @@ export default function Monetization() {
                   </div>
                 </>
               )}
-
-              {(payoutMethod === "mobile_money" || payoutMethod === "express") && (
-                <div className="space-y-2">
-                  <Label>Número de Telefone</Label>
-                  <Input
-                    placeholder="Ex: 923456789"
-                    value={payoutDetails.phone}
-                    onChange={(e) => setPayoutDetails({ ...payoutDetails, phone: e.target.value })}
-                  />
-                </div>
-              )}
             </div>
 
             <DialogFooter>
@@ -706,8 +683,7 @@ export default function Monetization() {
                   !payoutMethod ||
                   !payoutAmount ||
                   parseFloat(payoutAmount) < minPayout ||
-                  (payoutMethod === "bank_transfer" && (!payoutDetails.bank_name || !payoutDetails.account_number)) ||
-                  ((payoutMethod === "mobile_money" || payoutMethod === "express") && !payoutDetails.phone)
+                  (payoutMethod === "bank_transfer" && (!payoutDetails.bank_name || !payoutDetails.account_number))
                 }
               >
                 {createPayoutMutation.isPending ? "Processando..." : "Confirmar Pedido"}

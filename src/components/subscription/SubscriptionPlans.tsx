@@ -338,9 +338,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
             <div className="space-y-2">
               <Label>Dados para Transferência:</Label>
               <div className="p-4 bg-primary/5 rounded-lg space-y-2 text-sm">
-                <p><strong>IBAN:</strong> AO06.0040.0000.5481.7076.1016.6</p>
-                <p><strong>Banco:</strong> BAI</p>
-                <p><strong>Titular:</strong> Agostinho Francisco Paixão do Rosário</p>
+
               </div>
             </div>
 

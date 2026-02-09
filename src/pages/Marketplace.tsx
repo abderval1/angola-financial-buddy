@@ -532,10 +532,10 @@ export default function Marketplace() {
                       </p>
                       <p>
                         <span className="text-muted-foreground">IBAN:</span>{" "}
-                        AO06.0040.0000.0000.0000.0000.0
+                        AO06.0040.0000.5481.7076.1016.6
                       </p>
                       <p>
-                        <span className="text-muted-foreground">Titular:</span> Angola Finance
+                        <span className="text-muted-foreground">Titular:</span> Agostinho Francisco Paixão do Rosário
                       </p>
                     </div>
                   </CardContent>

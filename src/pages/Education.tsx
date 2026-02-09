@@ -697,7 +697,8 @@ export default function Education() {
                 <div className="bg-muted/50 p-4 rounded-lg space-y-3">
                   <p className="text-sm font-semibold">Como adquirir:</p>
                   <ol className="text-sm space-y-2 text-muted-foreground list-decimal pl-4">
-                    <li>Faz o pagamento por IBAN (0000 0000 0000 0000 00) ou Multicaixa Express.</li>
+                    <li>Faz o pagamento por IBAN (AO06.0040.0000.5481.7076.1016.6 - BAI).</li>
+                    <li>O titular da conta é Agostinho Francisco Paixão do Rosário.</li>
                     <li>Faz o upload do comprovativo (Imagem ou PDF) abaixo.</li>
                     <li>O curso será libertado na tua conta após aprovação administrativa!</li>
                   </ol>

@@ -246,7 +246,7 @@ export default function Plans() {
                                                     setPurchaseDialogOpen(true);
                                                 }}
                                             >
-                                                Ativar Módulo
+                                                {plan.trial_period_days ? "Iniciar Teste" : "Ativar Módulo"}
                                                 <ArrowRight className="ml-2 h-4 w-4" />
                                             </Button>
                                         )}
@@ -299,14 +299,16 @@ export default function Plans() {
 
                         <div className="space-y-6 py-4">
                             <div className="bg-muted p-4 rounded-xl space-y-3">
-                                <p className="text-sm font-semibold">Dados para Pagamento (IBAN/Express):</p>
+                                <p className="text-sm font-semibold">Dados para Pagamento (IBAN):</p>
                                 <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground">BFA: 0006 0000 1234 5678 1012 3</p>
-                                    <p className="text-xs text-muted-foreground">BAI: 0040 0000 8765 4321 1018 7</p>
-                                    <p className="text-xs text-muted-foreground">Express: 923 000 000</p>
+                                    <p className="text-xs text-muted-foreground font-mono text-wrap">IBAN: AO06.0040.0000.5481.7076.1016.6</p>
+                                    <p className="text-xs text-muted-foreground">Titular: Agostinho Francisco Paixão do Rosário</p>
                                 </div>
                                 <div className="pt-2 border-t border-border/50 text-center">
                                     <p className="text-sm">Valor: <span className="font-bold">{selectedPlan?.price.toLocaleString()} Kz</span></p>
+                                    {selectedPlan?.trial_period_days && (
+                                        <p className="text-xs text-success font-medium mt-1">Inclui {selectedPlan.trial_period_days} dias de teste grátis</p>
+                                    )}
                                 </div>
                             </div>
 
