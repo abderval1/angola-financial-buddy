@@ -152,6 +152,8 @@ export default function Education() {
     enabled: !!user?.id,
   });
 
+  const { data: hasPremiumPlanAccess } = useModuleAccess("premium_content");
+
   // Start content mutation
   const startContentMutation = useMutation({
     mutationFn: async (contentId: string) => {
@@ -309,7 +311,7 @@ export default function Education() {
   };
 
   const isCoursePurchased = (courseId: string) => {
-    return purchases.some(p => p.course_id === courseId && p.status === 'approved');
+    return hasPremiumPlanAccess || purchases.some(p => p.course_id === courseId && p.status === 'approved');
   };
 
   const getCoursePurchaseStatus = (courseId: string) => {

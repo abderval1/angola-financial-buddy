@@ -2,20 +2,22 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-export type ModuleKey = 'metas_fire' | 'education' | 'news';
+export type ModuleKey = 'metas_fire' | 'education' | 'news' | 'premium_content';
 
 // Map module keys to plan names and their hierarchy
 const MODULE_TO_PLAN: Record<ModuleKey, string> = {
+    'education': 'Iniciante',
     'metas_fire': 'Essencial',
-    'education': 'Pro',
+    'premium_content': 'Pro',
     'news': 'Avançado'
 };
 
 // Plan hierarchy (higher plans include lower tier features)
 const PLAN_HIERARCHY: Record<string, string[]> = {
-    'Essencial': ['Essencial'],
-    'Pro': ['Essencial', 'Pro'],
-    'Avançado': ['Essencial', 'Pro', 'Avançado']
+    'Iniciante': ['Iniciante'],
+    'Essencial': ['Iniciante', 'Essencial'],
+    'Pro': ['Iniciante', 'Essencial', 'Pro'],
+    'Avançado': ['Iniciante', 'Essencial', 'Pro', 'Avançado']
 };
 
 export function useModuleAccess(moduleKey: ModuleKey) {

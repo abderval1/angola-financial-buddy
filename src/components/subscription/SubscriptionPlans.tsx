@@ -17,6 +17,7 @@ interface Plan {
   ebook_limit: number;
   features: string[];
   is_active: boolean;
+  trial_period_days?: number;
 }
 
 interface SubscriptionPlansProps {
@@ -45,6 +46,22 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
     },
   });
 
+  const { data: hasHadTrial } = useQuery({
+    queryKey: ["user-has-had-trial", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_subscriptions")
+        .select("id")
+        .eq("user_id", user?.id)
+        .eq("is_trial", true)
+        .limit(1);
+
+      if (error) return false;
+      return (data?.length || 0) > 0;
+    },
+    enabled: !!user?.id,
+  });
+
   const { data: currentSubscription } = useQuery({
     queryKey: ["user-subscription", user?.id],
     queryFn: async () => {
@@ -52,6 +69,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
         .from("user_subscriptions")
         .select("*, subscription_plans(*)")
         .eq("user_id", user?.id)
+        .eq("status", "active")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -60,6 +78,34 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
       return data;
     },
     enabled: !!user?.id,
+  });
+
+  const startTrialMutation = useMutation({
+    mutationFn: async (plan: Plan) => {
+      if (!plan.trial_period_days) return;
+
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + plan.trial_period_days);
+
+      const { error } = await supabase.from("user_subscriptions").insert({
+        user_id: user?.id,
+        plan_id: plan.id,
+        status: "active",
+        is_trial: true,
+        expires_at: expirationDate.toISOString(),
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Período de teste activado com sucesso! Aproveite os próximos 7 dias.");
+      queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["user-has-had-trial"] });
+      onSuccess?.();
+    },
+    onError: (error: any) => {
+      toast.error(`Erro ao activar teste: ${error.message}`);
+    },
   });
 
   const { data: downloadCount = 0 } = useQuery({
@@ -71,7 +117,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
         .eq("user_id", user?.id)
         .eq("is_free_download", true);
 
-      if (error) throw error;
+      if (error) return 0;
       return data?.length || 0;
     },
     enabled: !!user?.id,
@@ -131,14 +177,16 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
   };
 
   const getPlanIcon = (planName: string) => {
-    if (planName.toLowerCase().includes("premium")) return Crown;
-    if (planName.toLowerCase().includes("intermediário")) return Star;
-    return Zap;
+    if (planName.toLowerCase().includes("premium") || planName.toLowerCase().includes("avançado")) return Crown;
+    if (planName.toLowerCase().includes("intermediário") || planName.toLowerCase().includes("pro")) return Star;
+    if (planName.toLowerCase().includes("essencial")) return Zap;
+    return BookOpen;
   };
 
   const getPlanStyle = (index: number) => {
-    if (index === 2) return "subscription-card subscription-card-premium";
-    if (index === 1) return "subscription-card subscription-card-intermediate";
+    if (index === 3) return "subscription-card subscription-card-premium";
+    if (index === 2) return "subscription-card subscription-card-intermediate";
+    if (index === 1) return "subscription-card subscription-card-essencial";
     return "subscription-card subscription-card-basic";
   };
 
@@ -175,7 +223,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                       variant={currentSubscription.status === "active" ? "default" : "secondary"}
                       className={currentSubscription.status === "active" ? "bg-success" : ""}
                     >
-                      {currentSubscription.status === "active" ? "Ativo" :
+                      {currentSubscription.status === "active" ? (currentSubscription.is_trial ? "Período de Teste" : "Ativo") :
                         currentSubscription.status === "pending" ? "Pendente" :
                           currentSubscription.status === "expired" ? "Expirado" : "Cancelado"}
                     </Badge>
@@ -194,14 +242,15 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
       )}
 
       {/* Plans Grid */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {plans.map((plan, index) => {
           const PlanIcon = getPlanIcon(plan.name);
           const isCurrent = isCurrentPlan(plan.id);
           const features = Array.isArray(plan.features) ? plan.features : [];
+          const canTakeTrial = plan.trial_period_days && !hasHadTrial && !currentSubscription;
 
           return (
-            <div key={plan.id} className={getPlanStyle(index)}>
+            <div key={plan.id} className={`${getPlanStyle(index)} relative`}>
               {index === 2 && (
                 <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground">
                   Mais Popular
@@ -209,9 +258,9 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
               )}
 
               <div className="flex items-center gap-3 mb-4">
-                <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${index === 2 ? "bg-accent/20" : "bg-primary/10"
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${index >= 2 ? "bg-accent/20" : "bg-primary/10"
                   }`}>
-                  <PlanIcon className={`h-5 w-5 ${index === 2 ? "text-accent" : "text-primary"}`} />
+                  <PlanIcon className={`h-5 w-5 ${index >= 2 ? "text-accent" : "text-primary"}`} />
                 </div>
                 <h3 className="font-display text-xl font-bold">{plan.name}</h3>
               </div>
@@ -221,12 +270,17 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                   {new Intl.NumberFormat("pt-AO").format(plan.price)}
                 </span>
                 <span className="text-muted-foreground ml-1">Kz/mês</span>
+                {plan.trial_period_days && (
+                  <p className="text-xs text-success font-medium mt-1">
+                    Inclui {plan.trial_period_days} dias de teste grátis
+                  </p>
+                )}
               </div>
 
-              <ul className="space-y-3 mb-6">
+              <ul className="space-y-3 mb-6 flex-1">
                 <li className="flex items-center gap-2 text-sm">
                   <Check className="h-4 w-4 text-success shrink-0" />
-                  <span><strong>{plan.ebook_limit}</strong> ebooks grátis incluídos</span>
+                  <span><strong>{plan.ebook_limit}</strong> ebooks grátis</span>
                 </li>
                 {features.map((feature, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
@@ -236,16 +290,28 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                 ))}
               </ul>
 
-              <Button
-                className="w-full"
-                variant={isCurrent ? "outline" : index === 2 ? "default" : "outline"}
-                disabled={isCurrent || currentSubscription?.status === "pending"}
-                onClick={() => { setSelectedPlan(plan); setDialogOpen(true); }}
-              >
-                {isCurrent ? "Plano Atual" :
-                  currentSubscription?.status === "pending" ? "Aguardando Aprovação" :
-                    "Assinar Agora"}
-              </Button>
+              <div className="space-y-3">
+                {canTakeTrial ? (
+                  <Button
+                    className="w-full gradient-success"
+                    onClick={() => startTrialMutation.mutate(plan)}
+                    disabled={startTrialMutation.isPending}
+                  >
+                    {startTrialMutation.isPending ? "Activando..." : "Iniciar Teste Grátis"}
+                  </Button>
+                ) : null}
+
+                <Button
+                  className="w-full"
+                  variant={isCurrent ? "outline" : index >= 2 ? "default" : "outline"}
+                  disabled={isCurrent || currentSubscription?.status === "pending"}
+                  onClick={() => { setSelectedPlan(plan); setDialogOpen(true); }}
+                >
+                  {isCurrent ? "Plano Atual" :
+                    currentSubscription?.status === "pending" ? "Aguardando Aprovação" :
+                      "Assinar Agora"}
+                </Button>
+              </div>
             </div>
           );
         })}

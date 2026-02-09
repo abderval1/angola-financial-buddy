@@ -38,6 +38,7 @@ interface Subscription {
   started_at: string | null;
   expires_at: string | null;
   rejection_reason: string | null;
+  is_trial: boolean;
   subscription_plans: {
     name: string;
     price: number;
@@ -288,10 +289,14 @@ export function AdminSubscriptions() {
 
   const pendingCount = subscriptions.filter((s: Subscription) => s.status === "pending").length;
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
+  const getStatusBadge = (sub: Subscription) => {
+    switch (sub.status) {
       case "active":
-        return <Badge className="bg-success text-success-foreground">Ativo</Badge>;
+        return (
+          <Badge className={`${sub.is_trial ? "bg-amber-500" : "bg-success"} text-white border-0`}>
+            {sub.is_trial ? "Período de Teste" : "Ativo"}
+          </Badge>
+        );
       case "pending":
         return <Badge className="bg-warning text-warning-foreground">Pendente</Badge>;
       case "expired":
@@ -299,7 +304,7 @@ export function AdminSubscriptions() {
       case "cancelled":
         return <Badge variant="destructive">Cancelado</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline">{sub.status}</Badge>;
     }
   };
 
@@ -388,7 +393,7 @@ export function AdminSubscriptions() {
                       <TableCell>
                         {new Intl.NumberFormat("pt-AO").format(sub.subscription_plans?.price || 0)} Kz
                       </TableCell>
-                      <TableCell>{getStatusBadge(sub.status)}</TableCell>
+                      <TableCell>{getStatusBadge(sub)}</TableCell>
                       <TableCell>
                         {format(new Date(sub.created_at), "dd/MM/yyyy HH:mm", { locale: pt })}
                       </TableCell>
@@ -523,7 +528,7 @@ export function AdminSubscriptions() {
                 <div className="p-4 bg-muted rounded-lg">
                   <p className="text-sm text-muted-foreground">Status</p>
                   <div className="flex items-center gap-2 mt-1">
-                    {getStatusBadge(selectedSub.status)}
+                    {getStatusBadge(selectedSub)}
                   </div>
                 </div>
               </div>
