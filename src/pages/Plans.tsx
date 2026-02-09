@@ -78,21 +78,36 @@ export default function Plans() {
     });
 
     const purchaseMutation = useMutation({
-        mutationFn: async ({ planId, proofUrl }: { planId: string; proofUrl: string }) => {
+        mutationFn: async ({ planId, proofUrl }: { planId: string; proofUrl?: string }) => {
+            const plan = plans.find((p: any) => p.id === planId);
+            const isTrialOrFree = Number(plan?.price) === 0;
+
             const { error } = await supabase
                 .from("user_subscriptions")
                 .insert({
                     user_id: user?.id,
                     plan_id: planId,
                     payment_proof_url: proofUrl,
-                    status: "pending"
+                    status: isTrialOrFree ? "active" : "pending",
+                    is_trial: isTrialOrFree,
+                    expires_at: isTrialOrFree ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null
                 });
 
             if (error) throw error;
         },
         onSuccess: () => {
+            const plan = plans.find((p: any) => p.id === selectedPlan?.id);
+            const isTrialOrFree = Number(plan?.price) === 0;
+
             queryClient.invalidateQueries({ queryKey: ["my-subscriptions"] });
-            toast.success("Pedido de ativação enviado! Aguarde a aprovação do administrador.");
+            queryClient.invalidateQueries({ queryKey: ["module-access"] });
+
+            if (isTrialOrFree) {
+                toast.success("Módulo activado com sucesso! Aproveite o seu teste de 7 dias.");
+            } else {
+                toast.success("Pedido de ativação enviado! Aguarde a aprovação do administrador.");
+            }
+
             setPurchaseDialogOpen(false);
             setPaymentProofUrl(null);
         },
@@ -307,46 +322,56 @@ export default function Plans() {
                         </DialogHeader>
 
                         <div className="space-y-6 py-4">
-                            <div className="bg-muted p-4 rounded-xl space-y-3">
-                                <p className="text-sm font-semibold">Dados para Pagamento (IBAN):</p>
-                                <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground font-mono text-wrap">IBAN: AO06.0040.0000.5481.7076.1016.6</p>
-                                    <p className="text-xs text-muted-foreground">Titular: Agostinho Francisco Paixão do Rosário</p>
+                            {Number(selectedPlan?.price) !== 0 && (
+                                <div className="bg-muted p-4 rounded-xl space-y-3">
+                                    <p className="text-sm font-semibold">Dados para Pagamento (IBAN):</p>
+                                    <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground font-mono text-wrap">IBAN: AO06.0040.0000.5481.7076.1016.6</p>
+                                        <p className="text-xs text-muted-foreground">Titular: Agostinho Francisco Paixão do Rosário</p>
+                                    </div>
+                                    <div className="pt-2 border-t border-border/50 text-center">
+                                        <p className="text-sm">Valor: <span className="font-bold">{new Intl.NumberFormat("pt-AO").format(selectedPlan?.price)} Kz</span></p>
+                                    </div>
                                 </div>
-                                <div className="pt-2 border-t border-border/50 text-center">
-                                    <p className="text-sm">Valor: <span className="font-bold">{selectedPlan?.price.toLocaleString()} Kz</span></p>
-                                    {selectedPlan?.trial_period_days && (
-                                        <p className="text-xs text-success font-medium mt-1">Inclui {selectedPlan.trial_period_days} dias de teste grátis</p>
+                            )}
+
+                            {Number(selectedPlan?.price) === 0 && (
+                                <div className="bg-success/10 border border-success/20 p-4 rounded-xl text-center">
+                                    <p className="text-sm font-medium text-success">
+                                        Este módulo inclui um período de 7 dias grátis para avaliação.
+                                    </p>
+                                </div>
+                            )}
+
+                            {Number(selectedPlan?.price) !== 0 ? (
+                                <div className="space-y-2">
+                                    <Label htmlFor="proof">Carregar Comprovativo (PDF ou Imagem)</Label>
+                                    <Input
+                                        id="proof"
+                                        type="file"
+                                        accept="image/*,application/pdf"
+                                        onChange={handleFileUpload}
+                                        disabled={uploading}
+                                    />
+                                    {uploading && <p className="text-sm text-muted-foreground animate-pulse">A carregar...</p>}
+                                    {paymentProofUrl && (
+                                        <p className="text-sm text-success font-medium flex items-center gap-2">
+                                            <Check className="h-4 w-4" /> Comprovativo carregado com sucesso!
+                                        </p>
                                     )}
                                 </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="proof">Carregar Comprovativo (PDF ou Imagem)</Label>
-                                <Input
-                                    id="proof"
-                                    type="file"
-                                    accept="image/*,application/pdf"
-                                    onChange={handleFileUpload}
-                                    disabled={uploading}
-                                />
-                                {uploading && <p className="text-sm text-muted-foreground animate-pulse">A carregar...</p>}
-                                {paymentProofUrl && (
-                                    <p className="text-sm text-success font-medium flex items-center gap-2">
-                                        <Check className="h-4 w-4" /> Comprovativo carregado com sucesso!
-                                    </p>
-                                )}
-                            </div>
+                            ) : null}
                         </div>
 
                         <DialogFooter>
                             <Button variant="outline" onClick={() => setPurchaseDialogOpen(false)}>Cancelar</Button>
                             <Button
-                                disabled={!paymentProofUrl || purchaseMutation.isPending}
-                                className="gradient-accent text-accent-foreground"
-                                onClick={() => purchaseMutation.mutate({ planId: selectedPlan.id, proofUrl: paymentProofUrl! })}
+                                disabled={(Number(selectedPlan?.price) !== 0 && !paymentProofUrl) || purchaseMutation.isPending}
+                                className="gradient-accent text-accent-foreground min-w-[140px]"
+                                onClick={() => purchaseMutation.mutate({ planId: selectedPlan.id, proofUrl: paymentProofUrl || undefined })}
                             >
-                                {purchaseMutation.isPending ? "A processar..." : "Confirmar Pagamento"}
+                                {purchaseMutation.isPending ? "A processar..." :
+                                    Number(selectedPlan?.price) === 0 ? "Ativar Teste Grátis" : "Confirmar Pagamento"}
                             </Button>
                         </DialogFooter>
                     </DialogContent>

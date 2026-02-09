@@ -128,23 +128,25 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
   const subscribeMutation = useMutation({
     mutationFn: async ({ planId, proofUrl }: { planId: string; proofUrl?: string }) => {
       const plan = plans.find(p => p.id === planId);
-      const isFree = plan?.price === 0;
+      const isTrialOrFree = Number(plan?.price) === 0;
 
       const { error } = await supabase.from("user_subscriptions").insert({
         user_id: user?.id,
         plan_id: planId,
         payment_proof_url: proofUrl,
-        status: isFree ? "active" : "pending",
+        status: isTrialOrFree ? "active" : "pending",
+        is_trial: isTrialOrFree,
+        expires_at: isTrialOrFree ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null
       });
 
       if (error) throw error;
     },
     onSuccess: () => {
       const plan = plans.find(p => p.id === selectedPlan?.id);
-      const isFree = plan?.price === 0;
+      const isTrialOrFree = Number(plan?.price) === 0;
 
-      if (isFree) {
-        toast.success("Plano activado com sucesso!");
+      if (isTrialOrFree) {
+        toast.success("Módulo activado com sucesso! Aproveite o seu teste de 7 dias.");
       } else {
         toast.success("Assinatura enviada! Aguarde a aprovação do administrador.");
       }
@@ -350,23 +352,27 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            <div className="p-4 bg-muted rounded-lg">
-              <p className="text-sm text-muted-foreground mb-2">Valor a pagar:</p>
-              <p className="text-2xl font-bold text-foreground">
-                {selectedPlan && new Intl.NumberFormat("pt-AO", { style: "currency", currency: "AOA" }).format(selectedPlan.price)}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Dados para Transferência:</Label>
-              <div className="p-4 bg-primary/5 rounded-lg space-y-2 text-sm">
-                <p><strong>IBAN:</strong> AO06.0040.0000.5481.7076.1016.6</p>
-                <p><strong>Banco:</strong> BAI</p>
-                <p><strong>Titular:</strong> Agostinho Francisco Paixão do Rosário</p>
+            {Number(selectedPlan?.price) !== 0 && (
+              <div className="p-4 bg-muted rounded-lg text-center">
+                <p className="text-sm text-muted-foreground mb-1">Valor a pagar:</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {selectedPlan && new Intl.NumberFormat("pt-AO", { style: "currency", currency: "AOA" }).format(selectedPlan.price)}
+                </p>
               </div>
-            </div>
+            )}
 
-            {selectedPlan?.price !== 0 ? (
+            {Number(selectedPlan?.price) !== 0 && (
+              <div className="space-y-2">
+                <Label>Dados para Transferência:</Label>
+                <div className="p-4 bg-primary/5 rounded-lg space-y-2 text-sm">
+                  <p><strong>IBAN:</strong> AO06.0040.0000.5481.7076.1016.6</p>
+                  <p><strong>Banco:</strong> BAI</p>
+                  <p><strong>Titular:</strong> Agostinho Francisco Paixão do Rosário</p>
+                </div>
+              </div>
+            )}
+
+            {Number(selectedPlan?.price) !== 0 ? (
               <div className="space-y-2">
                 <Label>Comprovativo de Pagamento</Label>
                 <input
@@ -401,11 +407,11 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
             ) : (
               <div className="space-y-4">
                 <div className="p-4 bg-success/10 border border-success/20 rounded-lg text-center">
-                  <p className="text-sm font-medium text-success">Este plano está disponível para activação imediata.</p>
+                  <p className="text-sm font-medium text-success">Este plano inclui um período de 7 dias grátis para avaliação.</p>
                 </div>
                 <Button
                   className="w-full gradient-success"
-                  onClick={() => subscribeMutation.mutate({ planId: selectedPlan.id })}
+                  onClick={() => subscribeMutation.mutate({ planId: selectedPlan!.id })}
                   disabled={subscribeMutation.isPending}
                 >
                   {subscribeMutation.isPending ? (
@@ -414,7 +420,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                       Activando...
                     </>
                   ) : (
-                    "Confirmar Activação Gratuita"
+                    "Ativar Teste Grátis"
                   )}
                 </Button>
               </div>
