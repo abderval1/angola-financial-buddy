@@ -78,7 +78,10 @@ export default function Landing() {
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl gradient-accent">
                 <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">A</span>
               </div>
-              <span className="font-display text-lg sm:text-xl font-bold text-foreground">Angola Finance</span>
+              <span className="font-display text-lg sm:text-xl font-bold">
+                <span className="text-primary">Angola</span>
+                <span className="text-accent">Finance</span>
+              </span>
             </Link>
 
             <div className="hidden md:flex items-center gap-6 lg:gap-8">
@@ -485,7 +488,10 @@ export default function Landing() {
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl gradient-accent">
                 <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">A</span>
               </div>
-              <span className="font-display text-lg sm:text-xl font-bold text-sidebar-foreground">Angola Finance</span>
+              <span className="font-display text-lg sm:text-xl font-bold">
+                <span className="text-sidebar-primary">Angola</span>
+                <span className="text-sidebar-foreground">Finance</span>
+              </span>
             </Link>
 
             <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">

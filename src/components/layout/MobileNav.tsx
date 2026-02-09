@@ -111,8 +111,9 @@ export function MobileNav() {
                 <span className="font-display text-xl font-bold text-sidebar-primary-foreground">A</span>
               </div>
               <div className="flex flex-col">
-                <span className="font-display text-xl font-bold text-sidebar-foreground">
-                  Angola Finance
+                <span className="font-display text-xl font-bold">
+                  <span className="text-sidebar-primary">Angola</span>
+                  <span className="text-sidebar-foreground">Finance</span>
                 </span>
               </div>
             </Link>
