@@ -208,7 +208,7 @@ export default function Plans() {
                                             {plan.name === 'Gratuito' ? 'Básico' : plan.name}
                                         </CardTitle>
                                         <CardDescription className="text-2xl font-bold text-foreground mt-2">
-                                            {plan.module_key === 'basic' || plan.name === 'Básico' ? (
+                                            {plan.module_key === 'basic' || plan.name === 'Básico' || plan.name === 'Gratuito' || plan.price === 0 ? (
                                                 <>
                                                     2.000 Kz/mês
                                                     <div className="text-xs text-success font-semibold uppercase tracking-wider mt-1">
@@ -229,7 +229,9 @@ export default function Plans() {
                                                     <div className="h-5 w-5 rounded-full bg-success/10 flex items-center justify-center shrink-0 mt-0.5">
                                                         <Check className="h-3 w-3 text-success" />
                                                     </div>
-                                                    <span className="text-muted-foreground">{feature}</span>
+                                                    <span className="text-muted-foreground">
+                                                        {feature.replace('Plano Gratuito', 'Plano Básico')}
+                                                    </span>
                                                 </li>
                                             ))}
                                         </ul>
