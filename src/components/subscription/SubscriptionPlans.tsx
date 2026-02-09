@@ -272,7 +272,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                 <span className="text-muted-foreground ml-1">Kz/mês</span>
                 {plan.trial_period_days && (
                   <p className="text-xs text-success font-medium mt-1">
-                    Inclui {plan.trial_period_days} dias de teste grátis
+                    7 dias de teste grátis, depois {new Intl.NumberFormat("pt-AO").format(plan.price)} Kz/mês
                   </p>
                 )}
               </div>
