@@ -340,7 +340,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
               <div className="p-4 bg-primary/5 rounded-lg space-y-2 text-sm">
                 <p><strong>IBAN:</strong> AO06.0040.0000.1234.5678.9012.3</p>
                 <p><strong>Banco:</strong> BAI</p>
-                <p><strong>Titular:</strong> AngolaFinance, Lda</p>
+                <p><strong>Titular:</strong> Angola Finance, Lda</p>
               </div>
             </div>
 

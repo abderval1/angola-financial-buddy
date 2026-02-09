@@ -114,7 +114,7 @@ export default function Auth() {
             <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl gradient-accent">
               <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">A</span>
             </div>
-            <span className="font-display text-lg sm:text-xl font-bold text-foreground">AngolaFinance</span>
+            <span className="font-display text-lg sm:text-xl font-bold text-foreground">Angola Finance</span>
           </Link>
 
           <div className="mb-6 sm:mb-8">

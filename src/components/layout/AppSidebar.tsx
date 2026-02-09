@@ -115,7 +115,7 @@ export function AppSidebar() {
             {!collapsed && (
               <div className="flex flex-col">
                 <span className="font-display text-xl font-bold text-sidebar-foreground">
-                  AngolaFinance
+                  Angola Finance
                 </span>
                 <span className="text-xs text-sidebar-foreground/60">Finanças Inteligentes</span>
               </div>

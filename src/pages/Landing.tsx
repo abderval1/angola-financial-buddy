@@ -78,7 +78,7 @@ export default function Landing() {
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl gradient-accent">
                 <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">A</span>
               </div>
-              <span className="font-display text-lg sm:text-xl font-bold text-foreground">AngolaFinance</span>
+              <span className="font-display text-lg sm:text-xl font-bold text-foreground">Angola Finance</span>
             </Link>
 
             <div className="hidden md:flex items-center gap-6 lg:gap-8">
@@ -206,7 +206,7 @@ export default function Landing() {
             <div className="order-2 lg:order-1">
               <h2 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-4 sm:mb-6">
                 Por que escolher o{" "}
-                <span className="text-primary">AngolaFinance</span>?
+                <span className="text-primary">Angola Finance</span>?
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8">
                 Criado especialmente para a realidade financeira angolana, com ferramentas
@@ -485,7 +485,7 @@ export default function Landing() {
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl gradient-accent">
                 <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">A</span>
               </div>
-              <span className="font-display text-lg sm:text-xl font-bold text-sidebar-foreground">AngolaFinance</span>
+              <span className="font-display text-lg sm:text-xl font-bold text-sidebar-foreground">Angola Finance</span>
             </Link>
 
             <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
@@ -501,7 +501,7 @@ export default function Landing() {
             </div>
 
             <p className="text-xs sm:text-sm text-sidebar-foreground/50 text-center">
-              © 2024 AngolaFinance. Todos os direitos reservados.
+              © 2024 Angola Finance. Todos os direitos reservados.
             </p>
           </div>
         </div>

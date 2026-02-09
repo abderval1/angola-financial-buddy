@@ -22,7 +22,7 @@ export default function PrivacyPolicy() {
                     <section>
                         <h2 className="text-xl font-semibold text-foreground">1. Introdução</h2>
                         <p>
-                            A AngolaFinance ("nós", "nosso" ou "nos") está comprometida em proteger a sua privacidade. Esta Política de Privacidade explica como recolhemos, utilizamos, divulgamos e protegemos as suas informações quando utiliza a nossa plataforma.
+                            A Angola Finance ("nós", "nosso" ou "nos") está comprometida em proteger a sua privacidade. Esta Política de Privacidade explica como recolhemos, utilizamos, divulgamos e protegemos as suas informações quando utiliza a nossa plataforma.
                         </p>
                     </section>
 
@@ -71,7 +71,7 @@ export default function PrivacyPolicy() {
                     <section>
                         <h2 className="text-xl font-semibold text-foreground">7. Contacto</h2>
                         <p>
-                            Se tiver dúvidas sobre esta Política de Privacidade, contacte-nos através do suporte oficial da AngolaFinance.
+                            Se tiver dúvidas sobre esta Política de Privacidade, contacte-nos através do suporte oficial da Angola Finance.
                         </p>
                     </section>
 
