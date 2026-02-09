@@ -206,7 +206,7 @@ export default function Plans() {
                                         </div>
                                         <CardTitle className="text-2xl font-display">{plan.name}</CardTitle>
                                         <CardDescription className="text-2xl font-bold text-foreground mt-2">
-                                            {plan.price === 0 ? "Gratuito" : `${new Intl.NumberFormat("pt-AO").format(plan.price)} Kz`}
+                                            {`${new Intl.NumberFormat("pt-AO").format(plan.price)} Kz`}
                                             {plan.price > 0 && <span className="text-sm font-normal text-muted-foreground">/mês</span>}
                                         </CardDescription>
                                     </CardHeader>
@@ -223,12 +223,7 @@ export default function Plans() {
                                         </ul>
                                     </CardContent>
                                     <CardFooter className="pt-6">
-                                        {plan.price === 0 ? (
-                                            <Button disabled className="w-full bg-muted text-muted-foreground">
-                                                <Check className="mr-2 h-4 w-4" />
-                                                Plano Base Incluído
-                                            </Button>
-                                        ) : active ? (
+                                        {active ? (
                                             <Button disabled className="w-full bg-success/10 text-success hover:bg-success/10">
                                                 <Check className="mr-2 h-4 w-4" />
                                                 Módulo Ativo
