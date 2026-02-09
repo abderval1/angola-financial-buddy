@@ -145,7 +145,7 @@ export default function Landing() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 animate-slide-up" style={{ animationDelay: "0.2s" }}>
               <Link to="/auth?mode=register" className="w-full sm:w-auto">
                 <Button variant="hero" size="lg" className="group w-full sm:w-auto">
-                  Começar Gratuitamente
+                  Começar Teste Grátis
                   <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover:translate-x-1" />
                 </Button>
               </Link>
@@ -225,7 +225,7 @@ export default function Landing() {
               </ul>
               <Link to="/auth?mode=register" className="inline-block mt-6 sm:mt-8">
                 <Button variant="accent" size="default" className="sm:text-base">
-                  Criar Conta Grátis
+                  Iniciar Teste de 7 Dias
                   <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
               </Link>
@@ -323,7 +323,7 @@ export default function Landing() {
               </div>
               <ul className="space-y-4 mb-8">
                 {[
-                  "Tudo do Plano Gratuito",
+                  "Tudo do Plano Básico",
                   "Módulo Metas & FIRE",
                   "Simulador de Independência",
                   "Gestão Metas Avançada",
@@ -470,12 +470,12 @@ export default function Landing() {
               Comece hoje a transformar suas finanças
             </h2>
             <p className="text-sm sm:text-base text-muted-foreground mb-8 sm:mb-10 px-4">
-              Cadastre-se gratuitamente e tenha acesso a todas as ferramentas para
+              Cadastre-se para o teste de 7 dias e tenha acesso a todas as ferramentas para
               controlar seu orçamento, poupar e investir.
             </p>
             <Link to="/auth?mode=register" className="inline-block w-full sm:w-auto">
               <Button variant="hero" size="lg" className="w-full sm:w-auto">
-                Criar Conta Gratuita
+                Iniciar Avaliação de 7 Dias
                 <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </Link>
