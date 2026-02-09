@@ -28,36 +28,59 @@ export function useModuleAccess(moduleKey: ModuleKey) {
     return useQuery({
         queryKey: ["module-access", user?.id, moduleKey],
         queryFn: async () => {
-            if (!user?.id) return false;
+            if (!user?.id) return { hasAccess: false };
 
             const { data, error } = await supabase
                 .from("user_subscriptions")
                 .select("*, subscription_plans(name)")
                 .eq("user_id", user?.id)
-                .eq("status", "active")
-                .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+                .order("created_at", { ascending: false });
 
             if (error) {
                 console.error("Error checking module access:", error);
-                return false;
+                return { hasAccess: false };
             }
 
-            if (!data || data.length === 0) return false;
+            if (!data || data.length === 0) return { hasAccess: false };
 
             // Get the required plan for this module
             const requiredPlan = MODULE_TO_PLAN[moduleKey];
 
+            // Filter for only active/pending subscriptions
+            const activeSubs = data.filter(s => s.status === 'active');
+            const now = new Date();
+
             // Check if user has any active subscription that grants access to this module
-            return data.some((sub: any) => {
+            let hasAccess = false;
+            let expiredTrial = false;
+            let trialExpiresAt = null;
+
+            for (const sub of activeSubs) {
                 const userPlanName = sub.subscription_plans?.name;
-                if (!userPlanName) return false;
+                if (!userPlanName) continue;
 
-                // Get the plans that this user's plan grants access to
+                // Check hierarchy
                 const grantedPlans = PLAN_HIERARCHY[userPlanName] || [];
+                const isPlanValid = grantedPlans.includes(requiredPlan);
 
-                // Check if the required plan is in the granted plans
-                return grantedPlans.includes(requiredPlan);
-            });
+                if (isPlanValid) {
+                    // Check expiration
+                    if (sub.expires_at) {
+                        const expires = new Date(sub.expires_at);
+                        if (expires < now) {
+                            if (sub.is_trial) {
+                                expiredTrial = true;
+                                trialExpiresAt = sub.expires_at;
+                            }
+                            continue; // This sub is expired, check others
+                        }
+                    }
+                    hasAccess = true;
+                    break;
+                }
+            }
+
+            return { hasAccess, isExpired: expiredTrial, trialExpiresAt };
         },
         enabled: !!user?.id,
     });

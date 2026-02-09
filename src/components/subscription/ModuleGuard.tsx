@@ -13,8 +13,12 @@ interface ModuleGuardProps {
 }
 
 export function ModuleGuard({ moduleKey, children, title, description }: ModuleGuardProps) {
-    const { data: hasAccess, isLoading } = useModuleAccess(moduleKey);
+    const { data: accessInfo, isLoading } = useModuleAccess(moduleKey);
     const navigate = useNavigate();
+
+    // Destructure access info with fallbacks
+    const hasAccess = accessInfo?.hasAccess ?? false;
+    const isExpired = accessInfo?.isExpired ?? false;
 
     if (isLoading) {
         return (
@@ -31,16 +35,20 @@ export function ModuleGuard({ moduleKey, children, title, description }: ModuleG
                     <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
                         <Lock className="h-8 w-8" />
                     </div>
-                    <h2 className="mb-2 text-2xl font-bold">{title}</h2>
+                    <h2 className="mb-2 text-2xl font-bold">
+                        {isExpired ? "O seu teste terminou!" : title}
+                    </h2>
                     <p className="mb-8 text-muted-foreground whitespace-pre-line">
-                        {description}
+                        {isExpired
+                            ? "O seu período de teste de 7 dias chegou ao fim.\nAtive o plano mensal por apenas 2.000 Kz para continuar a utilizar este módulo."
+                            : description}
                     </p>
                     <div className="flex flex-col gap-3 sm:flex-row">
                         <Button
                             className="gradient-accent text-accent-foreground"
                             onClick={() => navigate("/plans")}
                         >
-                            Ativar Módulo Agora
+                            {isExpired ? "Renovar por 2.000 Kz" : "Ativar Módulo Agora"}
                             <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                         <Button variant="outline" onClick={() => navigate("/dashboard")}>
