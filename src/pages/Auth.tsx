@@ -82,9 +82,19 @@ export default function Auth() {
   };
 
   const handleGoogleLogin = async () => {
-    const { error } = await signInWithGoogle();
-    if (error) {
-      toast.error("Erro ao fazer login com Google");
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        console.error("Google Login Error:", error);
+        if (error.message.includes("provider is not enabled")) {
+          toast.error("O login com Google não está activado no Supabase Dashboard.");
+        } else {
+          toast.error(`Erro ao fazer login com Google: ${error.message}`);
+        }
+      }
+    } catch (err: any) {
+      console.error("Google Login Exception:", err);
+      toast.error("Ocorreu um erro inesperado ao tentar aceder ao Google.");
     }
   };
 
