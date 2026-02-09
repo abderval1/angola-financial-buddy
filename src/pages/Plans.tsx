@@ -204,7 +204,9 @@ export default function Plans() {
                                         <div className={`mx-auto h-16 w-16 mb-4 flex items-center justify-center rounded-2xl ${active ? 'bg-success/20 text-success' : 'bg-primary/10 text-primary animate-pulse-subtle'}`}>
                                             {getModuleIcon(plan.name)}
                                         </div>
-                                        <CardTitle className="text-2xl font-display">{plan.name}</CardTitle>
+                                        <CardTitle className="text-2xl font-display">
+                                            {plan.name === 'Gratuito' ? 'Básico' : plan.name}
+                                        </CardTitle>
                                         <CardDescription className="text-2xl font-bold text-foreground mt-2">
                                             {plan.module_key === 'basic' || plan.name === 'Básico' ? (
                                                 <>
