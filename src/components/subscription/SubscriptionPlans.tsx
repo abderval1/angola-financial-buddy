@@ -125,18 +125,28 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
   });
 
   const subscribeMutation = useMutation({
-    mutationFn: async ({ planId, proofUrl }: { planId: string; proofUrl: string }) => {
+    mutationFn: async ({ planId, proofUrl }: { planId: string; proofUrl?: string }) => {
+      const plan = plans.find(p => p.id === planId);
+      const isFree = plan?.price === 0;
+
       const { error } = await supabase.from("user_subscriptions").insert({
         user_id: user?.id,
         plan_id: planId,
         payment_proof_url: proofUrl,
-        status: "pending",
+        status: isFree ? "active" : "pending",
       });
 
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Assinatura enviada! Aguarde a aprovação do administrador.");
+      const plan = plans.find(p => p.id === selectedPlan?.id);
+      const isFree = plan?.price === 0;
+
+      if (isFree) {
+        toast.success("Plano activado com sucesso!");
+      } else {
+        toast.success("Assinatura enviada! Aguarde a aprovação do administrador.");
+      }
       queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
       setDialogOpen(false);
       setSelectedPlan(null);
@@ -354,37 +364,59 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Comprovativo de Pagamento</Label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,.pdf"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-              >
-                {uploading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Enviar Comprovativo (PDF ou Imagem)
-                  </>
-                )}
-              </Button>
-              <p className="text-xs text-muted-foreground text-center">
-                Após envio, sua assinatura será analisada em até 24h.
-              </p>
-            </div>
+            {selectedPlan?.price !== 0 ? (
+              <div className="space-y-2">
+                <Label>Comprovativo de Pagamento</Label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Enviar Comprovativo (PDF ou Imagem)
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Após envio, sua assinatura será analisada em até 24h.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 bg-success/10 border border-success/20 rounded-lg text-center">
+                  <p className="text-sm font-medium text-success">Este plano está disponível para activação imediata.</p>
+                </div>
+                <Button
+                  className="w-full gradient-success"
+                  onClick={() => subscribeMutation.mutate({ planId: selectedPlan.id })}
+                  disabled={subscribeMutation.isPending}
+                >
+                  {subscribeMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Activando...
+                    </>
+                  ) : (
+                    "Confirmar Activação Gratuita"
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
