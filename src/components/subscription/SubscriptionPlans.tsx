@@ -102,6 +102,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
       toast.success("Período de teste activado com sucesso! Aproveite os próximos 7 dias.");
       queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
       queryClient.invalidateQueries({ queryKey: ["user-has-had-trial"] });
+      queryClient.invalidateQueries({ queryKey: ["module-access"] });
       onSuccess?.();
     },
     onError: (error: any) => {
@@ -148,6 +149,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
         toast.success("Assinatura enviada! Aguarde a aprovação do administrador.");
       }
       queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["module-access"] });
       setDialogOpen(false);
       setSelectedPlan(null);
       onSuccess?.();
