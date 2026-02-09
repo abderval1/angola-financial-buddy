@@ -278,14 +278,17 @@ export default function Landing() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-            {/* Gratuito */}
+            {/* Básico */}
             <div className="group relative p-8 rounded-3xl bg-card border border-border hover:border-neutral-400/30 transition-all duration-300">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-success text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                7 Dias Grátis
+              </div>
               <div className="mb-6 h-12 w-12 rounded-2xl bg-neutral-500/10 flex items-center justify-center text-neutral-500 group-hover:bg-neutral-500 group-hover:text-white transition-all">
                 <Wallet className="h-6 w-6" />
               </div>
-              <h3 className="text-2xl font-bold mb-2">Gratuito</h3>
+              <h3 className="text-2xl font-bold mb-2">Básico</h3>
               <div className="mb-6">
-                <span className="text-4xl font-bold">0</span>
+                <span className="text-4xl font-bold">2.000</span>
                 <span className="text-muted-foreground ml-1">Kz/mês</span>
               </div>
               <ul className="space-y-4 mb-8">

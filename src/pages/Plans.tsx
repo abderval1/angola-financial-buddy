@@ -206,8 +206,12 @@ export default function Plans() {
                                         </div>
                                         <CardTitle className="text-2xl font-display">{plan.name}</CardTitle>
                                         <CardDescription className="text-2xl font-bold text-foreground mt-2">
-                                            {`${new Intl.NumberFormat("pt-AO").format(plan.price)} Kz`}
-                                            {plan.price > 0 && <span className="text-sm font-normal text-muted-foreground">/mês</span>}
+                                            {`${new Intl.NumberFormat("pt-AO").format(plan.price)} Kz/mês`}
+                                            {plan.trial_period_days > 0 && (
+                                                <div className="text-xs text-success font-semibold uppercase tracking-wider mt-1">
+                                                    7 Dias de Avaliação Gratuita
+                                                </div>
+                                            )}
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="flex-1 pt-6 border-t border-dashed">
