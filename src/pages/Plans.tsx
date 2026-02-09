@@ -206,11 +206,17 @@ export default function Plans() {
                                         </div>
                                         <CardTitle className="text-2xl font-display">{plan.name}</CardTitle>
                                         <CardDescription className="text-2xl font-bold text-foreground mt-2">
-                                            {`${new Intl.NumberFormat("pt-AO").format(plan.price)} Kz/mês`}
-                                            {plan.trial_period_days > 0 && (
-                                                <div className="text-xs text-success font-semibold uppercase tracking-wider mt-1">
-                                                    7 dias grátis, depois 2.000 Kz/mês
-                                                </div>
+                                            {plan.module_key === 'basic' || plan.name === 'Básico' ? (
+                                                <>
+                                                    2.000 Kz/mês
+                                                    <div className="text-xs text-success font-semibold uppercase tracking-wider mt-1">
+                                                        7 dias grátis de avaliação
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {`${new Intl.NumberFormat("pt-AO").format(plan.price)} Kz/mês`}
+                                                </>
                                             )}
                                         </CardDescription>
                                     </CardHeader>
