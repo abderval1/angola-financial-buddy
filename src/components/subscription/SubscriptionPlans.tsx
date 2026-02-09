@@ -266,13 +266,20 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
               </div>
 
               <div className="mb-6">
-                <span className="text-4xl font-bold text-foreground">
-                  {new Intl.NumberFormat("pt-AO").format(plan.price)}
-                </span>
-                <span className="text-muted-foreground ml-1">Kz/mês</span>
-                {plan.trial_period_days && (
-                  <p className="text-xs text-success font-medium mt-1">
-                    7 dias de teste grátis, depois {new Intl.NumberFormat("pt-AO").format(plan.price)} Kz/mês
+                {(plan.module_key === 'basic' || plan.name === 'Básico' || plan.name === 'Gratuito' || plan.trial_period_days > 0) && (
+                  <Badge variant="secondary" className="mb-2 bg-success/10 text-success border-success/20">
+                    7 Dias de Avaliação
+                  </Badge>
+                )}
+                <div>
+                  <span className="text-4xl font-bold text-foreground">
+                    {plan.module_key === 'basic' || plan.name === 'Básico' || (plan.price === 0 && plan.trial_period_days > 0) ? '2.000' : new Intl.NumberFormat("pt-AO").format(plan.price)}
+                  </span>
+                  <span className="text-muted-foreground ml-1">Kz/mês</span>
+                </div>
+                {(plan.module_key === 'basic' || plan.name === 'Básico' || plan.name === 'Gratuito') && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    * Grátis nos primeiros 7 dias, depois 2.000 Kz/mês
                   </p>
                 )}
               </div>
