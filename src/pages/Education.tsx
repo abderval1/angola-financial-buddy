@@ -669,16 +669,16 @@ export default function Education() {
 
         {/* Purchase Info Modal */}
         <Dialog open={!!purchaseCourse} onOpenChange={() => setPurchaseCourse(null)}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col overflow-hidden p-0">
+            <DialogHeader className="px-6 pt-6 pb-2">
               <DialogTitle>Adquirir Curso Premium</DialogTitle>
               <DialogDescription>
                 Este curso é um conteúdo premium exclusivo e pode ser adquirido separadamente.
               </DialogDescription>
             </DialogHeader>
             {purchaseCourse && (
-              <div className="flex-1 overflow-y-auto max-h-[70vh] px-1 py-4 space-y-6">
-                <div className="flex aspect-video rounded-lg overflow-hidden border bg-muted">
+              <div className="flex-1 overflow-y-auto px-6 py-2 space-y-6">
+                <div className="flex aspect-video rounded-lg overflow-hidden border bg-muted shrink-0">
                   {purchaseCourse.thumbnail_url ? (
                     <img src={purchaseCourse.thumbnail_url} alt={purchaseCourse.title} className="w-full h-full object-cover" />
                   ) : (
@@ -705,7 +705,7 @@ export default function Education() {
                   </ol>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3 pb-4">
                   <Label className="text-sm font-semibold">Carregar Comprovativo</Label>
                   {!paymentProof ? (
                     <div className="border-2 border-dashed border-muted rounded-lg p-6 flex flex-col items-center justify-center gap-2 hover:border-primary/50 transition-colors cursor-pointer relative">
@@ -737,7 +737,7 @@ export default function Education() {
                 </div>
               </div>
             )}
-            <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t">
+            <DialogFooter className="px-6 pb-6 pt-2 border-t mt-auto">
               <Button
                 variant="outline"
                 onClick={() => {

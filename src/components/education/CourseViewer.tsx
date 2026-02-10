@@ -589,9 +589,9 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
           </div>
         ) : (
           // Course Content View
-          <div className="flex h-full">
+          <div className="flex flex-col md:flex-row h-full">
             {/* Sidebar - Module List */}
-            <div className="w-80 border-r bg-muted/30 flex flex-col shrink-0">
+            <div className="w-full md:w-80 h-[35vh] md:h-full border-r-0 md:border-r border-b md:border-b-0 bg-muted/30 flex flex-col shrink-0">
               <div className="p-4 border-b shrink-0">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold truncate pr-2">{course?.title}</h3>
