@@ -25,6 +25,8 @@ import {
   ExternalLink,
   CreditCard,
   RefreshCw,
+  Upload,
+  Loader2,
 } from "lucide-react";
 import { SubscriptionStatus } from "@/components/subscription/SubscriptionStatus";
 
@@ -81,14 +83,18 @@ export default function Marketplace() {
     enabled: !!user?.id,
   });
 
+  const [uploading, setUploading] = useState(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+
   // Purchase mutation
   const purchaseMutation = useMutation({
-    mutationFn: async (product: any) => {
+    mutationFn: async ({ product, proofUrl }: { product: any; proofUrl?: string }) => {
       const { error } = await supabase.from("marketplace_purchases").insert({
         user_id: user?.id,
         product_id: product.id,
         purchase_price: product.price,
         status: product.price > 0 ? "pending" : "completed",
+        receipt_url: proofUrl,
       });
 
       if (error) throw error;
@@ -99,14 +105,15 @@ export default function Marketplace() {
         .update({ download_count: (product.download_count || 0) + 1 })
         .eq("id", product.id);
     },
-    onSuccess: (_, product) => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["user-purchases"] });
       queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
-      toast.success(product.price > 0 ? "Solicitação enviada! Aguarde a aprovação." : "Produto adquirido com sucesso!");
+      toast.success(variables.product.price > 0 ? "Solicitação enviada! Aguarde a aprovação." : "Produto adquirido com sucesso!");
       setSelectedProduct(null);
+      setProofFile(null);
       // Open file if free
-      if (product.price === 0 && product.file_url) {
-        window.open(product.file_url, "_blank");
+      if (variables.product.price === 0 && variables.product.file_url) {
+        window.open(variables.product.file_url, "_blank");
       }
     },
     onError: () => {
@@ -173,10 +180,11 @@ export default function Marketplace() {
   const handleBuy = (product: any) => {
     if (product.price === 0) {
       // Free product - register and download
-      purchaseMutation.mutate(product);
+      purchaseMutation.mutate({ product });
     } else {
       // Paid product - show details dialog
       setSelectedProduct(product);
+      setProofFile(null);
     }
   };
 
@@ -540,15 +548,70 @@ export default function Marketplace() {
                     </div>
                   </CardContent>
                 </Card>
+
+                <div className="space-y-2 pt-2">
+                  <label className="text-sm font-medium">Comprovativo de Pagamento</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Envie o comprovativo (PDF ou Imagem) para agilizar a liberação.
+                  </p>
+                </div>
               </div>
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setSelectedProduct(null)}>
                 Cancelar
               </Button>
-              <Button className="gradient-primary">
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Enviar Comprovativo
+              <Button
+                className="gradient-primary"
+                disabled={!proofFile || uploading || purchaseMutation.isPending}
+                onClick={async () => {
+                  if (!proofFile || !selectedProduct) return;
+
+                  setUploading(true);
+                  try {
+                    const fileExt = proofFile.name.split('.').pop();
+                    const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
+
+                    const { error: uploadError } = await supabase.storage
+                      .from("receipts")
+                      .upload(fileName, proofFile);
+
+                    if (uploadError) throw uploadError;
+
+                    const { data: urlData } = supabase.storage
+                      .from("receipts")
+                      .getPublicUrl(fileName);
+
+                    await purchaseMutation.mutateAsync({
+                      product: selectedProduct,
+                      proofUrl: urlData.publicUrl
+                    });
+                  } catch (error) {
+                    console.error("Upload error:", error);
+                    toast.error("Erro ao enviar comprovativo");
+                  } finally {
+                    setUploading(false);
+                  }
+                }}
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Enviar Comprovativo
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
