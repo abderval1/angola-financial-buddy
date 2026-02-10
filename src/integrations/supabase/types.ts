@@ -1319,6 +1319,8 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           user_id?: string
+          monthly_budget?: number | null
+          is_active?: boolean | null
         }
         Relationships: []
       }

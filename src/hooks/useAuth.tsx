@@ -1,13 +1,15 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null; data: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, metadata?: any) => Promise<{ error: Error | null; data: any }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; data: any }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -18,6 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -42,29 +45,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (user) {
       const syncProfile = async () => {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("name, status")
-          .eq("user_id", user.id)
-          .maybeSingle();
+        try {
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("id, name, status, email")
+            .eq("user_id", user.id)
+            .maybeSingle();
 
-        // Check for suspension/ban
-        if (profile?.status === 'suspended' || profile?.status === 'banned') {
-          await supabase.auth.signOut();
-          // We can't use toast here easily if it's not imported or outside provider context, 
-          // but we can rely on the redirect or UI state.
-          // Ideally, we'd have a way to notify, but strict security first.
-          window.location.href = '/auth?error=suspended';
-          return;
-        }
+          if (profileError) {
+            console.error("Error fetching profile:", profileError);
+            return;
+          }
 
-        if ((!profile || !profile.name) && user.email) {
-          await supabase.from("profiles").upsert({
-            user_id: user.id,
-            name: user.user_metadata?.name || profile?.name || '',
-            email: user.email,
-            status: 'active'
-          });
+          // Check for suspension/ban
+          if (profile?.status === 'suspended' || profile?.status === 'banned') {
+            // Only redirect if not already on the auth page with error
+            if (!window.location.pathname.includes('/auth')) {
+              await supabase.auth.signOut();
+              window.location.href = '/auth?error=suspended';
+            }
+            return;
+          }
+
+          // If profile doesn't exist or is missing name, and we have info, upsert it
+          if ((!profile || !profile.name) && user.email) {
+            const { error: upsertError } = await supabase.from("profiles").upsert({
+              user_id: user.id,
+              name: user.user_metadata?.name || profile?.name || user.email.split('@')[0],
+              email: user.email,
+              status: 'active'
+            });
+            if (upsertError) console.error("Error upserting profile:", upsertError);
+          }
+        } catch (err) {
+          console.error("Exception in syncProfile:", err);
         }
       };
 
@@ -72,30 +86,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const signUp = async (email: string, password: string, name?: string) => {
+  const signUp = async (email: string, password: string, metadata?: any) => {
     const redirectUrl = `${window.location.origin}/dashboard`;
 
-    const result = await supabase.auth.signUp({
+    // Ensure metadata is an object even if just a name string is passed
+    // Using a more robust check for non-null object
+    const userData = (metadata && typeof metadata === 'object' && !Array.isArray(metadata))
+      ? metadata
+      : (typeof metadata === 'string' ? { name: metadata } : {});
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
-        data: {
-          name: name || '',
-        }
+        data: userData,
       }
     });
 
-    return { error: result.error, data: result.data };
+    if (error) {
+      return { error, data: null };
+    }
+
+    return { error: null, data };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    return { error };
+    if (error) {
+      return { error, data: null };
+    }
+
+    return { error: null, data };
   };
 
   const signInWithGoogle = async () => {

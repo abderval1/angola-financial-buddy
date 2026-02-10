@@ -237,7 +237,7 @@ export default function Reports() {
   return (
     <AppLayout title="Análises & Relatórios" subtitle="Visualize sua saúde financeira de forma completa">
       <ModuleGuard
-        moduleKey="basic"
+        moduleKey="reports"
         title="Análises & Relatórios"
         description="Visualize o seu desempenho financeiro através de gráficos detalhados, exporte relatórios e tome decisões baseadas em dados."
       >

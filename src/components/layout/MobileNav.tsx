@@ -72,6 +72,32 @@ export function MobileNav() {
     enabled: !!user?.id,
   });
 
+  // Get current plan name (Added for MobileNav filtering)
+  const { data: currentPlan } = useQuery({
+    queryKey: ["user-current-plan-mobile", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_subscriptions")
+        .select("status, is_trial, subscription_plans(name)")
+        .eq("user_id", user?.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) return null;
+      // Normalise data structure to match what we need
+      // @ts-ignore
+      const rawData = data as any;
+      const plan: any = Array.isArray(rawData.subscription_plans) ? rawData.subscription_plans[0] : rawData.subscription_plans;
+      return {
+        ...rawData,
+        name: plan?.name
+      };
+    },
+    enabled: !!user?.id,
+  });
+
   const isAdmin = userRole === "admin";
 
   const handleSignOut = async () => {

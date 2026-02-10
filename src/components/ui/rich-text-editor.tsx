@@ -23,13 +23,16 @@ import {
   Redo,
   Code,
   Minus,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
 interface RichTextEditorProps {
@@ -37,12 +40,14 @@ interface RichTextEditorProps {
   onChange: (content: string) => void;
   placeholder?: string;
   className?: string;
+  maxHeight?: string;
 }
 
-export function RichTextEditor({ content, onChange, placeholder, className }: RichTextEditorProps) {
+export function RichTextEditor({ content, onChange, placeholder, className, maxHeight }: RichTextEditorProps) {
   const [linkUrl, setLinkUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -73,13 +78,23 @@ export function RichTextEditor({ content, onChange, placeholder, className }: Ri
     content,
     editorProps: {
       attributes: {
-        class: 'prose prose-sm dark:prose-invert max-w-none min-h-[200px] p-4 focus:outline-none',
+        class: 'prose prose-sm dark:prose-invert max-w-none p-4 focus:outline-none min-h-[200px]',
       },
     },
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
   });
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
 
   if (!editor) {
     return null;
@@ -106,10 +121,13 @@ export function RichTextEditor({ content, onChange, placeholder, className }: Ri
     }
   };
 
-  return (
-    <div className={cn("border rounded-lg overflow-hidden bg-background", className)}>
+  const editorLayout = (
+    <div className={cn(
+      "border rounded-lg overflow-hidden bg-background flex flex-col transition-all duration-200",
+      isFullscreen ? "fixed inset-0 z-[100] rounded-none h-full w-full pointer-events-auto" : cn("min-h-[300px]", className)
+    )}>
       {/* Toolbar */}
-      <div className="border-b bg-muted/30 p-2 flex flex-wrap gap-1">
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 flex flex-wrap gap-1 sticky top-0 z-20">
         {/* History */}
         <div className="flex items-center gap-0.5 border-r pr-2 mr-1">
           <Toggle
@@ -228,7 +246,7 @@ export function RichTextEditor({ content, onChange, placeholder, className }: Ri
                 <LinkIcon className="h-4 w-4" />
               </Toggle>
             </PopoverTrigger>
-            <PopoverContent className="w-80">
+            <PopoverContent className="w-80" side="bottom" align="start">
               <div className="space-y-2">
                 <p className="text-sm font-medium">Inserir Link</p>
                 <Input
@@ -248,7 +266,7 @@ export function RichTextEditor({ content, onChange, placeholder, className }: Ri
                 <ImageIcon className="h-4 w-4" />
               </Toggle>
             </PopoverTrigger>
-            <PopoverContent className="w-80">
+            <PopoverContent className="w-80" side="bottom" align="start">
               <div className="space-y-2">
                 <p className="text-sm font-medium">Inserir Imagem</p>
                 <Input
@@ -268,7 +286,7 @@ export function RichTextEditor({ content, onChange, placeholder, className }: Ri
                 <YoutubeIcon className="h-4 w-4" />
               </Toggle>
             </PopoverTrigger>
-            <PopoverContent className="w-80">
+            <PopoverContent className="w-80" side="bottom" align="start">
               <div className="space-y-2">
                 <p className="text-sm font-medium">Inserir Vídeo do YouTube</p>
                 <Input
@@ -281,15 +299,45 @@ export function RichTextEditor({ content, onChange, placeholder, className }: Ri
             </PopoverContent>
           </Popover>
         </div>
+
+        {/* Fullscreen Toggle */}
+        <div className="ml-auto flex items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            title={isFullscreen ? "Minimizar" : "Maximizar"}
+          >
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
 
-      {/* Editor Content */}
-      <EditorContent editor={editor} />
+      {/* Editor Content with Scrollbar */}
+      <div
+        className={cn(
+          "flex-1 overflow-y-auto bg-background custom-scrollbar",
+          isFullscreen ? "p-4 md:p-10" : ""
+        )}
+        style={!isFullscreen ? { maxHeight: maxHeight || "500px" } : undefined}
+        onWheel={(e) => {
+          if (isFullscreen) e.stopPropagation();
+        }}
+      >
+        <div className={cn(isFullscreen ? "max-w-4xl mx-auto min-h-full" : "min-h-full")}>
+          <EditorContent editor={editor} />
+        </div>
+      </div>
 
       {/* Character Count */}
-      <div className="border-t px-3 py-1.5 text-xs text-muted-foreground bg-muted/30">
-        {editor.storage.characterCount?.characters?.() || editor.getText().length} caracteres
+      <div className="border-t px-3 py-1.5 text-xs text-muted-foreground bg-muted/30 flex justify-between items-center">
+        <span>{editor.storage.characterCount?.characters?.() || editor.getText().length} caracteres</span>
+        {isFullscreen && <span className="text-[10px] opacity-70">Pressione ESC para sair do modo tela cheia</span>}
       </div>
     </div>
   );
+
+  return isFullscreen ? createPortal(editorLayout, document.body) : editorLayout;
 }

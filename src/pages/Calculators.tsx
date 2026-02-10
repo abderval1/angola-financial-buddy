@@ -40,6 +40,9 @@ import {
   YAxis,
 } from "recharts";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
+import { FireCalculator } from "@/components/goals/FireCalculator";
+import { InvestmentSimulator } from "@/components/investments/InvestmentSimulator";
+import { toast } from "sonner";
 
 // Angolan tax rates for investments
 const ANGOLA_TAXES = {
@@ -87,14 +90,23 @@ export default function Calculators() {
   const [hustleInvestPct, setHustleInvestPct] = useState<number>(50);
 
   // Time vs Money State
-  const [hoursWorked, setHoursWorked] = useState<number>(20);
-  const [hustleMonthlyProfit, setHustleMonthlyProfit] = useState<number>(150000);
+  const [baseSalary, setBaseSalary] = useState<number>(400000);
+  const [monthlyTransitHours, setMonthlyTransitHours] = useState<number>(44);
+  const [itemPrice, setItemPrice] = useState<number>(50000);
 
   // Day Trade / Stock / Crypto Simulators State
   const [tradeCapital, setTradeCapital] = useState<number>(1000000);
   const [tradeLeverage, setTradeLeverage] = useState<number>(1);
   const [tradeWinRate, setTradeWinRate] = useState<number>(50);
   const [tradeRiskReward, setTradeRiskReward] = useState<number>(2);
+
+  // Bank Compare State
+  const [bankA_rate, setBankA_rate] = useState<number>(15);
+  const [bankB_rate, setBankB_rate] = useState<number>(14);
+  const [bankA_fee, setBankA_fee] = useState<number>(2000);
+  const [bankB_fee, setBankB_fee] = useState<number>(500);
+
+  // Item Cost State
 
   const compoundResults = useMemo(() => {
     const monthlyRate = rateType === "anual" ? interestRate / 100 / 12 : interestRate / 100;
@@ -219,12 +231,12 @@ export default function Calculators() {
               {activeTab === "compound" && renderCompoundCalculator()}
               {activeTab === "real-return" && renderRealReturnCalculator()}
               {activeTab === "worth-it" && renderWorthItCalculator()}
-              {activeTab === "goals" && renderGoalCalculator()}
+              {activeTab === "goals" && <FireCalculator />}
               {activeTab === "hustle" && renderHustleCalculator()}
               {activeTab === "time-money" && renderTimeMoneyCalculator()}
               {activeTab === "tax-compare" && renderTaxCompareCalculator()}
               {activeTab === "daytrade" && renderDayTradeSimulator()}
-              {activeTab === "stocks" && renderStockSimulator()}
+              {activeTab === "stocks" && <InvestmentSimulator />}
               {activeTab === "crypto" && renderCryptoSimulator()}
             </div>
           )}
@@ -427,18 +439,299 @@ export default function Calculators() {
   }
 
   function renderGoalCalculator() {
-    const months = goalYears * 12;
-    const monthlyRate = goalExpectedReturn / 100 / 12;
-    const monthlyAporte = monthlyRate > 0 ? (goalTarget * monthlyRate) / (Math.pow(1 + monthlyRate, months) - 1) : goalTarget / months;
+    return <FireCalculator />;
+  }
+
+  function renderHustleCalculator() {
+    const annualExpenses = 12 * 500000; // Mock current expenses
+    const fireNumber = annualExpenses / 0.04;
+    const monthlyExtraInvested = (hustleProfit * hustleInvestPct) / 100;
+
+    // Simulation: How many months to reach fireNumber
+    const simulate = (monthlyAporte: number) => {
+      let balance = 0;
+      let months = 0;
+      const rate = 0.12 / 12; // 12% annual
+      while (balance < fireNumber && months < 1200) {
+        balance = balance * (1 + rate) + monthlyAporte;
+        months++;
+      }
+      return months;
+    };
+
+    const monthsNormal = simulate(50000); // Standard saving
+    const monthsWithHustle = simulate(50000 + monthlyExtraInvested);
+    const yearsSaved = (monthsNormal - monthsWithHustle) / 12;
+
     return (
-      <Card><CardHeader><CardTitle>Meta</CardTitle></CardHeader><CardContent><p>Aporte: {formatCurrency(monthlyAporte)}</p></CardContent></Card>
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Flame className="h-5 w-5 text-orange-500" /> Renda Extra & FIRE</CardTitle>
+            <CardDescription>Veja o impacto de um negócio adicional no seu tempo</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Lucro Mensal Extra (Kz)</Label>
+              <Input type="number" value={hustleProfit} onChange={(e) => setHustleProfit(parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Quanto desse lucro vai investir? ({hustleInvestPct}%)</Label>
+              <input type="range" className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary" min="0" max="100" value={hustleInvestPct} onChange={(e) => setHustleInvestPct(parseInt(e.target.value))} />
+            </div>
+            <div className="p-4 bg-primary/5 rounded-lg">
+              <p className="text-sm text-muted-foreground">Investimento mensal adicional:</p>
+              <p className="text-2xl font-bold text-primary">{formatCurrency(monthlyExtraInvested)}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardHeader><CardTitle>Impacto na Liberdade</CardTitle></CardHeader>
+          <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+            {yearsSaved > 0 ? (
+              <>
+                <div className="h-20 w-20 rounded-full bg-success/20 flex items-center justify-center mb-4">
+                  <Zap className="h-10 w-10 text-success" />
+                </div>
+                <p className="text-lg font-medium">Ganhaste aproximadamente</p>
+                <p className="text-5xl font-black text-success my-2">{yearsSaved.toFixed(1)}</p>
+                <p className="text-lg font-medium">Anos de Liberdade</p>
+                <p className="text-sm text-muted-foreground mt-4 italic">"Investir os teus ganhos extras é o atalho mais rápido para o FIRE em Angola."</p>
+              </>
+            ) : (
+              <p className="text-muted-foreground italic">Aumente o lucro ou a % investida para ver o impacto.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
-  function renderHustleCalculator() { return <Card><CardContent>Simulador Renda Extra</CardContent></Card>; }
-  function renderTimeMoneyCalculator() { return <Card><CardContent>Tempo vs Dinheiro</CardContent></Card>; }
-  function renderTaxCompareCalculator() { return <Card><CardContent>Comparativo Bancos</CardContent></Card>; }
-  function renderDayTradeSimulator() { return <Card><CardContent>Day Trade (Educativo)</CardContent></Card>; }
-  function renderStockSimulator() { return <Card><CardContent>Simulador Ações</CardContent></Card>; }
-  function renderCryptoSimulator() { return <Card><CardContent>Simulador Cripto</CardContent></Card>; }
+  function renderTimeMoneyCalculator() {
+    const commuteHours = monthlyTransitHours;
+    const workHours = 8 * 22; // Standard 8h/day, 22 days/month
+    const totalHours = workHours + commuteHours;
+    const hourlyWage = totalHours > 0 ? baseSalary / totalHours : 0;
+
+    const hoursForProduct = hourlyWage > 0 ? itemPrice / hourlyWage : 0;
+
+    return (
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5 text-blue-500" /> Custo em Horas de Vida</CardTitle>
+            <CardDescription>Configure o seu salário e tempo de trânsito em Luanda</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Teu Salário Base Mensal (Kz)</Label>
+              <Input type="number" value={baseSalary} onChange={(e) => setBaseSalary(parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Horas Perdidas no Trânsito (Mensal)</Label>
+              <Input type="number" value={monthlyTransitHours} onChange={(e) => setMonthlyTransitHours(parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="space-y-2 pt-2">
+              <Label>Preço do Produto/Serviço (Kz)</Label>
+              <Input type="number" value={itemPrice} onChange={(e) => setItemPrice(parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="p-4 bg-blue-500/5 rounded-lg border border-blue-500/10">
+              <div className="flex justify-between text-sm mb-1 text-muted-foreground">
+                <span>Total de Horas (Trabalho + Trânsito):</span>
+                <span>{totalHours}h / mês</span>
+              </div>
+              <div className="flex justify-between text-sm font-medium">
+                <span>Teu ganho real por hora:</span>
+                <span className="text-blue-600">{formatCurrency(hourlyWage)}/h</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col items-center justify-center p-8 text-center border-blue-500/20">
+          <p className="text-muted-foreground font-medium">Para comprar isto, precisas de trabalhar</p>
+          <p className="text-6xl font-black text-blue-600 my-4">{hoursForProduct.toFixed(1)}</p>
+          <p className="text-xl font-bold">Horas de Vida</p>
+          <div className="mt-6 p-3 bg-muted rounded-lg text-sm">
+            {hoursForProduct > 160 ? "⚠️ Custa mais de um mês de trabalho!" : hoursForProduct > 40 ? "Custa mais de uma semana de trabalho." : "Este item tem um custo moderado em horas."}
+          </div>
+          <p className="text-xs text-muted-foreground mt-6 italic">"O dinheiro que gastas é tempo de vida que não volta."</p>
+        </Card>
+      </div>
+    );
+  }
+
+  function renderTaxCompareCalculator() {
+    const amount = 1000000;
+    const yieldA = (amount * bankA_rate / 100) - bankA_fee * 12;
+    const yieldB = (amount * bankB_rate / 100) - bankB_fee * 12;
+
+    // Applying IRT on gross interest
+    const netA = yieldA * (1 - ANGOLA_TAXES.IRT_INTEREST);
+    const netB = yieldB * (1 - ANGOLA_TAXES.IRT_INTEREST);
+
+    return (
+      <div className="space-y-6">
+        <div className="grid md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader><CardTitle>Banco A</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Taxa Anual (%)</Label>
+                <Input type="number" value={bankA_rate} onChange={(e) => setBankA_rate(parseFloat(e.target.value) || 0)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Manutenção Mensal (Kz)</Label>
+                <Input type="number" value={bankA_fee} onChange={(e) => setBankA_fee(parseFloat(e.target.value) || 0)} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Banco B</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Taxa Anual (%)</Label>
+                <Input type="number" value={bankB_rate} onChange={(e) => setBankB_rate(parseFloat(e.target.value) || 0)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Manutenção Mensal (Kz)</Label>
+                <Input type="number" value={bankB_fee} onChange={(e) => setBankB_fee(parseFloat(e.target.value) || 0)} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="bg-muted/30">
+          <CardHeader><CardTitle className="text-center">Comparativo de Ganho Líquido (1 Ano sobre 1M Kz)</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-8 text-center">
+              <div>
+                <p className="text-muted-foreground text-sm">Banco A</p>
+                <p className={`text-2xl font-bold ${netA >= netB ? 'text-success' : ''}`}>{formatCurrency(netA)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-sm">Banco B</p>
+                <p className={`text-2xl font-bold ${netB >= netA ? 'text-success' : ''}`}>{formatCurrency(netB)}</p>
+              </div>
+            </div>
+            <div className="mt-8 h-4 bg-muted rounded-full overflow-hidden flex">
+              <div className="h-full bg-primary" style={{ width: `${(netA / (netA + netB)) * 100}%` }} />
+              <div className="h-full bg-accent" style={{ width: `${(netB / (netA + netB)) * 100}%` }} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  function renderDayTradeSimulator() {
+    // Basic Monte Carlo simulation of account balance
+    const riskPerTrade = tradeCapital * 0.01; // 1% risk
+    const reward = riskPerTrade * tradeRiskReward;
+    const winRateDec = tradeWinRate / 100;
+
+    // Calculate expectancy
+    const expectancy = (winRateDec * reward) - ((1 - winRateDec) * riskPerTrade);
+    const probRuin = Math.pow((1 - (winRateDec - (1 - winRateDec))) / (1 + (winRateDec - (1 - winRateDec))), 10); // Simplified
+
+    return (
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-purple-500" /> Day Trade (Educativo)</CardTitle>
+            <CardDescription>Entenda a matemática do risco antes de clicar</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Capital Inicial (Kz)</Label>
+              <Input type="number" value={tradeCapital} onChange={(e) => setTradeCapital(parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Win Rate (%)</Label>
+                <Input type="number" value={tradeWinRate} onChange={(e) => setTradeWinRate(parseFloat(e.target.value) || 0)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Risk/Reward (1:X)</Label>
+                <Input type="number" value={tradeRiskReward} onChange={(e) => setTradeRiskReward(parseFloat(e.target.value) || 0)} />
+              </div>
+            </div>
+            <div className="p-4 bg-purple-500/5 rounded-lg border border-purple-500/10">
+              <p className="text-sm font-semibold mb-2">Análise Estatística:</p>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between"><span>Expectativa Matemática:</span> <span className={expectancy > 0 ? "text-success" : "text-destructive"}>{formatCurrency(expectancy)} / trade</span></div>
+                <div className="flex justify-between"><span>Probabilidade de Ruína:</span> <span className={probRuin < 0.05 ? "text-success" : "text-destructive"}>{(probRuin * 100).toFixed(1)}%</span></div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col items-center justify-center p-8 text-center border-purple-500/20 bg-gradient-to-b from-purple-500/5 to-transparent">
+          <p className="text-muted-foreground font-medium">Veredito do Simulador</p>
+          <div className="my-6">
+            {expectancy > 0 ? (
+              <div className="space-y-2">
+                <ShieldCheck className="h-16 w-16 text-success mx-auto" />
+                <p className="text-2xl font-bold text-success">Sistema Lucrativo</p>
+                <p className="text-sm text-muted-foreground">A longo prazo, a matemática está do teu lado. Foca na disciplina.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <AlertTriangle className="h-16 w-16 text-destructive mx-auto" />
+                <p className="text-2xl font-bold text-destructive">Sistema Falho</p>
+                <p className="text-sm text-muted-foreground">Vais perder todo o capital. Aumenta o teu Win Rate ou o teu Risk/Reward.</p>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground italic mt-auto">"Trading é 10% técnica e 90% psicologia e gestão de risco."</p>
+        </Card>
+      </div>
+    );
+  }
+
+  function renderCryptoSimulator() {
+    const isBull = tradeWinRate > 50;
+    const finalVal = tradeCapital * (isBull ? 5.2 : 0.15); // Simple cycle simulation
+
+    return (
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Cpu className="h-5 w-5 text-cyan-500" /> Simulador de Ciclo Cripto</CardTitle>
+            <CardDescription>Simule a volatilidade extrema do mercado</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Capital para Cripto (Kz)</Label>
+              <Input type="number" value={tradeCapital} onChange={(e) => setTradeCapital(parseFloat(e.target.value) || 0)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Sentimento de Mercado</Label>
+              <Select value={isBull ? "bull" : "bear"} onValueChange={(v) => setTradeWinRate(v === "bull" ? 60 : 40)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bull">Bull Market (Euforia)</SelectItem>
+                  <SelectItem value="bear">Bear Market (Medo)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="p-4 bg-cyan-500/5 rounded-lg border border-cyan-500/10">
+              <p className="text-xs text-muted-foreground">Nota: As criptomoedas são altamente voláteis e não são reguladas pelo BNA em Angola. Invista apenas o que podes perder.</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={`flex flex-col items-center justify-center p-8 text-center border-cyan-500/20 ${isBull ? 'bg-success/5' : 'bg-destructive/5'}`}>
+          <p className="text-muted-foreground font-medium">Após um ciclo completo (4 anos):</p>
+          <p className={`text-4xl font-black my-4 ${isBull ? 'text-success' : 'text-destructive'}`}>{formatCurrency(finalVal)}</p>
+          <Badge className={isBull ? 'bg-success' : 'bg-destructive'}>
+            {isBull ? '+420% Profit' : '-85% Drawdown'}
+          </Badge>
+          <div className="mt-8 text-sm text-muted-foreground">
+            {isBull ? "🚀 Conseguiste 'vencer o mercado'. Lembra-te de realizar lucros em Kz." : "💀 Estás no 'inverno cripto'. Paciência e mãos de diamante são necessárias."}
+          </div>
+        </Card>
+      </div>
+    );
+  }
 }

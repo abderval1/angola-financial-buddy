@@ -57,7 +57,7 @@ export function UserProfileDropdown() {
         .select("name, email, avatar_url")
         .eq("user_id", user.id)
         .single();
-      
+
       if (error) return null;
       return data;
     },
@@ -92,7 +92,7 @@ export function UserProfileDropdown() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (passwords.new !== passwords.confirm) {
       toast.error("As senhas não coincidem");
       return;
@@ -202,7 +202,7 @@ export function UserProfileDropdown() {
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem 
+          <DropdownMenuItem
             onClick={handleSignOut}
             className="text-destructive focus:text-destructive"
           >

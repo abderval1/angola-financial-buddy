@@ -53,7 +53,11 @@ export default function Auth() {
       }
       toast.success("Bem-vindo de volta!");
     } else {
-      const { error, data } = await signUp(formData.email, formData.password, formData.name);
+      const { error, data } = await signUp(formData.email, formData.password, {
+        name: formData.name,
+        phone: formData.phone,
+        referral_code: formData.referralCode
+      });
       if (error) {
         toast.error(error.message || "Erro ao criar conta");
         setLoading(false);

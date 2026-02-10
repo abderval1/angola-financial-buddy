@@ -41,6 +41,7 @@ import {
   Star,
   ArrowUp,
   ArrowDown,
+  Link2,
 } from "lucide-react";
 
 type MediaType = "text" | "video" | "youtube";
@@ -132,12 +133,14 @@ export function AdminCourseManager() {
     description: string;
     passing_score: number;
     is_final_quiz: boolean;
+    module_id: string | null;
     questions: Question[];
   }>({
     title: "",
     description: "",
     passing_score: 70,
     is_final_quiz: false,
+    module_id: null,
     questions: [],
   });
 
@@ -394,6 +397,7 @@ export function AdminCourseManager() {
           is_final_quiz: data.is_final_quiz,
           is_active: true,
           order_index: quizzes.length,
+          module_id: data.is_final_quiz ? null : data.module_id,
         })
         .select()
         .single();
@@ -439,6 +443,7 @@ export function AdminCourseManager() {
           description: data.description || null,
           passing_score: data.passing_score,
           is_final_quiz: data.is_final_quiz,
+          module_id: data.is_final_quiz ? null : data.module_id,
         })
         .eq("id", id);
 
@@ -530,6 +535,7 @@ export function AdminCourseManager() {
       description: "",
       passing_score: 70,
       is_final_quiz: false,
+      module_id: null,
       questions: [],
     });
   };
@@ -575,6 +581,7 @@ export function AdminCourseManager() {
       description: quiz.description || "",
       passing_score: quiz.passing_score || 70,
       is_final_quiz: quiz.is_final_quiz || false,
+      module_id: quiz.module_id || null,
       questions: (quiz.quiz_questions || []).map((q: any) => ({
         id: q.id,
         question_text: q.question_text,
@@ -1180,9 +1187,18 @@ export function AdminCourseManager() {
                                   <span>{quiz.quiz_questions?.length || 0} questões</span>
                                   <span>•</span>
                                   <span>Nota mínima: {quiz.passing_score}%</span>
-                                  {quiz.is_final_quiz && (
+                                  {quiz.is_final_quiz ? (
                                     <Badge className="text-[10px] h-5 bg-primary/10 text-primary">
                                       Quiz Final
+                                    </Badge>
+                                  ) : quiz.module_id ? (
+                                    <Badge variant="outline" className="text-[10px] h-5 bg-muted/50 border-muted-foreground/20">
+                                      <Link2 className="h-2.5 w-2.5 mr-1" />
+                                      Pós: {modules.find(m => m.id === quiz.module_id)?.title || "Módulo não encontrado"}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] h-5 text-muted-foreground">
+                                      Geral (Curso)
                                     </Badge>
                                   )}
                                 </div>
@@ -1400,7 +1416,7 @@ export function AdminCourseManager() {
 
       {/* Module Dialog - WYSIWYG Editor */}
       <Dialog open={moduleDialogOpen} onOpenChange={setModuleDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingModule ? "Editar Módulo" : "Novo Módulo"}</DialogTitle>
             <DialogDescription>
@@ -1408,7 +1424,7 @@ export function AdminCourseManager() {
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={activeModuleTab} onValueChange={setActiveModuleTab} className="flex-1 flex flex-col overflow-hidden">
+          <Tabs value={activeModuleTab} onValueChange={setActiveModuleTab} className="mt-4">
             <TabsList className="w-full justify-start">
               <TabsTrigger value="content" className="gap-2">
                 <FileText className="h-4 w-4" />
@@ -1424,7 +1440,7 @@ export function AdminCourseManager() {
               </TabsTrigger>
             </TabsList>
 
-            <ScrollArea className="flex-1 mt-4">
+            <div className="mt-4">
               <TabsContent value="content" className="m-0 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -1461,7 +1477,8 @@ export function AdminCourseManager() {
                     content={moduleForm.content}
                     onChange={(content) => setModuleForm({ ...moduleForm, content })}
                     placeholder="Digite o conteúdo do módulo aqui..."
-                    className="min-h-[300px]"
+                    className="min-h-[400px]"
+                    maxHeight="500px"
                   />
                 </div>
               </TabsContent>
@@ -1597,7 +1614,7 @@ export function AdminCourseManager() {
                   </CardContent>
                 </Card>
               </TabsContent>
-            </ScrollArea>
+            </div>
           </Tabs>
 
           <DialogFooter className="mt-4">
@@ -1615,7 +1632,7 @@ export function AdminCourseManager() {
 
       {/* Quiz Dialog */}
       <Dialog open={quizDialogOpen} onOpenChange={setQuizDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingQuiz ? "Editar Quiz" : "Novo Quiz"}</DialogTitle>
             <DialogDescription>
@@ -1623,155 +1640,186 @@ export function AdminCourseManager() {
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1">
-            <div className="space-y-4 py-4 pr-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Título do Quiz *</Label>
-                  <Input
-                    value={quizForm.title}
-                    onChange={(e) => setQuizForm({ ...quizForm, title: e.target.value })}
-                    placeholder="Ex: Avaliação do Módulo 1"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Nota Mínima (%)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={quizForm.passing_score}
-                    onChange={(e) => setQuizForm({ ...quizForm, passing_score: parseInt(e.target.value) || 70 })}
-                  />
-                </div>
-              </div>
-
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Descrição</Label>
-                <Textarea
-                  value={quizForm.description}
-                  onChange={(e) => setQuizForm({ ...quizForm, description: e.target.value })}
-                  placeholder="Instruções ou descrição do quiz..."
-                  rows={2}
+                <Label>Título do Quiz *</Label>
+                <Input
+                  value={quizForm.title}
+                  onChange={(e) => setQuizForm({ ...quizForm, title: e.target.value })}
+                  placeholder="Ex: Avaliação do Módulo 1"
                 />
               </div>
-
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={quizForm.is_final_quiz}
-                  onCheckedChange={(checked) => setQuizForm({ ...quizForm, is_final_quiz: checked })}
+              <div className="space-y-2">
+                <Label>Nota Mínima (%)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={quizForm.passing_score}
+                  onChange={(e) => setQuizForm({ ...quizForm, passing_score: parseInt(e.target.value) || 70 })}
                 />
-                <Label className="cursor-pointer">Quiz Final do Curso</Label>
               </div>
+            </div>
 
-              <Separator />
+            <div className="space-y-2">
+              <Label>Descrição</Label>
+              <Textarea
+                value={quizForm.description}
+                onChange={(e) => setQuizForm({ ...quizForm, description: e.target.value })}
+                placeholder="Instruções ou descrição do quiz..."
+                rows={2}
+              />
+            </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base">Questões ({quizForm.questions.length})</Label>
-                  <Button size="sm" onClick={addQuestion}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Adicionar Questão
-                  </Button>
+            <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
+              <h4 className="text-sm font-medium flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Posicionamento do Quiz
+              </h4>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="final-quiz"
+                    checked={quizForm.is_final_quiz}
+                    onCheckedChange={(checked) => setQuizForm({ ...quizForm, is_final_quiz: checked, module_id: checked ? null : quizForm.module_id })}
+                  />
+                  <Label htmlFor="final-quiz" className="cursor-pointer">Este é o Quiz Final do Curso</Label>
                 </div>
 
-                {quizForm.questions.length === 0 ? (
-                  <Card>
-                    <CardContent className="py-8 text-center">
-                      <HelpCircle className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
-                      <p className="text-sm text-muted-foreground">Nenhuma questão adicionada</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  quizForm.questions.map((question, qIdx) => (
-                    <Card key={qIdx}>
-                      <CardHeader className="py-3 px-4">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-sm font-medium">Questão {qIdx + 1}</CardTitle>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive h-7"
-                            onClick={() => removeQuestion(qIdx)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="py-3 px-4 space-y-3">
-                        <div className="space-y-2">
-                          <Label className="text-xs">Pergunta</Label>
-                          <Input
-                            value={question.question_text}
-                            onChange={(e) => updateQuestion(qIdx, "question_text", e.target.value)}
-                            placeholder="Digite a pergunta..."
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          {question.options.map((opt, oIdx) => (
-                            <div key={oIdx} className="space-y-1">
-                              <Label className="text-xs">Opção {String.fromCharCode(65 + oIdx)}</Label>
-                              <Input
-                                value={opt}
-                                onChange={(e) => updateQuestionOption(qIdx, oIdx, e.target.value)}
-                                placeholder={`Opção ${String.fromCharCode(65 + oIdx)}`}
-                                className="text-sm"
-                              />
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Resposta Correta</Label>
-                            <Select
-                              value={question.correct_answer}
-                              onValueChange={(value) => updateQuestion(qIdx, "correct_answer", value)}
-                            >
-                              <SelectTrigger className="text-sm">
-                                <SelectValue placeholder="Selecione..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {question.options.map((opt, oIdx) => (
-                                  opt && (
-                                    <SelectItem key={oIdx} value={opt}>
-                                      {String.fromCharCode(65 + oIdx)}: {opt.substring(0, 30)}...
-                                    </SelectItem>
-                                  )
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Pontos</Label>
-                            <Input
-                              type="number"
-                              min={1}
-                              value={question.points}
-                              onChange={(e) => updateQuestion(qIdx, "points", parseInt(e.target.value) || 10)}
-                              className="text-sm"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label className="text-xs">Explicação (opcional)</Label>
-                          <Textarea
-                            value={question.explanation}
-                            onChange={(e) => updateQuestion(qIdx, "explanation", e.target.value)}
-                            placeholder="Explicação da resposta correta..."
-                            rows={2}
-                            className="text-sm"
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                {!quizForm.is_final_quiz && (
+                  <div className="space-y-2">
+                    <Label>Vincular a um Módulo (Opcional)</Label>
+                    <Select
+                      value={quizForm.module_id || "none"}
+                      onValueChange={(value) => setQuizForm({ ...quizForm, module_id: value === "none" ? null : value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um módulo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum (Apenas curso)</SelectItem>
+                        {modules.map((mod) => (
+                          <SelectItem key={mod.id} value={mod.id}>
+                            {mod.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">
+                      Se selecionado, o quiz aparecerá logo após este módulo.
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
-          </ScrollArea>
+
+            <Separator />
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-base">Questões ({quizForm.questions.length})</Label>
+                <Button size="sm" onClick={addQuestion}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Adicionar Questão
+                </Button>
+              </div>
+
+              {quizForm.questions.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <HelpCircle className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
+                    <p className="text-sm text-muted-foreground">Nenhuma questão adicionada</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                quizForm.questions.map((question, qIdx) => (
+                  <Card key={qIdx}>
+                    <CardHeader className="py-3 px-4">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-medium">Questão {qIdx + 1}</CardTitle>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive h-7"
+                          onClick={() => removeQuestion(qIdx)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="py-3 px-4 space-y-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs">Pergunta</Label>
+                        <Input
+                          value={question.question_text}
+                          onChange={(e) => updateQuestion(qIdx, "question_text", e.target.value)}
+                          placeholder="Digite a pergunta..."
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {question.options.map((opt, oIdx) => (
+                          <div key={oIdx} className="space-y-1">
+                            <Label className="text-xs">Opção {String.fromCharCode(65 + oIdx)}</Label>
+                            <Input
+                              value={opt}
+                              onChange={(e) => updateQuestionOption(qIdx, oIdx, e.target.value)}
+                              placeholder={`Opção ${String.fromCharCode(65 + oIdx)}`}
+                              className="text-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Resposta Correta</Label>
+                          <Select
+                            value={question.correct_answer}
+                            onValueChange={(value) => updateQuestion(qIdx, "correct_answer", value)}
+                          >
+                            <SelectTrigger className="text-sm">
+                              <SelectValue placeholder="Selecione..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {question.options.map((opt, oIdx) => (
+                                opt && (
+                                  <SelectItem key={oIdx} value={opt}>
+                                    {String.fromCharCode(65 + oIdx)}: {opt.substring(0, 30)}...
+                                  </SelectItem>
+                                )
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Pontos</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={question.points}
+                            onChange={(e) => updateQuestion(qIdx, "points", parseInt(e.target.value) || 10)}
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-xs">Explicação (opcional)</Label>
+                        <Textarea
+                          value={question.explanation}
+                          onChange={(e) => updateQuestion(qIdx, "explanation", e.target.value)}
+                          placeholder="Explicação da resposta correta..."
+                          rows={2}
+                          className="text-sm"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )))}
+            </div>
+          </div>
 
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={resetQuizForm}>Cancelar</Button>

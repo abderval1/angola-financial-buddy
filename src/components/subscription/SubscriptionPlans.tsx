@@ -85,8 +85,9 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
     mutationFn: async (plan: Plan) => {
       if (!plan.trial_period_days) return;
 
+      const trialDays = Number(plan.trial_period_days) || 7;
       const expirationDate = new Date();
-      expirationDate.setDate(expirationDate.getDate() + plan.trial_period_days);
+      expirationDate.setDate(expirationDate.getDate() + trialDays);
 
       const { error } = await supabase.from("user_subscriptions").insert({
         user_id: user?.id,
@@ -128,7 +129,8 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
   const subscribeMutation = useMutation({
     mutationFn: async ({ planId, proofUrl }: { planId: string; proofUrl?: string }) => {
       const plan = plans.find(p => p.id === planId);
-      const isTrialOrFree = Number(plan?.price) === 0;
+      const isTrialOrFree = Number(plan?.price) === 0 || (plan?.trial_period_days && plan?.trial_period_days > 0);
+      const trialDays = plan?.trial_period_days || 7;
 
       const { error } = await supabase.from("user_subscriptions").insert({
         user_id: user?.id,
@@ -136,7 +138,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
         payment_proof_url: proofUrl,
         status: isTrialOrFree ? "active" : "pending",
         is_trial: isTrialOrFree,
-        expires_at: isTrialOrFree ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null
+        expires_at: isTrialOrFree ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString() : null
       });
 
       if (error) throw error;
@@ -199,10 +201,10 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
   };
 
   const getPlanStyle = (index: number) => {
-    if (index === 3) return "subscription-card subscription-card-premium";
-    if (index === 2) return "subscription-card subscription-card-intermediate";
-    if (index === 1) return "subscription-card subscription-card-essencial";
-    return "subscription-card subscription-card-basic";
+    if (index === 3) return "subscription-card subscription-card-premium"; // Avançado
+    if (index === 2) return "subscription-card subscription-card-intermediate"; // Pro
+    if (index === 1) return "subscription-card subscription-card-essencial"; // Essencial
+    return "subscription-card subscription-card-basic"; // Básico
   };
 
   const isCurrentPlan = (planId: string) => {
@@ -262,7 +264,9 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
           const PlanIcon = getPlanIcon(plan.name);
           const isCurrent = isCurrentPlan(plan.id);
           const features = Array.isArray(plan.features) ? plan.features : [];
-          const canTakeTrial = plan.trial_period_days && !hasHadTrial && !currentSubscription;
+          // RESTRICTION: Trial is only for Basic plan
+          const isBasicPlan = plan.name === 'Básico' || plan.name === 'Gratuito';
+          const canTakeTrial = plan.trial_period_days && !hasHadTrial && !currentSubscription && isBasicPlan;
 
           return (
             <div key={plan.id} className={`${getPlanStyle(index)} relative`}>
@@ -290,11 +294,11 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                 )}
                 <div>
                   <span className="text-4xl font-bold text-foreground">
-                    {plan.module_key === 'basic' || plan.name === 'Básico' || plan.name === 'Gratuito' || plan.price === 0 ? '2.000' : new Intl.NumberFormat("pt-AO").format(plan.price)}
+                    {new Intl.NumberFormat("pt-AO").format(plan.price)}
                   </span>
                   <span className="text-muted-foreground ml-1">Kz/mês</span>
                 </div>
-                {(plan.module_key === 'basic' || plan.name === 'Básico' || plan.name === 'Gratuito' || plan.price === 0) && (
+                {isBasicPlan && plan.trial_period_days && !hasHadTrial && (
                   <p className="text-[10px] text-muted-foreground mt-1">
                     * Grátis nos primeiros 7 dias, depois 2.000 Kz/mês
                   </p>

@@ -81,7 +81,33 @@ export function AppSidebar() {
   });
 
   const isAdmin = userRole === "admin";
-  console.log("Is Admin?", isAdmin, "User Role:", userRole);
+
+  // Get current plan name
+  const { data: currentPlan } = useQuery({
+    queryKey: ["user-current-plan", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_subscriptions")
+        .select("status, is_trial, subscription_plans(name)")
+        .eq("user_id", user?.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) return null;
+      // @ts-ignore
+      const rawData = data as any;
+      const plan: any = Array.isArray(rawData.subscription_plans) ? rawData.subscription_plans[0] : rawData.subscription_plans;
+      return {
+        name: plan?.name || "Básico",
+        isTrial: rawData.is_trial as boolean
+      };
+    },
+    enabled: !!user?.id,
+  });
+
+  console.log("Is Admin?", isAdmin, "User Role:", userRole, "Plan:", currentPlan);
 
   const handleSignOut = async () => {
     await signOut();
@@ -237,11 +263,19 @@ export function AppSidebar() {
                 <div className="flex items-center gap-1">
                   <Flame className="h-3 w-3 text-amber-500" />
                   <p className="text-xs text-sidebar-foreground/60 truncate">
-                    {isAdmin ? "Administrador" : "Nível Iniciante"}
+                    {isAdmin ? "Administrador" : currentPlan ? `${currentPlan.name}${currentPlan.isTrial ? ' (Teste)' : ''}` : "Plano Gratuito"}
                   </p>
                 </div>
               </div>
             </div>
+          </div>
+        )}
+        {/* Debug Info (Temporary) */}
+        {!collapsed && (
+          <div className="px-4 py-2 text-xs text-muted-foreground border-t border-sidebar-border">
+            <p>Role: {userRole || 'loading...'}</p>
+            <p>IsAdmin: {isAdmin ? 'YES' : 'NO'}</p>
+            <p>ID: {user?.id?.substring(0, 8)}...</p>
           </div>
         )}
       </div>

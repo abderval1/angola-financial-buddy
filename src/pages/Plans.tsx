@@ -371,7 +371,7 @@ export default function Plans() {
                         <DialogFooter className="flex-col sm:flex-row gap-2">
                             <Button variant="outline" onClick={() => setPurchaseDialogOpen(false)}>Cancelar</Button>
 
-                            {Number(selectedPlan?.price) !== 0 && (
+                            {Number(selectedPlan?.price) !== 0 && (selectedPlan?.name === 'Básico' || selectedPlan?.name === 'Gratuito') && (
                                 <Button
                                     variant="secondary"
                                     onClick={() => purchaseMutation.mutate({ planId: selectedPlan.id, isTrialAction: true })}
