@@ -70,13 +70,18 @@ export function AppSidebar() {
         .eq("user_id", user?.id)
         .maybeSingle();
 
-      if (error) return null;
+      if (error) {
+        console.error("Sidebar role check error:", error);
+        return null;
+      }
+      console.log("Sidebar role check result:", data);
       return data?.role;
     },
     enabled: !!user?.id,
   });
 
   const isAdmin = userRole === "admin";
+  console.log("Is Admin?", isAdmin, "User Role:", userRole);
 
   const handleSignOut = async () => {
     await signOut();

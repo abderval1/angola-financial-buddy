@@ -331,10 +331,16 @@ export default function Savings() {
 
   if (loading) {
     return (
-      <AppLayout title="Poupança" subtitle="Carregando seus planos...">
-        <div className="flex items-center justify-center h-64">
-          <div className="h-12 w-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-        </div>
+      <AppLayout title="Poupança" subtitle="Planeie as suas metas financeiras">
+        <ModuleGuard
+          moduleKey="basic"
+          title="Metas de Poupança"
+          description="Crie metas personalizadas, acompanhe o seu progresso e estabeleça um fundo de emergência sólido."
+        >
+          <div className="flex items-center justify-center h-64">
+            <div className="h-12 w-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+          </div>
+        </ModuleGuard>
       </AppLayout>
     );
   }

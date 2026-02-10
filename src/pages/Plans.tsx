@@ -78,9 +78,10 @@ export default function Plans() {
     });
 
     const purchaseMutation = useMutation({
-        mutationFn: async ({ planId, proofUrl }: { planId: string; proofUrl?: string }) => {
+        mutationFn: async ({ planId, proofUrl, isTrialAction }: { planId: string; proofUrl?: string, isTrialAction?: boolean }) => {
             const plan = plans.find((p: any) => p.id === planId);
-            const isTrialOrFree = Number(plan?.price) === 0;
+            const isFree = Number(plan?.price) === 0;
+            const isTrial = isTrialAction || isFree;
 
             const { error } = await supabase
                 .from("user_subscriptions")
@@ -88,21 +89,23 @@ export default function Plans() {
                     user_id: user?.id,
                     plan_id: planId,
                     payment_proof_url: proofUrl,
-                    status: isTrialOrFree ? "active" : "pending",
-                    is_trial: isTrialOrFree,
-                    expires_at: isTrialOrFree ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null
+                    status: isTrial ? "active" : "pending",
+                    is_trial: isTrial,
+                    expires_at: isTrial ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null
                 });
 
             if (error) throw error;
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             const plan = plans.find((p: any) => p.id === selectedPlan?.id);
-            const isTrialOrFree = Number(plan?.price) === 0;
+            const isFree = Number(plan?.price) === 0;
+            const isTrial = variables.isTrialAction || isFree;
 
             queryClient.invalidateQueries({ queryKey: ["my-subscriptions"] });
             queryClient.invalidateQueries({ queryKey: ["module-access"] });
 
-            if (isTrialOrFree) {
+
+            if (isTrial) {
                 toast.success("Módulo activado com sucesso! Aproveite o seu teste de 7 dias.");
             } else {
                 toast.success("Pedido de ativação enviado! Aguarde a aprovação do administrador.");
@@ -317,7 +320,9 @@ export default function Plans() {
                         <DialogHeader>
                             <DialogTitle>Ativar {selectedPlan?.name}</DialogTitle>
                             <DialogDescription>
-                                Siga os passos abaixo para ativar seu acesso por 30 dias.
+                                {Number(selectedPlan?.price) === 0
+                                    ? "Siga os passos abaixo para ativar seu acesso gratuito por 7 dias."
+                                    : "Siga os passos abaixo para ativar seu acesso mensal."}
                             </DialogDescription>
                         </DialogHeader>
 
@@ -363,15 +368,26 @@ export default function Plans() {
                             ) : null}
                         </div>
 
-                        <DialogFooter>
+                        <DialogFooter className="flex-col sm:flex-row gap-2">
                             <Button variant="outline" onClick={() => setPurchaseDialogOpen(false)}>Cancelar</Button>
+
+                            {Number(selectedPlan?.price) !== 0 && (
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => purchaseMutation.mutate({ planId: selectedPlan.id, isTrialAction: true })}
+                                    disabled={purchaseMutation.isPending}
+                                >
+                                    Iniciar Teste (7 dias)
+                                </Button>
+                            )}
+
                             <Button
                                 disabled={(Number(selectedPlan?.price) !== 0 && !paymentProofUrl) || purchaseMutation.isPending}
                                 className="gradient-accent text-accent-foreground min-w-[140px]"
-                                onClick={() => purchaseMutation.mutate({ planId: selectedPlan.id, proofUrl: paymentProofUrl || undefined })}
+                                onClick={() => purchaseMutation.mutate({ planId: selectedPlan.id, proofUrl: paymentProofUrl || undefined, isTrialAction: false })}
                             >
                                 {purchaseMutation.isPending ? "A processar..." :
-                                    Number(selectedPlan?.price) === 0 ? "Ativar Teste Grátis" : "Confirmar Pagamento"}
+                                    Number(selectedPlan?.price) === 0 ? "Começar meu teste de avaliação" : "Confirmar Pagamento"}
                             </Button>
                         </DialogFooter>
                     </DialogContent>

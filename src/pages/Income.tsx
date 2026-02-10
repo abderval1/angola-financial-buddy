@@ -35,6 +35,7 @@ import {
   Zap,
 } from "lucide-react";
 import { IncomeAnalysisCard } from "@/components/income/IncomeAnalysisCard";
+import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 
 const businessTypes = [
   { value: "bico", label: "Bico (Biscate)", icon: Wrench },
@@ -319,482 +320,488 @@ export default function Income() {
 
   return (
     <AppLayout title="Renda Extra & Negócios" subtitle="Gerencie suas fontes de renda adicionais">
-      <div className="space-y-6">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="stat-card-income">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-success/20 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-success" />
+      <ModuleGuard
+        moduleKey="basic"
+        title="Renda Extra & Negócios"
+        description="Gerencie os seus pequenos negócios, biscates e fontes de renda passiva. Acompanhe lucros, investimentos e escalabilidade."
+      >
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="stat-card-income">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-success/20 flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-success" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-success">{formatCurrency(totalRevenue)}</p>
+                    <p className="text-sm text-muted-foreground">Receita Mensal</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-success">{formatCurrency(totalRevenue)}</p>
-                  <p className="text-sm text-muted-foreground">Receita Mensal</p>
+              </CardContent>
+            </Card>
+
+            <Card className="stat-card-expense">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-destructive/20 flex items-center justify-center">
+                    <ArrowDownRight className="h-5 w-5 text-destructive" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-destructive">{formatCurrency(totalExpenses)}</p>
+                    <p className="text-sm text-muted-foreground">Despesas Mensais</p>
+                  </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className={netIncome >= 0 ? "stat-card-income" : "stat-card-expense"}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${netIncome >= 0 ? "bg-success/20" : "bg-destructive/20"
+                    }`}>
+                    <DollarSign className={`h-5 w-5 ${netIncome >= 0 ? "text-success" : "text-destructive"}`} />
+                  </div>
+                  <div>
+                    <p className={`text-2xl font-bold ${netIncome >= 0 ? "text-success" : "text-destructive"}`}>
+                      {formatCurrency(netIncome)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Lucro Líquido</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="stat-card-investment">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-finance-investment/20 flex items-center justify-center">
+                    <Wallet className="h-5 w-5 text-finance-investment" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-finance-investment">{formatCurrency(totalInvestment)}</p>
+                    <p className="text-sm text-muted-foreground">Total Investido</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Ideas Section */}
+          <Card className="border-2 border-amber-500/20 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5 text-amber-500" />
+                Ideias de Renda Extra para Angola
+              </CardTitle>
+              <CardDescription>
+                Explore oportunidades de negócio adaptadas à realidade angolana
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { name: "Venda de Roupa", profit: "100-500k Kz/mês", icon: ShoppingCart },
+                  { name: "Transporte (Kupapata)", profit: "200-800k Kz/mês", icon: Building },
+                  { name: "Serviços de TI", profit: "300k-2M Kz/mês", icon: Laptop },
+                  { name: "Aluguéis", profit: "100k-1M Kz/mês", icon: Home },
+                ].map((idea, index) => (
+                  <div key={index} className="p-4 bg-white/50 dark:bg-white/5 rounded-lg text-center">
+                    <idea.icon className="h-8 w-8 mx-auto mb-2 text-amber-600" />
+                    <p className="font-medium text-sm">{idea.name}</p>
+                    <p className="text-xs text-muted-foreground">{idea.profit}</p>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="stat-card-expense">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-destructive/20 flex items-center justify-center">
-                  <ArrowDownRight className="h-5 w-5 text-destructive" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-destructive">{formatCurrency(totalExpenses)}</p>
-                  <p className="text-sm text-muted-foreground">Despesas Mensais</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Income Sources List */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Minhas Fontes de Renda</h2>
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              if (!open) resetForm();
+              setIsDialogOpen(open);
+            }}>
+              <DialogTrigger asChild>
+                <Button className="gradient-primary">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Fonte
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{editingId ? "Editar Fonte de Renda" : "Nova Fonte de Renda"}</DialogTitle>
+                </DialogHeader>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    createMutation.mutate(formData);
+                  }}
+                  className="space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label>Nome</Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Ex: Loja de Roupas Online"
+                      required
+                    />
+                  </div>
 
-          <Card className={netIncome >= 0 ? "stat-card-income" : "stat-card-expense"}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${netIncome >= 0 ? "bg-success/20" : "bg-destructive/20"
-                  }`}>
-                  <DollarSign className={`h-5 w-5 ${netIncome >= 0 ? "text-success" : "text-destructive"}`} />
-                </div>
-                <div>
-                  <p className={`text-2xl font-bold ${netIncome >= 0 ? "text-success" : "text-destructive"}`}>
-                    {formatCurrency(netIncome)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Lucro Líquido</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Tipo de Negócio</Label>
+                      <Select
+                        value={formData.business_type}
+                        onValueChange={(value: typeof formData.business_type) =>
+                          setFormData(prev => ({ ...prev, business_type: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {businessTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              <div className="flex items-center gap-2">
+                                <type.icon className="h-4 w-4" />
+                                {type.label}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-          <Card className="stat-card-investment">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-finance-investment/20 flex items-center justify-center">
-                  <Wallet className="h-5 w-5 text-finance-investment" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-finance-investment">{formatCurrency(totalInvestment)}</p>
-                  <p className="text-sm text-muted-foreground">Total Investido</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                    <div className="space-y-2">
+                      <Label>Categoria</Label>
+                      <Select
+                        value={formData.category}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categoryOptions.map((cat) => (
+                            <SelectItem key={cat.value} value={cat.value}>
+                              {cat.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
-        {/* Ideas Section */}
-        <Card className="border-2 border-amber-500/20 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Briefcase className="h-5 w-5 text-amber-500" />
-              Ideias de Renda Extra para Angola
-            </CardTitle>
-            <CardDescription>
-              Explore oportunidades de negócio adaptadas à realidade angolana
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { name: "Venda de Roupa", profit: "100-500k Kz/mês", icon: ShoppingCart },
-                { name: "Transporte (Kupapata)", profit: "200-800k Kz/mês", icon: Building },
-                { name: "Serviços de TI", profit: "300k-2M Kz/mês", icon: Laptop },
-                { name: "Aluguéis", profit: "100k-1M Kz/mês", icon: Home },
-              ].map((idea, index) => (
-                <div key={index} className="p-4 bg-white/50 dark:bg-white/5 rounded-lg text-center">
-                  <idea.icon className="h-8 w-8 mx-auto mb-2 text-amber-600" />
-                  <p className="font-medium text-sm">{idea.name}</p>
-                  <p className="text-xs text-muted-foreground">{idea.profit}</p>
-                </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Receita Mensal (Kz)</Label>
+                      <Input
+                        type="number"
+                        value={formData.monthly_revenue}
+                        onChange={(e) => setFormData(prev => ({ ...prev, monthly_revenue: e.target.value }))}
+                        placeholder="500.000"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Despesas Mensais (Kz)</Label>
+                      <Input
+                        type="number"
+                        value={formData.monthly_expenses}
+                        onChange={(e) => setFormData(prev => ({ ...prev, monthly_expenses: e.target.value }))}
+                        placeholder="200.000"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Investimento Inicial (Kz)</Label>
+                      <Input
+                        type="number"
+                        value={formData.initial_investment}
+                        onChange={(e) => setFormData(prev => ({ ...prev, initial_investment: e.target.value }))}
+                        placeholder="1.000.000"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Data de Início</Label>
+                      <Input
+                        type="date"
+                        value={formData.start_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Horas por Semana</Label>
+                      <Input
+                        type="number"
+                        value={formData.hours_per_week}
+                        onChange={(e) => setFormData(prev => ({ ...prev, hours_per_week: e.target.value }))}
+                        placeholder="Ex: 10"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Tipo de Renda</Label>
+                      <Select
+                        value={formData.income_type}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, income_type: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">🕒 Ativa (Troca tempo por dinheiro)</SelectItem>
+                          <SelectItem value="semi_passive">⚙️ Semi-Passiva</SelectItem>
+                          <SelectItem value="passive">💰 Passiva</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Escalabilidade</Label>
+                      <Select
+                        value={formData.scalability}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, scalability: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="scalable">🚀 Escalável</SelectItem>
+                          <SelectItem value="non_scalable">❌ Não Escalável</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Potencial de Crescimento</Label>
+                      <Select
+                        value={formData.growth_potential}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, growth_potential: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="high">Alto</SelectItem>
+                          <SelectItem value="medium">Médio</SelectItem>
+                          <SelectItem value="low">Baixo</SelectItem>
+                          <SelectItem value="stagnant">Estagnado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Sazonalidade (Comum em Angola)</Label>
+                    <Select
+                      value={formData.seasonality}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, seasonality: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhuma (Estável)</SelectItem>
+                        <SelectItem value="festive">Festas (Dezembro/Festas)</SelectItem>
+                        <SelectItem value="dry_season">Cacimbo (Jun-Ago)</SelectItem>
+                        <SelectItem value="rainy_season">Chuvas (Set-Abr)</SelectItem>
+                        <SelectItem value="school">Escolar (Início de aulas)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nível de Risco</Label>
+                      <Select
+                        value={formData.risk_level}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, risk_level: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">🟢 Baixo</SelectItem>
+                          <SelectItem value="medium">🟡 Médio</SelectItem>
+                          <SelectItem value="high">🔴 Alto</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Tipo de Risco</Label>
+                      <Select
+                        value={formData.risk_type}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, risk_type: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="financial">Financeiro</SelectItem>
+                          <SelectItem value="physical">Físico</SelectItem>
+                          <SelectItem value="legal">Legal</SelectItem>
+                          <SelectItem value="market">Mercado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Descrição (opcional)</Label>
+                    <Textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Descreva o seu negócio..."
+                      rows={2}
+                    />
+                  </div>
+
+                  <Button type="submit" className="w-full gradient-primary" disabled={createMutation.isPending}>
+                    {createMutation.isPending ? "Salvando..." : editingId ? "Atualizar Fonte" : "Criar Fonte de Renda"}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardContent className="p-6">
+                    <div className="h-32 bg-muted rounded" />
+                  </CardContent>
+                </Card>
               ))}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Income Sources List */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Minhas Fontes de Renda</h2>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            if (!open) resetForm();
-            setIsDialogOpen(open);
-          }}>
-            <DialogTrigger asChild>
-              <Button className="gradient-primary">
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar Fonte
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingId ? "Editar Fonte de Renda" : "Nova Fonte de Renda"}</DialogTitle>
-              </DialogHeader>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  createMutation.mutate(formData);
-                }}
-                className="space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label>Nome</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Ex: Loja de Roupas Online"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Tipo de Negócio</Label>
-                    <Select
-                      value={formData.business_type}
-                      onValueChange={(value: typeof formData.business_type) =>
-                        setFormData(prev => ({ ...prev, business_type: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {businessTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            <div className="flex items-center gap-2">
-                              <type.icon className="h-4 w-4" />
-                              {type.label}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Categoria</Label>
-                    <Select
-                      value={formData.category}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categoryOptions.map((cat) => (
-                          <SelectItem key={cat.value} value={cat.value}>
-                            {cat.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Receita Mensal (Kz)</Label>
-                    <Input
-                      type="number"
-                      value={formData.monthly_revenue}
-                      onChange={(e) => setFormData(prev => ({ ...prev, monthly_revenue: e.target.value }))}
-                      placeholder="500.000"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Despesas Mensais (Kz)</Label>
-                    <Input
-                      type="number"
-                      value={formData.monthly_expenses}
-                      onChange={(e) => setFormData(prev => ({ ...prev, monthly_expenses: e.target.value }))}
-                      placeholder="200.000"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Investimento Inicial (Kz)</Label>
-                    <Input
-                      type="number"
-                      value={formData.initial_investment}
-                      onChange={(e) => setFormData(prev => ({ ...prev, initial_investment: e.target.value }))}
-                      placeholder="1.000.000"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Data de Início</Label>
-                    <Input
-                      type="date"
-                      value={formData.start_date}
-                      onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Horas por Semana</Label>
-                    <Input
-                      type="number"
-                      value={formData.hours_per_week}
-                      onChange={(e) => setFormData(prev => ({ ...prev, hours_per_week: e.target.value }))}
-                      placeholder="Ex: 10"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tipo de Renda</Label>
-                    <Select
-                      value={formData.income_type}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, income_type: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">🕒 Ativa (Troca tempo por dinheiro)</SelectItem>
-                        <SelectItem value="semi_passive">⚙️ Semi-Passiva</SelectItem>
-                        <SelectItem value="passive">💰 Passiva</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Escalabilidade</Label>
-                    <Select
-                      value={formData.scalability}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, scalability: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="scalable">🚀 Escalável</SelectItem>
-                        <SelectItem value="non_scalable">❌ Não Escalável</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Potencial de Crescimento</Label>
-                    <Select
-                      value={formData.growth_potential}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, growth_potential: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="high">Alto</SelectItem>
-                        <SelectItem value="medium">Médio</SelectItem>
-                        <SelectItem value="low">Baixo</SelectItem>
-                        <SelectItem value="stagnant">Estagnado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Sazonalidade (Comum em Angola)</Label>
-                  <Select
-                    value={formData.seasonality}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, seasonality: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhuma (Estável)</SelectItem>
-                      <SelectItem value="festive">Festas (Dezembro/Festas)</SelectItem>
-                      <SelectItem value="dry_season">Cacimbo (Jun-Ago)</SelectItem>
-                      <SelectItem value="rainy_season">Chuvas (Set-Abr)</SelectItem>
-                      <SelectItem value="school">Escolar (Início de aulas)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Nível de Risco</Label>
-                    <Select
-                      value={formData.risk_level}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, risk_level: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">🟢 Baixo</SelectItem>
-                        <SelectItem value="medium">🟡 Médio</SelectItem>
-                        <SelectItem value="high">🔴 Alto</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tipo de Risco</Label>
-                    <Select
-                      value={formData.risk_type}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, risk_type: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="financial">Financeiro</SelectItem>
-                        <SelectItem value="physical">Físico</SelectItem>
-                        <SelectItem value="legal">Legal</SelectItem>
-                        <SelectItem value="market">Mercado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Descrição (opcional)</Label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Descreva o seu negócio..."
-                    rows={2}
-                  />
-                </div>
-
-                <Button type="submit" className="w-full gradient-primary" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Salvando..." : editingId ? "Atualizar Fonte" : "Criar Fonte de Renda"}
+          ) : incomeSources.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Briefcase className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Nenhuma fonte de renda extra</h3>
+                <p className="text-muted-foreground mb-4">
+                  Comece a registrar suas fontes de renda adicionais para melhor controle financeiro.
+                </p>
+                <Button onClick={() => setIsDialogOpen(true)} className="gradient-primary">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Primeira Fonte
                 </Button>
-              </form>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {incomeSources.map((source) => (
+                <IncomeAnalysisCard
+                  key={source.id}
+                  income={source}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onDeposit={handleDeposit}
+                  onWithdraw={handleWithdraw}
+                  onHistory={handleHistory}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Operations Dialog */}
+          <Dialog open={isOpsDialogOpen} onOpenChange={setIsOpsDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  {opType === 'deposit' ? `Depositar em ${selectedSource?.name}` : `Retirar de ${selectedSource?.name}`}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Valor (Kz)</Label>
+                  <Input
+                    type="number"
+                    value={opAmount}
+                    onChange={(e) => setOpAmount(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <Button
+                  className="w-full gradient-primary"
+                  onClick={() => {
+                    const amount = parseFloat(opAmount);
+                    if (isNaN(amount) || amount <= 0) {
+                      toast.error("Insira um valor válido");
+                      return;
+                    }
+                    operationMutation.mutate({
+                      sourceId: selectedSource.id,
+                      amount,
+                      type: opType,
+                      currentBalance: selectedSource.current_balance || 0
+                    });
+                  }}
+                  disabled={operationMutation.isPending}
+                >
+                  {operationMutation.isPending ? "Processando..." : opType === 'deposit' ? "Confirmar Depósito" : "Confirmar Retirada"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* History Dialog */}
+          <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Histórico: {selectedSource?.name}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 mt-4">
+                {history.length > 0 ? (
+                  history.map((h: any) => {
+                    const isInvestment = h.description?.includes("Investimento");
+                    const isWithdrawal = h.description?.includes("Retirada");
+
+                    return (
+                      <div key={h.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/50">
+                        <div className="flex items-center gap-3">
+                          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isInvestment ? 'bg-investment/20 text-investment' :
+                            isWithdrawal ? 'bg-destructive/20 text-destructive' :
+                              h.type === 'income' ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'
+                            }`}>
+                            {isInvestment ? <ArrowUpRight className="h-4 w-4" /> :
+                              isWithdrawal ? <ArrowDownRight className="h-4 w-4" /> :
+                                h.type === 'income' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{h.description}</p>
+                            <p className="text-xs text-muted-foreground">{format(new Date(h.date), "dd/MM/yyyy")}</p>
+                          </div>
+                        </div>
+                        <span className={`font-bold ${isInvestment ? 'text-investment' :
+                          isWithdrawal ? 'text-destructive' :
+                            h.type === 'income' ? 'text-success' : 'text-destructive'
+                          }`}>
+                          {isInvestment ? '+' : isWithdrawal ? '-' : h.type === 'income' ? '+' : '-'}{h.amount.toLocaleString()} Kz
+                        </span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Activity className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                    <p className="text-sm">Nenhum movimento registrado</p>
+                  </div>
+                )}
+              </div>
             </DialogContent>
           </Dialog>
         </div>
-
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="p-6">
-                  <div className="h-32 bg-muted rounded" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : incomeSources.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Briefcase className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Nenhuma fonte de renda extra</h3>
-              <p className="text-muted-foreground mb-4">
-                Comece a registrar suas fontes de renda adicionais para melhor controle financeiro.
-              </p>
-              <Button onClick={() => setIsDialogOpen(true)} className="gradient-primary">
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar Primeira Fonte
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {incomeSources.map((source) => (
-              <IncomeAnalysisCard
-                key={source.id}
-                income={source}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onDeposit={handleDeposit}
-                onWithdraw={handleWithdraw}
-                onHistory={handleHistory}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Operations Dialog */}
-        <Dialog open={isOpsDialogOpen} onOpenChange={setIsOpsDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {opType === 'deposit' ? `Depositar em ${selectedSource?.name}` : `Retirar de ${selectedSource?.name}`}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Valor (Kz)</Label>
-                <Input
-                  type="number"
-                  value={opAmount}
-                  onChange={(e) => setOpAmount(e.target.value)}
-                  placeholder="0"
-                />
-              </div>
-              <Button
-                className="w-full gradient-primary"
-                onClick={() => {
-                  const amount = parseFloat(opAmount);
-                  if (isNaN(amount) || amount <= 0) {
-                    toast.error("Insira um valor válido");
-                    return;
-                  }
-                  operationMutation.mutate({
-                    sourceId: selectedSource.id,
-                    amount,
-                    type: opType,
-                    currentBalance: selectedSource.current_balance || 0
-                  });
-                }}
-                disabled={operationMutation.isPending}
-              >
-                {operationMutation.isPending ? "Processando..." : opType === 'deposit' ? "Confirmar Depósito" : "Confirmar Retirada"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* History Dialog */}
-        <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Histórico: {selectedSource?.name}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 mt-4">
-              {history.length > 0 ? (
-                history.map((h: any) => {
-                  const isInvestment = h.description?.includes("Investimento");
-                  const isWithdrawal = h.description?.includes("Retirada");
-
-                  return (
-                    <div key={h.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/50">
-                      <div className="flex items-center gap-3">
-                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isInvestment ? 'bg-investment/20 text-investment' :
-                          isWithdrawal ? 'bg-destructive/20 text-destructive' :
-                            h.type === 'income' ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'
-                          }`}>
-                          {isInvestment ? <ArrowUpRight className="h-4 w-4" /> :
-                            isWithdrawal ? <ArrowDownRight className="h-4 w-4" /> :
-                              h.type === 'income' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">{h.description}</p>
-                          <p className="text-xs text-muted-foreground">{format(new Date(h.date), "dd/MM/yyyy")}</p>
-                        </div>
-                      </div>
-                      <span className={`font-bold ${isInvestment ? 'text-investment' :
-                        isWithdrawal ? 'text-destructive' :
-                          h.type === 'income' ? 'text-success' : 'text-destructive'
-                        }`}>
-                        {isInvestment ? '+' : isWithdrawal ? '-' : h.type === 'income' ? '+' : '-'}{h.amount.toLocaleString()} Kz
-                      </span>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Activity className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                  <p className="text-sm">Nenhum movimento registrado</p>
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+      </ModuleGuard>
     </AppLayout>
   );
 }

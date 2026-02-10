@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { pt } from "date-fns/locale";
+import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-AO", {
@@ -235,218 +236,259 @@ export default function Reports() {
 
   return (
     <AppLayout title="Análises & Relatórios" subtitle="Visualize sua saúde financeira de forma completa">
-      <div className="space-y-6">
-        {/* Filters */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Período" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">Último mês</SelectItem>
-                <SelectItem value="3">Últimos 3 meses</SelectItem>
-                <SelectItem value="6">Últimos 6 meses</SelectItem>
-                <SelectItem value="12">Último ano</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <ModuleGuard
+        moduleKey="basic"
+        title="Análises & Relatórios"
+        description="Visualize o seu desempenho financeiro através de gráficos detalhados, exporte relatórios e tome decisões baseadas em dados."
+      >
+        <div className="space-y-6">
+          {/* Filters */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Período" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Último mês</SelectItem>
+                  <SelectItem value="3">Últimos 3 meses</SelectItem>
+                  <SelectItem value="6">Últimos 6 meses</SelectItem>
+                  <SelectItem value="12">Último ano</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filtros
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80 p-4" align="start">
-                <div className="space-y-4">
-                  <h4 className="font-medium leading-none mb-2">Refinar Análise</h4>
-
-                  <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">Tipo</label>
-                    <Select value={selectedType} onValueChange={setSelectedType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todos os tipos" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos os tipos</SelectItem>
-                        <SelectItem value="income">Receitas</SelectItem>
-                        <SelectItem value="expense">Despesas</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm text-muted-foreground">Categoria</label>
-                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todas as categorias" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas as categorias</SelectItem>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    className="w-full text-xs"
-                    onClick={() => {
-                      setSelectedType("all");
-                      setSelectedCategory("all");
-                    }}
-                  >
-                    Limpar Filtros
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline">
+                    <Filter className="h-4 w-4 mr-2" />
+                    Filtros
                   </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4" align="start">
+                  <div className="space-y-4">
+                    <h4 className="font-medium leading-none mb-2">Refinar Análise</h4>
 
-            <Button variant="outline" onClick={exportToExcel}>
-              <Download className="h-4 w-4 mr-2" />
-              Exportar Excel
-            </Button>
-            <Button className="gradient-primary">
-              <Download className="h-4 w-4 mr-2" />
-              PDF
-            </Button>
-          </div>
-        </div>
+                    <div className="space-y-2">
+                      <label className="text-sm text-muted-foreground">Tipo</label>
+                      <Select value={selectedType} onValueChange={setSelectedType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Todos os tipos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os tipos</SelectItem>
+                          <SelectItem value="income">Receitas</SelectItem>
+                          <SelectItem value="expense">Despesas</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-4 w-4 text-success" />
-                <span className="text-sm text-muted-foreground">Receitas</span>
-              </div>
-              <p className="text-lg font-bold text-success">{formatCurrency(totalIncome)}</p>
-            </CardContent>
-          </Card>
+                    <div className="space-y-2">
+                      <label className="text-sm text-muted-foreground">Categoria</label>
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Todas as categorias" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas as categorias</SelectItem>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingDown className="h-4 w-4 text-destructive" />
-                <span className="text-sm text-muted-foreground">Despesas</span>
-              </div>
-              <p className="text-lg font-bold text-destructive">{formatCurrency(totalExpenses)}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Wallet className="h-4 w-4 text-primary" />
-                <span className="text-sm text-muted-foreground">Saldo</span>
-              </div>
-              <p className={`text-lg font-bold ${totalIncome - totalExpenses >= 0 ? "text-success" : "text-destructive"}`}>
-                {formatCurrency(totalIncome - totalExpenses)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <PiggyBank className="h-4 w-4 text-finance-savings" />
-                <span className="text-sm text-muted-foreground">Poupança</span>
-              </div>
-              <p className="text-lg font-bold text-finance-savings">{formatCurrency(totalSavings)}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CreditCard className="h-4 w-4 text-destructive" />
-                <span className="text-sm text-muted-foreground">Dívidas</span>
-              </div>
-              <p className="text-lg font-bold text-destructive">{formatCurrency(totalDebt)}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <BarChart3 className="h-4 w-4 text-primary" />
-                <span className="text-sm text-muted-foreground">Patrimônio</span>
-              </div>
-              <p className={`text-lg font-bold ${netWorth >= 0 ? "text-primary" : "text-destructive"}`}>
-                {formatCurrency(netWorth)}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Income vs Expenses Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Receitas vs Despesas</CardTitle>
-              <CardDescription>Evolução mensal do seu fluxo de caixa</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="month" className="text-xs" />
-                    <YAxis
-                      className="text-xs"
-                      tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
-                    />
-                    <Tooltip
-                      formatter={(value: number) => formatCurrency(value)}
-                      labelStyle={{ color: "hsl(var(--foreground))" }}
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
+                    <Button
+                      variant="ghost"
+                      className="w-full text-xs"
+                      onClick={() => {
+                        setSelectedType("all");
+                        setSelectedCategory("all");
                       }}
-                    />
-                    <Legend />
-                    <Bar dataKey="receitas" name="Receitas" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="despesas" name="Despesas" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+                    >
+                      Limpar Filtros
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
-          {/* Category Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Despesas por Categoria</CardTitle>
-              <CardDescription>Distribuição das suas despesas</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                {pieData.length > 0 ? (
+              <Button variant="outline" onClick={exportToExcel}>
+                <Download className="h-4 w-4 mr-2" />
+                Exportar Excel
+              </Button>
+              <Button className="gradient-primary">
+                <Download className="h-4 w-4 mr-2" />
+                PDF
+              </Button>
+            </div>
+          </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-4 w-4 text-success" />
+                  <span className="text-sm text-muted-foreground">Receitas</span>
+                </div>
+                <p className="text-lg font-bold text-success">{formatCurrency(totalIncome)}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingDown className="h-4 w-4 text-destructive" />
+                  <span className="text-sm text-muted-foreground">Despesas</span>
+                </div>
+                <p className="text-lg font-bold text-destructive">{formatCurrency(totalExpenses)}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Wallet className="h-4 w-4 text-primary" />
+                  <span className="text-sm text-muted-foreground">Saldo</span>
+                </div>
+                <p className={`text-lg font-bold ${totalIncome - totalExpenses >= 0 ? "text-success" : "text-destructive"}`}>
+                  {formatCurrency(totalIncome - totalExpenses)}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <PiggyBank className="h-4 w-4 text-finance-savings" />
+                  <span className="text-sm text-muted-foreground">Poupança</span>
+                </div>
+                <p className="text-lg font-bold text-finance-savings">{formatCurrency(totalSavings)}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <CreditCard className="h-4 w-4 text-destructive" />
+                  <span className="text-sm text-muted-foreground">Dívidas</span>
+                </div>
+                <p className="text-lg font-bold text-destructive">{formatCurrency(totalDebt)}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <BarChart3 className="h-4 w-4 text-primary" />
+                  <span className="text-sm text-muted-foreground">Patrimônio</span>
+                </div>
+                <p className={`text-lg font-bold ${netWorth >= 0 ? "text-primary" : "text-destructive"}`}>
+                  {formatCurrency(netWorth)}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Income vs Expenses Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Receitas vs Despesas</CardTitle>
+                <CardDescription>Evolução mensal do seu fluxo de caixa</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={2}
-                        dataKey="value"
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
+                    <BarChart data={monthlyData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="month" className="text-xs" />
+                      <YAxis
+                        className="text-xs"
+                        tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => formatCurrency(value)}
+                        labelStyle={{ color: "hsl(var(--foreground))" }}
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                        }}
+                      />
+                      <Legend />
+                      <Bar dataKey="receitas" name="Receitas" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="despesas" name="Despesas" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Category Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Despesas por Categoria</CardTitle>
+                <CardDescription>Distribuição das suas despesas</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  {pieData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={100}
+                          paddingAngle={2}
+                          dataKey="value"
+                        >
+                          {pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number) => formatCurrency(value)}
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "8px",
+                          }}
+                        />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      <p>Sem dados de despesas</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Net Balance Trend */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-lg">Evolução do Saldo</CardTitle>
+                <CardDescription>Tendência do seu saldo mensal ao longo do tempo</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={monthlyData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="month" className="text-xs" />
+                      <YAxis
+                        className="text-xs"
+                        tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+                      />
                       <Tooltip
                         formatter={(value: number) => formatCurrency(value)}
                         contentStyle={{
@@ -455,80 +497,45 @@ export default function Reports() {
                           borderRadius: "8px",
                         }}
                       />
-                      <Legend />
-                    </PieChart>
+                      <Area
+                        type="monotone"
+                        dataKey="saldo"
+                        name="Saldo"
+                        stroke="hsl(var(--primary))"
+                        fill="hsl(var(--primary) / 0.2)"
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
                   </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground">
-                    <p>Sem dados de despesas</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* Net Balance Trend */}
-          <Card className="lg:col-span-2">
+          {/* Recent Reports */}
+          <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Evolução do Saldo</CardTitle>
-              <CardDescription>Tendência do seu saldo mensal ao longo do tempo</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Relatórios Salvos</CardTitle>
+                  <CardDescription>Seus relatórios financeiros exportados</CardDescription>
+                </div>
+                <Button variant="outline">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Gerar Novo Relatório
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="month" className="text-xs" />
-                    <YAxis
-                      className="text-xs"
-                      tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
-                    />
-                    <Tooltip
-                      formatter={(value: number) => formatCurrency(value)}
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="saldo"
-                      name="Saldo"
-                      stroke="hsl(var(--primary))"
-                      fill="hsl(var(--primary) / 0.2)"
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhum relatório gerado ainda</p>
+                <p className="text-sm">Clique em "Gerar Novo Relatório" para criar seu primeiro relatório em PDF</p>
               </div>
             </CardContent>
           </Card>
         </div>
-
-        {/* Recent Reports */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">Relatórios Salvos</CardTitle>
-                <CardDescription>Seus relatórios financeiros exportados</CardDescription>
-              </div>
-              <Button variant="outline">
-                <FileText className="h-4 w-4 mr-2" />
-                Gerar Novo Relatório
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8 text-muted-foreground">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhum relatório gerado ainda</p>
-              <p className="text-sm">Clique em "Gerar Novo Relatório" para criar seu primeiro relatório em PDF</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      </ModuleGuard>
     </AppLayout>
   );
 }

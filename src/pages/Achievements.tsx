@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Award, Star, Zap, Trophy, Target, PiggyBank } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 
 interface Achievement {
     id: string;
@@ -101,91 +102,97 @@ export default function Achievements() {
 
     return (
         <AppLayout title="Minhas Conquistas" subtitle="Acompanhe seu progresso e ganhe recompensas">
-            <div className="space-y-8 animate-fade-in">
-                {/* Points Summary */}
-                <Card className="border-2 border-accent/20 bg-gradient-to-br from-accent/5 to-primary/5">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <CardTitle className="text-2xl font-display font-bold">Total de Pontos</CardTitle>
-                                <CardDescription>Você já acumulou {pointsData.total_points} pontos XP</CardDescription>
-                            </div>
-                            <div className="h-16 w-16 rounded-2xl bg-accent/20 flex items-center justify-center text-accent">
-                                <Trophy className="h-10 w-10" />
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center gap-4 mt-4">
-                            <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-accent transition-all duration-1000"
-                                    style={{ width: `${progressToNextLevel}%` }}
-                                />
-                            </div>
-                            <span className="text-sm font-medium text-muted-foreground">
-                                {pointsData.total_points % 1000}/1000 XP para Nível {pointsData.current_level + 1}
-                            </span>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Achievement Groups by Category */}
-                {CATEGORIES.map(category => {
-                    const categoryAchievements = ACHIEVEMENTS_LIST.filter(a => a.category === category.id);
-                    const categoryUnlocked = categoryAchievements.filter(a => userAchievements.includes(a.id)).length;
-
-                    return (
-                        <div key={category.id} className="space-y-4">
+            <ModuleGuard
+                moduleKey="basic"
+                title="Sistema de Conquistas"
+                description="Seja recompensado pelo seu compromisso financeiro. Ganhe selos, suba de nível e celebre cada marco da sua jornada."
+            >
+                <div className="space-y-8 animate-fade-in">
+                    {/* Points Summary */}
+                    <Card className="border-2 border-accent/20 bg-gradient-to-br from-accent/5 to-primary/5">
+                        <CardHeader className="pb-2">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <category.icon className={`h-6 w-6 ${category.color}`} />
-                                    <h3 className="text-xl font-display font-bold text-foreground">{category.name}</h3>
+                                <div>
+                                    <CardTitle className="text-2xl font-display font-bold">Total de Pontos</CardTitle>
+                                    <CardDescription>Você já acumulou {pointsData.total_points} pontos XP</CardDescription>
                                 </div>
-                                <Badge variant="secondary">
-                                    {categoryUnlocked}/{categoryAchievements.length} Desbloqueadas
-                                </Badge>
+                                <div className="h-16 w-16 rounded-2xl bg-accent/20 flex items-center justify-center text-accent">
+                                    <Trophy className="h-10 w-10" />
+                                </div>
                             </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center gap-4 mt-4">
+                                <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-accent transition-all duration-1000"
+                                        style={{ width: `${progressToNextLevel}%` }}
+                                    />
+                                </div>
+                                <span className="text-sm font-medium text-muted-foreground">
+                                    {pointsData.total_points % 1000}/1000 XP para Nível {pointsData.current_level + 1}
+                                </span>
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {categoryAchievements.map(ach => {
-                                    const isUnlocked = userAchievements.includes(ach.id);
-                                    return (
-                                        <Card
-                                            key={ach.id}
-                                            className={`relative transition-all duration-300 ${isUnlocked
-                                                ? 'border-accent/30 bg-accent/5 ring-1 ring-accent/20'
-                                                : 'opacity-60 grayscale'}`}
-                                        >
-                                            <CardContent className="p-6">
-                                                {isUnlocked && (
-                                                    <div className="absolute top-3 right-3">
-                                                        <Star className="h-5 w-5 text-accent fill-accent" />
-                                                    </div>
-                                                )}
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`h-16 w-16 rounded-2xl flex items-center justify-center text-4xl ${isUnlocked ? 'bg-accent/20 shadow-lg shadow-accent/10' : 'bg-muted'
-                                                        }`}>
-                                                        {ach.icon || "🏆"}
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <h4 className="font-bold text-foreground">{ach.name}</h4>
-                                                        <p className="text-sm text-muted-foreground leading-snug">{ach.description}</p>
-                                                        <div className="flex items-center gap-1 mt-2">
-                                                            <Zap className="h-3 w-3 text-accent" />
-                                                            <span className="text-xs font-bold text-accent">{ach.points} XP PARA GANHAR</span>
+                    {/* Achievement Groups by Category */}
+                    {CATEGORIES.map(category => {
+                        const categoryAchievements = ACHIEVEMENTS_LIST.filter(a => a.category === category.id);
+                        const categoryUnlocked = categoryAchievements.filter(a => userAchievements.includes(a.id)).length;
+
+                        return (
+                            <div key={category.id} className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <category.icon className={`h-6 w-6 ${category.color}`} />
+                                        <h3 className="text-xl font-display font-bold text-foreground">{category.name}</h3>
+                                    </div>
+                                    <Badge variant="secondary">
+                                        {categoryUnlocked}/{categoryAchievements.length} Desbloqueadas
+                                    </Badge>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {categoryAchievements.map(ach => {
+                                        const isUnlocked = userAchievements.includes(ach.id);
+                                        return (
+                                            <Card
+                                                key={ach.id}
+                                                className={`relative transition-all duration-300 ${isUnlocked
+                                                    ? 'border-accent/30 bg-accent/5 ring-1 ring-accent/20'
+                                                    : 'opacity-60 grayscale'}`}
+                                            >
+                                                <CardContent className="p-6">
+                                                    {isUnlocked && (
+                                                        <div className="absolute top-3 right-3">
+                                                            <Star className="h-5 w-5 text-accent fill-accent" />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`h-16 w-16 rounded-2xl flex items-center justify-center text-4xl ${isUnlocked ? 'bg-accent/20 shadow-lg shadow-accent/10' : 'bg-muted'
+                                                            }`}>
+                                                            {ach.icon || "🏆"}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <h4 className="font-bold text-foreground">{ach.name}</h4>
+                                                            <p className="text-sm text-muted-foreground leading-snug">{ach.description}</p>
+                                                            <div className="flex items-center gap-1 mt-2">
+                                                                <Zap className="h-3 w-3 text-accent" />
+                                                                <span className="text-xs font-bold text-accent">{ach.points} XP PARA GANHAR</span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    );
-                                })}
+                                                </CardContent>
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    );
-                })}
-            </div>
+                        );
+                    })}
+                </div>
+            </ModuleGuard>
         </AppLayout>
     );
 }

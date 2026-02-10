@@ -420,7 +420,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                       Activando...
                     </>
                   ) : (
-                    "Ativar Teste Grátis"
+                    "Começar meu teste de avaliação"
                   )}
                 </Button>
               </div>

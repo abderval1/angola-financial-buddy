@@ -55,11 +55,16 @@ import {
   Image,
   Link as LinkIcon,
   AlertCircle,
+  AlertCircle,
   Wallet,
+  Globe,
 } from "lucide-react";
+import { AdminLiveMonitor } from "@/components/admin/AdminLiveMonitor";
+import { useOnlinePresence } from "@/hooks/useOnlinePresence";
 
 export default function Admin() {
   const { user, signOut } = useAuth();
+  const { onlineUsers } = useOnlinePresence();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "overview";
   const queryClient = useQueryClient();
@@ -138,6 +143,7 @@ export default function Admin() {
     { id: "overview", label: "Visão Geral", icon: BarChart3 },
     { id: "users", label: "Usuários", icon: Users },
     { id: "subscriptions", label: "Assinaturas", icon: DollarSign },
+    { id: "monitor", label: "Monitoramento em Tempo Real", icon: Globe },
     { id: "payouts", label: "Levantamentos", icon: Wallet },
     { id: "marketplace", label: "Marketplace", icon: ShoppingBag },
     { id: "content", label: "Conteúdo Educativo", icon: GraduationCap },
@@ -202,8 +208,9 @@ export default function Admin() {
 
         {/* Main Content */}
         <main className="flex-1 p-6">
-          {activeTab === "overview" && <AdminOverview stats={stats} />}
+          {activeTab === "overview" && <AdminOverview stats={stats} onlineUsers={onlineUsers} />}
           {activeTab === "users" && <AdminUsers />}
+          {activeTab === "monitor" && <AdminLiveMonitor />}
           {activeTab === "subscriptions" && <AdminSubscriptions />}
           {activeTab === "payouts" && <AdminPayouts />}
           {activeTab === "marketplace" && (
@@ -251,8 +258,9 @@ export default function Admin() {
 }
 
 // Overview Component
-function AdminOverview({ stats }: { stats: any }) {
+function AdminOverview({ stats, onlineUsers }: { stats: any, onlineUsers: any[] }) {
   const statCards = [
+    { label: "Online Agora", value: onlineUsers?.length || 0, icon: Globe, color: "text-blue-500 animate-pulse" },
     { label: "Usuários", value: stats?.users || 0, icon: Users, color: "text-primary" },
     { label: "Transações", value: stats?.transactions || 0, icon: DollarSign, color: "text-success" },
     { label: "Metas Criadas", value: stats?.goals || 0, icon: Target, color: "text-finance-savings" },
@@ -260,14 +268,25 @@ function AdminOverview({ stats }: { stats: any }) {
     { label: "Conteúdos", value: stats?.content || 0, icon: BookOpen, color: "text-accent" },
     { label: "Desafios", value: stats?.challenges || 0, icon: Trophy, color: "text-finance-fire" },
     { label: "Produtos", value: stats?.products || 0, icon: ShoppingBag, color: "text-amber-500" },
-    { label: "Mensagens Chat", value: stats?.chatMessages || 0, icon: MessageCircle, color: "text-emerald-500" },
   ];
+
+  // Group users by location
+  const locationStats = onlineUsers?.reduce((acc: any, user: any) => {
+    const loc = user.location;
+    if (loc) {
+      const key = `${loc.city || 'Desconhecido'}, ${loc.country || 'Desconhecido'}`;
+      acc[key] = (acc[key] || 0) + 1;
+    } else {
+      acc["Localização Desconhecida"] = (acc["Localização Desconhecida"] || 0) + 1;
+    }
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold">Visão Geral</h1>
-        <p className="text-muted-foreground">Estatísticas gerais da plataforma</p>
+        <p className="text-muted-foreground">Estatísticas gerais e monitoramento em tempo real</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -278,7 +297,7 @@ function AdminOverview({ stats }: { stats: any }) {
                 <div>
                   <p className="text-sm text-muted-foreground">{stat.label}</p>
                   <p className={`text-3xl font-bold font-display ${stat.color}`}>
-                    {stat.value.toLocaleString("pt-AO")}
+                    {typeof stat.value === 'number' ? stat.value.toLocaleString("pt-AO") : stat.value}
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
@@ -289,6 +308,28 @@ function AdminOverview({ stats }: { stats: any }) {
           </Card>
         ))}
       </div>
+
+      {/* Real-time Location Stats */}
+      {onlineUsers?.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Globe className="h-5 w-5 text-blue-500" />
+              Distribuição Geográfica (Online Agora)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {Object.entries(locationStats || {}).map(([location, count]: [string, any]) => (
+                <div key={location} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <span className="text-sm font-medium">{location}</span>
+                  <Badge variant="secondary">{count} usuário{count > 1 ? 's' : ''}</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -303,13 +344,33 @@ function AdminUsers() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch profiles
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("*, user_roles(role)")
+        .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data;
+      if (profilesError) throw profilesError;
+
+      // Fetch roles to manual join since foreign key might be missing in PostgREST detection
+      const { data: roles, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id, role");
+
+      if (rolesError) {
+        console.error("Error fetching roles:", rolesError);
+        // Don't fail completely if just roles fail
+      }
+
+      // Merge data
+      return profiles.map(profile => ({
+        ...profile,
+        user_roles: [
+          {
+            role: roles?.find(r => r.user_id === profile.user_id || r.user_id === profile.id)?.role || 'user'
+          }
+        ]
+      }));
     },
   });
 

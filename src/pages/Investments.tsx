@@ -28,6 +28,7 @@ import { InvestmentQuickActions } from "@/components/investments/InvestmentQuick
 import { InvestmentProducts } from "@/components/investments/InvestmentProducts";
 import { InvestmentSimulator } from "@/components/investments/InvestmentSimulator";
 import { InvestmentEducation } from "@/components/investments/InvestmentEducation";
+import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 
 
 interface Investment {
@@ -326,464 +327,470 @@ export default function Investments() {
 
   return (
     <AppLayout title="Investimentos" subtitle="Sua carteira de investimentos">
-      <div className="space-y-6 animate-fade-in">
-        {/* View Toggle */}
-        {investments.length > 0 && (
-          <div className="flex gap-2">
-            <Button
-              variant={activeView === "home" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveView("home")}
-            >
-              <Wallet className="h-4 w-4 mr-2" />
-              Visão Geral
-            </Button>
-            <Button
-              variant={activeView === "details" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setActiveView("details")}
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              Meus Investimentos
-            </Button>
-          </div>
-        )}
+      <ModuleGuard
+        moduleKey="basic"
+        title="Carteira de Investimentos"
+        description="Acompanhe o crescimento do seu património, analise rendimentos e explore produtos financeiros em Angola."
+      >
+        <div className="space-y-6 animate-fade-in">
+          {/* View Toggle */}
+          {investments.length > 0 && (
+            <div className="flex gap-2">
+              <Button
+                variant={activeView === "home" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveView("home")}
+              >
+                <Wallet className="h-4 w-4 mr-2" />
+                Visão Geral
+              </Button>
+              <Button
+                variant={activeView === "details" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveView("details")}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Meus Investimentos
+              </Button>
+            </div>
+          )}
 
-        {activeView === "home" ? (
-          <>
-            {/* Portfolio Summary */}
-            <InvestmentPortfolioSummary
-              totalInvested={totalInvested}
-              totalCurrentValue={totalCurrentValue}
-              totalReturn={totalReturn}
-              returnPercentage={returnPercentage}
-              monthlyReturn={monthlyReturn}
-              riskProfile={riskProfile}
-            />
-
-
-            {/* Quick Actions */}
-            <InvestmentQuickActions
-              onInvestNow={() => setDialogOpen(true)}
-              onWithdraw={() => toast.info("Funcionalidade de resgate em breve!")}
-              onViewDetails={() => setActiveView("details")}
-            />
-
-            {/* Main Content Grid */}
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* Investment Products */}
-              <InvestmentProducts
-                onSelectProduct={(productId) => {
-                  // Pre-fill investment based on product
-                  const productMap: Record<string, { type: string; name: string; risk: string }> = {
-                    "otnr": { type: "obrigacoes", name: "OTNR", risk: "low" },
-                    "bt": { type: "obrigacoes", name: "Bilhetes do Tesouro", risk: "low" },
-                    "deposito": { type: "deposito_prazo", name: "Depósito a Prazo", risk: "low" },
-                    "fundos-conservadores": { type: "fundos", name: "Fundo Conservador", risk: "low" },
-                    "obrigacoes-corp": { type: "obrigacoes", name: "Obrigações Corporativas", risk: "medium" },
-                    "fundos-mistos": { type: "fundos", name: "Fundo Misto", risk: "medium" },
-                    "carteira-equilibrada": { type: "fundos", name: "Carteira Equilibrada", risk: "medium" },
-                    "acoes-bodiva": { type: "acoes", name: "Ações BODIVA", risk: "high" },
-                    "fundos-acoes": { type: "fundos", name: "Fundo de Ações", risk: "high" },
-                    "carteira-agressiva": { type: "fundos", name: "Carteira Personalizada", risk: "high" },
-                  };
-                  const product = productMap[productId];
-                  if (product) {
-                    setNewInvestment({
-                      ...newInvestment,
-                      type: product.type,
-                      name: product.name,
-                      risk_level: product.risk,
-                    });
-                    setDialogOpen(true);
-                  }
-                }}
+          {activeView === "home" ? (
+            <>
+              {/* Portfolio Summary */}
+              <InvestmentPortfolioSummary
+                totalInvested={totalInvested}
+                totalCurrentValue={totalCurrentValue}
+                totalReturn={totalReturn}
+                returnPercentage={returnPercentage}
+                monthlyReturn={monthlyReturn}
+                riskProfile={riskProfile}
               />
 
-              <div className="space-y-6">
-                {/* Simulator */}
-                <InvestmentSimulator />
-              </div>
-            </div>
 
-            {/* Education Section */}
-            <InvestmentEducation />
-          </>
-        ) : (
-          /* Details View - Existing Investments */
-          <div className="space-y-6">
-            {/* Back Button */}
-            <Button variant="ghost" onClick={() => setActiveView("home")}>
-              ← Voltar à Visão Geral
-            </Button>
+              {/* Quick Actions */}
+              <InvestmentQuickActions
+                onInvestNow={() => setDialogOpen(true)}
+                onWithdraw={() => toast.info("Funcionalidade de resgate em breve!")}
+                onViewDetails={() => setActiveView("details")}
+              />
 
-            {/* Portfolio Distribution */}
-            {investments.length > 0 && (
+              {/* Main Content Grid */}
               <div className="grid lg:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Distribuição por Tipo</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-6">
-                      <div className="h-48 w-48">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <RechartsPie>
-                            <Pie
-                              data={portfolioByType}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={40}
-                              outerRadius={70}
-                              paddingAngle={2}
-                              dataKey="value"
-                            >
-                              {portfolioByType.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                          </RechartsPie>
-                        </ResponsiveContainer>
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        {portfolioByType.map((item, index) => (
-                          <div key={index} className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span>{item.icon}</span>
-                              <span className="text-sm">{item.name}</span>
-                            </div>
-                            <span className="text-sm font-medium">
-                              {((item.value / totalCurrentValue) * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Investment Products */}
+                <InvestmentProducts
+                  onSelectProduct={(productId) => {
+                    // Pre-fill investment based on product
+                    const productMap: Record<string, { type: string; name: string; risk: string }> = {
+                      "otnr": { type: "obrigacoes", name: "OTNR", risk: "low" },
+                      "bt": { type: "obrigacoes", name: "Bilhetes do Tesouro", risk: "low" },
+                      "deposito": { type: "deposito_prazo", name: "Depósito a Prazo", risk: "low" },
+                      "fundos-conservadores": { type: "fundos", name: "Fundo Conservador", risk: "low" },
+                      "obrigacoes-corp": { type: "obrigacoes", name: "Obrigações Corporativas", risk: "medium" },
+                      "fundos-mistos": { type: "fundos", name: "Fundo Misto", risk: "medium" },
+                      "carteira-equilibrada": { type: "fundos", name: "Carteira Equilibrada", risk: "medium" },
+                      "acoes-bodiva": { type: "acoes", name: "Ações BODIVA", risk: "high" },
+                      "fundos-acoes": { type: "fundos", name: "Fundo de Ações", risk: "high" },
+                      "carteira-agressiva": { type: "fundos", name: "Carteira Personalizada", risk: "high" },
+                    };
+                    const product = productMap[productId];
+                    if (product) {
+                      setNewInvestment({
+                        ...newInvestment,
+                        type: product.type,
+                        name: product.name,
+                        risk_level: product.risk,
+                      });
+                      setDialogOpen(true);
+                    }
+                  }}
+                />
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Resumo Rápido</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Investido</span>
-                      <span className="font-bold">{totalInvested.toLocaleString('pt-AO')} Kz</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Valor Atual</span>
-                      <span className="font-bold">{totalCurrentValue.toLocaleString('pt-AO')} Kz</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Rendimento</span>
-                      <span className={`font-bold ${totalReturn >= 0 ? 'text-success' : 'text-destructive'}`}>
-                        {totalReturn >= 0 ? '+' : ''}{totalReturn.toLocaleString('pt-AO')} Kz ({returnPercentage.toFixed(1)}%)
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Ativos</span>
-                      <span className="font-bold">{investments.length}</span>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="space-y-6">
+                  {/* Simulator */}
+                  <InvestmentSimulator />
+                </div>
               </div>
-            )}
 
-            {/* Investment List */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg">Meus Investimentos</CardTitle>
-                <Button variant="accent" size="sm" onClick={() => setDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {investments.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Wallet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Nenhum investimento ainda</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Comece a investir e acompanhe seu patrimônio crescer
-                    </p>
-                    <Button variant="accent" onClick={() => setDialogOpen(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Registrar Primeiro Investimento
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {investments.map((investment) => {
-                      const typeInfo = getTypeInfo(investment.type);
-                      const riskInfo = getRiskInfo(investment.risk_level);
-                      const returnPct = calculateReturnPercentage(investment);
-                      const currentValue = investment.current_value || investment.amount;
+              {/* Education Section */}
+              <InvestmentEducation />
+            </>
+          ) : (
+            /* Details View - Existing Investments */
+            <div className="space-y-6">
+              {/* Back Button */}
+              <Button variant="ghost" onClick={() => setActiveView("home")}>
+                ← Voltar à Visão Geral
+              </Button>
 
-                      return (
-                        <div
-                          key={investment.id}
-                          className="p-4 rounded-xl border border-border/50 hover:border-primary/30 transition-all"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-3">
-                              <div className="text-2xl">{typeInfo.icon}</div>
-                              <div>
-                                <h4 className="font-semibold text-foreground">{investment.name}</h4>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge variant="secondary" className="text-xs">
-                                    {typeInfo.label}
-                                  </Badge>
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-xs ${investment.risk_level === 'low'
-                                      ? 'bg-success/10 text-success border-success/20'
-                                      : investment.risk_level === 'high'
-                                        ? 'bg-destructive/10 text-destructive border-destructive/20'
-                                        : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                                      }`}
-                                  >
-                                    Risco {riskInfo.label}
-                                  </Badge>
+              {/* Portfolio Distribution */}
+              {investments.length > 0 && (
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Distribuição por Tipo</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-6">
+                        <div className="h-48 w-48">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RechartsPie>
+                              <Pie
+                                data={portfolioByType}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={40}
+                                outerRadius={70}
+                                paddingAngle={2}
+                                dataKey="value"
+                              >
+                                {portfolioByType.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                            </RechartsPie>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          {portfolioByType.map((item, index) => (
+                            <div key={index} className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span>{item.icon}</span>
+                                <span className="text-sm">{item.name}</span>
+                              </div>
+                              <span className="text-sm font-medium">
+                                {((item.value / totalCurrentValue) * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Resumo Rápido</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Investido</span>
+                        <span className="font-bold">{totalInvested.toLocaleString('pt-AO')} Kz</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Valor Atual</span>
+                        <span className="font-bold">{totalCurrentValue.toLocaleString('pt-AO')} Kz</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Rendimento</span>
+                        <span className={`font-bold ${totalReturn >= 0 ? 'text-success' : 'text-destructive'}`}>
+                          {totalReturn >= 0 ? '+' : ''}{totalReturn.toLocaleString('pt-AO')} Kz ({returnPercentage.toFixed(1)}%)
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Ativos</span>
+                        <span className="font-bold">{investments.length}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Investment List */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg">Meus Investimentos</CardTitle>
+                  <Button variant="accent" size="sm" onClick={() => setDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Novo
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {investments.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Wallet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Nenhum investimento ainda</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Comece a investir e acompanhe seu patrimônio crescer
+                      </p>
+                      <Button variant="accent" onClick={() => setDialogOpen(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Registrar Primeiro Investimento
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {investments.map((investment) => {
+                        const typeInfo = getTypeInfo(investment.type);
+                        const riskInfo = getRiskInfo(investment.risk_level);
+                        const returnPct = calculateReturnPercentage(investment);
+                        const currentValue = investment.current_value || investment.amount;
+
+                        return (
+                          <div
+                            key={investment.id}
+                            className="p-4 rounded-xl border border-border/50 hover:border-primary/30 transition-all"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-start gap-3">
+                                <div className="text-2xl">{typeInfo.icon}</div>
+                                <div>
+                                  <h4 className="font-semibold text-foreground">{investment.name}</h4>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {typeInfo.label}
+                                    </Badge>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs ${investment.risk_level === 'low'
+                                        ? 'bg-success/10 text-success border-success/20'
+                                        : investment.risk_level === 'high'
+                                          ? 'bg-destructive/10 text-destructive border-destructive/20'
+                                          : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                        }`}
+                                    >
+                                      Risco {riskInfo.label}
+                                    </Badge>
+                                  </div>
                                 </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openReinforceDialog(investment)}
+                                  className="text-xs"
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Reforçar
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openEditDialog(investment)}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => deleteInvestment(investment.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openReinforceDialog(investment)}
-                                className="text-xs"
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Reforçar
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openEditDialog(investment)}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => deleteInvestment(investment.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border/50">
-                            <div>
-                              <span className="text-xs text-muted-foreground">Investido</span>
-                              <p className="font-semibold">{investment.amount.toLocaleString('pt-AO')} Kz</p>
-                            </div>
-                            <div>
-                              <span className="text-xs text-muted-foreground">Valor Atual</span>
-                              <p className="font-semibold">{currentValue.toLocaleString('pt-AO')} Kz</p>
-                            </div>
-                            <div>
-                              <span className="text-xs text-muted-foreground">Rendimento</span>
-                              <p className={`font-semibold ${returnPct >= 0 ? 'text-success' : 'text-destructive'}`}>
-                                {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%
-                              </p>
-                              {investment.expected_return && (
-                                <p className="text-xs text-success mt-1">
-                                  +{calculateExpectedReturn(investment).toLocaleString('pt-AO')} Kz {investment.return_frequency === 'monthly' ? '/mês' : '/ano'}
+                            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border/50">
+                              <div>
+                                <span className="text-xs text-muted-foreground">Investido</span>
+                                <p className="font-semibold">{investment.amount.toLocaleString('pt-AO')} Kz</p>
+                              </div>
+                              <div>
+                                <span className="text-xs text-muted-foreground">Valor Atual</span>
+                                <p className="font-semibold">{currentValue.toLocaleString('pt-AO')} Kz</p>
+                              </div>
+                              <div>
+                                <span className="text-xs text-muted-foreground">Rendimento</span>
+                                <p className={`font-semibold ${returnPct >= 0 ? 'text-success' : 'text-destructive'}`}>
+                                  {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%
                                 </p>
-                              )}
+                                {investment.expected_return && (
+                                  <p className="text-xs text-success mt-1">
+                                    +{calculateExpectedReturn(investment).toLocaleString('pt-AO')} Kz {investment.return_frequency === 'monthly' ? '/mês' : '/ano'}
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                          </div>
 
-                          {investment.maturity_date && (
-                            <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                              <Calendar className="h-4 w-4" />
-                              Vencimento: {format(new Date(investment.maturity_date), 'dd/MM/yyyy')}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                            {investment.maturity_date && (
+                              <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                                <Calendar className="h-4 w-4" />
+                                Vencimento: {format(new Date(investment.maturity_date), 'dd/MM/yyyy')}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Create/Edit Dialog */}
+          <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); else setDialogOpen(true); }}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>
+                  {reinforcingInvestment ? `Reforçar: ${reinforcingInvestment.name}` : editingInvestment ? 'Editar Investimento' : 'Registrar Investimento'}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto pr-2">
+                {reinforcingInvestment && (
+                  <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+                    <p className="text-sm font-medium">Valor atual: {((reinforcingInvestment.current_value || reinforcingInvestment.amount) + (parseFloat(newInvestment.amount) || 0)).toLocaleString('pt-AO')} Kz</p>
+                    <p className="text-xs text-muted-foreground mt-1">Original: {reinforcingInvestment.amount.toLocaleString('pt-AO')} Kz + Reforço: {(parseFloat(newInvestment.amount) || 0).toLocaleString('pt-AO')} Kz</p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Create/Edit Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); else setDialogOpen(true); }}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>
-                {reinforcingInvestment ? `Reforçar: ${reinforcingInvestment.name}` : editingInvestment ? 'Editar Investimento' : 'Registrar Investimento'}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto pr-2">
-              {reinforcingInvestment && (
-                <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
-                  <p className="text-sm font-medium">Valor atual: {((reinforcingInvestment.current_value || reinforcingInvestment.amount) + (parseFloat(newInvestment.amount) || 0)).toLocaleString('pt-AO')} Kz</p>
-                  <p className="text-xs text-muted-foreground mt-1">Original: {reinforcingInvestment.amount.toLocaleString('pt-AO')} Kz + Reforço: {(parseFloat(newInvestment.amount) || 0).toLocaleString('pt-AO')} Kz</p>
-                </div>
-              )}
-              {!reinforcingInvestment && (
-                <div className="space-y-2">
-                  <Label>Nome do Investimento</Label>
-                  <Input
-                    placeholder="Ex: Poupança BFA, Obrigações 2027..."
-                    value={newInvestment.name}
-                    onChange={(e) => setNewInvestment({ ...newInvestment, name: e.target.value })}
-                  />
-                </div>
-              )}
-
-              {!reinforcingInvestment && (
-                <div className="space-y-2">
-                  <Label>Tipo de Investimento</Label>
-                  <Select
-                    value={newInvestment.type}
-                    onValueChange={(value) => setNewInvestment({ ...newInvestment, type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INVESTMENT_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.icon} {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{reinforcingInvestment ? 'Valor a Adicionar (Kz)' : 'Valor Investido (Kz)'}</Label>
-                  <Input
-                    type="number"
-                    placeholder="100000"
-                    value={newInvestment.amount}
-                    onChange={(e) => setNewInvestment({ ...newInvestment, amount: e.target.value })}
-                  />
-                </div>
                 {!reinforcingInvestment && (
                   <div className="space-y-2">
-                    <Label>Valor Atual (Kz)</Label>
+                    <Label>Nome do Investimento</Label>
                     <Input
-                      type="number"
-                      placeholder="105000"
-                      value={newInvestment.current_value}
-                      onChange={(e) => setNewInvestment({ ...newInvestment, current_value: e.target.value })}
+                      placeholder="Ex: Poupança BFA, Obrigações 2027..."
+                      value={newInvestment.name}
+                      onChange={(e) => setNewInvestment({ ...newInvestment, name: e.target.value })}
                     />
                   </div>
                 )}
-              </div>
 
-              {!reinforcingInvestment && (
-                <div className="grid grid-cols-3 gap-4">
+                {!reinforcingInvestment && (
                   <div className="space-y-2">
-                    <Label>Retorno Esperado (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      placeholder="10.5"
-                      value={newInvestment.expected_return}
-                      onChange={(e) => setNewInvestment({ ...newInvestment, expected_return: e.target.value })}
-                      disabled={reinforcingInvestment !== null}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Frequência</Label>
+                    <Label>Tipo de Investimento</Label>
                     <Select
-                      value={newInvestment.return_frequency}
-                      onValueChange={(value: 'monthly' | 'annual') => setNewInvestment({ ...newInvestment, return_frequency: value })}
-                      disabled={reinforcingInvestment !== null}
+                      value={newInvestment.type}
+                      onValueChange={(value) => setNewInvestment({ ...newInvestment, type: value })}
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Selecione o tipo" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="annual">Anual</SelectItem>
-                        <SelectItem value="monthly">Mensal</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Nível de Risco</Label>
-                    <Select
-                      value={newInvestment.risk_level}
-                      onValueChange={(value) => setNewInvestment({ ...newInvestment, risk_level: value })}
-                      disabled={reinforcingInvestment !== null}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {RISK_LEVELS.map((level) => (
-                          <SelectItem key={level.value} value={level.value}>
-                            {level.label}
+                        {INVESTMENT_TYPES.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.icon} {type.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-              )}
+                )}
 
-              {newInvestment.expected_return && parseFloat(newInvestment.expected_return) > 0 && parseFloat(newInvestment.amount) > 0 && (
-                <div className="p-3 bg-success/10 rounded-lg border border-success/20">
-                  <p className="text-sm font-medium text-success">
-                    Retorno Projetado: +{((parseFloat(newInvestment.amount) || 0) * (parseFloat(newInvestment.expected_return) / 100)).toLocaleString('pt-AO')} Kz {newInvestment.return_frequency === 'monthly' ? 'por mês' : 'por ano'}
-                  </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{reinforcingInvestment ? 'Valor a Adicionar (Kz)' : 'Valor Investido (Kz)'}</Label>
+                    <Input
+                      type="number"
+                      placeholder="100000"
+                      value={newInvestment.amount}
+                      onChange={(e) => setNewInvestment({ ...newInvestment, amount: e.target.value })}
+                    />
+                  </div>
+                  {!reinforcingInvestment && (
+                    <div className="space-y-2">
+                      <Label>Valor Atual (Kz)</Label>
+                      <Input
+                        type="number"
+                        placeholder="105000"
+                        value={newInvestment.current_value}
+                        onChange={(e) => setNewInvestment({ ...newInvestment, current_value: e.target.value })}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
 
-              <div className="grid grid-cols-2 gap-4">
+                {!reinforcingInvestment && (
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Retorno Esperado (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        placeholder="10.5"
+                        value={newInvestment.expected_return}
+                        onChange={(e) => setNewInvestment({ ...newInvestment, expected_return: e.target.value })}
+                        disabled={reinforcingInvestment !== null}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Frequência</Label>
+                      <Select
+                        value={newInvestment.return_frequency}
+                        onValueChange={(value: 'monthly' | 'annual') => setNewInvestment({ ...newInvestment, return_frequency: value })}
+                        disabled={reinforcingInvestment !== null}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="annual">Anual</SelectItem>
+                          <SelectItem value="monthly">Mensal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nível de Risco</Label>
+                      <Select
+                        value={newInvestment.risk_level}
+                        onValueChange={(value) => setNewInvestment({ ...newInvestment, risk_level: value })}
+                        disabled={reinforcingInvestment !== null}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RISK_LEVELS.map((level) => (
+                            <SelectItem key={level.value} value={level.value}>
+                              {level.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {newInvestment.expected_return && parseFloat(newInvestment.expected_return) > 0 && parseFloat(newInvestment.amount) > 0 && (
+                  <div className="p-3 bg-success/10 rounded-lg border border-success/20">
+                    <p className="text-sm font-medium text-success">
+                      Retorno Projetado: +{((parseFloat(newInvestment.amount) || 0) * (parseFloat(newInvestment.expected_return) / 100)).toLocaleString('pt-AO')} Kz {newInvestment.return_frequency === 'monthly' ? 'por mês' : 'por ano'}
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Data de Início</Label>
+                    <Input
+                      type="date"
+                      value={newInvestment.start_date}
+                      onChange={(e) => setNewInvestment({ ...newInvestment, start_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data de Vencimento</Label>
+                    <Input
+                      type="date"
+                      value={newInvestment.maturity_date}
+                      onChange={(e) => setNewInvestment({ ...newInvestment, maturity_date: e.target.value })}
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <Label>Data de Início</Label>
-                  <Input
-                    type="date"
-                    value={newInvestment.start_date}
-                    onChange={(e) => setNewInvestment({ ...newInvestment, start_date: e.target.value })}
+                  <Label>Notas (opcional)</Label>
+                  <Textarea
+                    placeholder="Observações sobre este investimento..."
+                    value={newInvestment.notes}
+                    onChange={(e) => setNewInvestment({ ...newInvestment, notes: e.target.value })}
+                    rows={3}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Data de Vencimento</Label>
-                  <Input
-                    type="date"
-                    value={newInvestment.maturity_date}
-                    onChange={(e) => setNewInvestment({ ...newInvestment, maturity_date: e.target.value })}
-                  />
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button variant="outline" onClick={resetForm}>
+                    Cancelar
+                  </Button>
+                  <Button variant="accent" onClick={createOrUpdateInvestment}>
+                    {reinforcingInvestment ? 'Reforçar Investimento' : editingInvestment ? 'Atualizar' : 'Registrar'}
+                  </Button>
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label>Notas (opcional)</Label>
-                <Textarea
-                  placeholder="Observações sobre este investimento..."
-                  value={newInvestment.notes}
-                  onChange={(e) => setNewInvestment({ ...newInvestment, notes: e.target.value })}
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <Button variant="outline" onClick={resetForm}>
-                  Cancelar
-                </Button>
-                <Button variant="accent" onClick={createOrUpdateInvestment}>
-                  {reinforcingInvestment ? 'Reforçar Investimento' : editingInvestment ? 'Atualizar' : 'Registrar'}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </ModuleGuard>
     </AppLayout >
   );
 }
