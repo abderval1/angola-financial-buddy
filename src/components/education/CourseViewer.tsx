@@ -407,10 +407,10 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl h-[95vh] p-0 gap-0 flex flex-col overflow-y-auto md:overflow-hidden">
+      <DialogContent className="max-w-6xl h-[95vh] p-0 gap-0 flex flex-col overflow-y-auto">
         {showCertificate ? (
           // Certificate View
-          <div className="flex-1 md:overflow-y-auto">
+          <div className="flex-1">
             <div className="flex flex-col items-center justify-center min-h-full p-8 bg-gradient-to-br from-primary/5 to-accent/5">
               <div className="w-full max-w-2xl p-8 border-4 border-primary rounded-xl bg-card shadow-2xl">
                 <div className="text-center space-y-6">
@@ -477,7 +477,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
               </Button>
             </div>
 
-            <div className="flex-1 md:overflow-y-auto p-6">
+            <div className="flex-1 p-6">
               <div className="max-w-2xl mx-auto space-y-6">
                 {quizSubmitted ? (
                   // Quiz Results
@@ -734,7 +734,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                   </div>
 
                   {/* SCROLLABLE CONTENT AREA */}
-                  <div className="flex-1 md:overflow-y-auto">
+                  <div className="flex-1">
                     <div className="max-w-4xl mx-auto space-y-6 p-6 pb-12">
                       {/* Course Cover Image */}
                       {course?.thumbnail_url && (
