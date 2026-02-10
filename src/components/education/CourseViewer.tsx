@@ -407,10 +407,10 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl h-[95vh] p-0 gap-0 flex flex-col overflow-hidden">
+      <DialogContent className="max-w-6xl h-[95vh] p-0 gap-0 flex flex-col overflow-y-auto md:overflow-hidden">
         {showCertificate ? (
           // Certificate View
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 md:overflow-y-auto">
             <div className="flex flex-col items-center justify-center min-h-full p-8 bg-gradient-to-br from-primary/5 to-accent/5">
               <div className="w-full max-w-2xl p-8 border-4 border-primary rounded-xl bg-card shadow-2xl">
                 <div className="text-center space-y-6">
@@ -477,7 +477,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
               </Button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 md:overflow-y-auto p-6">
               <div className="max-w-2xl mx-auto space-y-6">
                 {quizSubmitted ? (
                   // Quiz Results
@@ -498,29 +498,20 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                           {quizScore >= (finalQuiz?.passing_score || 70) ? "Aprovado!" : "Não Aprovado"}
                         </h3>
                         <p className="text-4xl font-bold text-primary mt-2">{quizScore}%</p>
-                        <p className="text-muted-foreground mt-2">
-                          Nota mínima: {finalQuiz?.passing_score || 70}%
+                        <p className="text-muted-foreground mt-1">
+                          {quizScore >= (finalQuiz?.passing_score || 70)
+                            ? "Parabéns! Você completou este módulo."
+                            : "Você precisa estudar um pouco mais."}
                         </p>
                       </div>
-
                       <div className="flex justify-center gap-4 pt-4">
-                        {quizScore >= (finalQuiz?.passing_score || 70) ? (
-                          <Button onClick={() => {
-                            if (!hasCertificate) {
-                              generateCertificateMutation.mutate();
-                            } else {
-                              setShowCertificate(true);
-                            }
-                          }}>
-                            <Award className="h-4 w-4 mr-2" />
-                            {hasCertificate ? "Ver Certificado" : "Obter Certificado"}
-                          </Button>
-                        ) : (
-                          <Button onClick={handleRetryQuiz}>
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Tentar Novamente
-                          </Button>
-                        )}
+                        <Button variant="outline" onClick={handleRetryQuiz}>
+                          <RotateCcw className="h-4 w-4 mr-2" />
+                          Tentar Novamente
+                        </Button>
+                        <Button variant="default" onClick={() => setShowQuiz(false)}>
+                          Voltar ao Curso
+                        </Button>
                       </div>
                     </div>
                   </Card>
@@ -591,8 +582,8 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
           // Course Content View
           <div className="flex flex-col md:flex-row h-full">
             {/* Sidebar - Module List */}
-            <div className="w-full md:w-80 h-[35vh] md:h-full border-r-0 md:border-r border-b md:border-b-0 bg-muted/30 flex flex-col shrink-0">
-              <div className="p-4 border-b shrink-0">
+            <div className="w-full md:w-80 h-auto md:h-full max-h-[35vh] md:max-h-none overflow-y-auto border-r-0 md:border-r border-b md:border-b-0 bg-muted/30 flex flex-col shrink-0">
+              <div className="p-4 border-b shrink-0 sticky top-0 bg-muted/95 backdrop-blur z-10">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold truncate pr-2">{course?.title}</h3>
                   <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0">
@@ -611,7 +602,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4">
+              <div className="p-4">
                 <div className="space-y-2">
                   {modules.map((mod, index) => {
                     const completed = isModuleCompleted(mod.id);
@@ -743,7 +734,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                   </div>
 
                   {/* SCROLLABLE CONTENT AREA */}
-                  <div className="flex-1 overflow-y-auto">
+                  <div className="flex-1 md:overflow-y-auto">
                     <div className="max-w-4xl mx-auto space-y-6 p-6 pb-12">
                       {/* Course Cover Image */}
                       {course?.thumbnail_url && (
