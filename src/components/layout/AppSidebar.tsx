@@ -270,14 +270,7 @@ export function AppSidebar() {
             </div>
           </div>
         )}
-        {/* Debug Info (Temporary) */}
-        {!collapsed && (
-          <div className="px-4 py-2 text-xs text-muted-foreground border-t border-sidebar-border">
-            <p>Role: {userRole || 'loading...'}</p>
-            <p>IsAdmin: {isAdmin ? 'YES' : 'NO'}</p>
-            <p>ID: {user?.id?.substring(0, 8)}...</p>
-          </div>
-        )}
+
       </div>
     </aside>
   );
