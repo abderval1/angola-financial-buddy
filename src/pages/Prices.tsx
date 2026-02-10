@@ -43,6 +43,7 @@ import {
   Heart,
   HeartOff,
   ChevronsUpDown,
+  Pencil,
 } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -117,6 +118,7 @@ export default function Prices() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEssentialOnly, setShowEssentialOnly] = useState(false);
   const [activeTab, setActiveTab] = useState("compare");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form state
   const [newEntry, setNewEntry] = useState({
@@ -343,6 +345,53 @@ export default function Prices() {
     },
   });
 
+  // Update entry mutation
+  const updateEntryMutation = useMutation({
+    mutationFn: async ({ id, entry }: { id: string; entry: typeof newEntry }) => {
+      const brandNote = entry.brand ? `[MARCA: ${entry.brand}] ` : "";
+
+      const { error } = await supabase
+        .from("price_entries")
+        .update({
+          product_name: entry.product_name,
+          store_name: entry.store_name,
+          price: parseFloat(entry.price),
+          quantity: parseFloat(entry.quantity),
+          unit: entry.unit,
+          is_essential: entry.is_essential,
+          notes: brandNote + (entry.notes || ""),
+          purchase_date: entry.purchase_date,
+        })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["price-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["my-price-entries"] });
+
+      toast.success("Preço atualizado com sucesso!");
+      setShowAddDialog(false);
+      setEditingId(null);
+
+      setNewEntry({
+        product_name: "",
+        store_name: "",
+        category: "Alimentação",
+        brand: "",
+        price: "",
+        quantity: "1",
+        unit: "unidade",
+        is_essential: true,
+        notes: "",
+        purchase_date: new Date().toISOString().split("T")[0],
+      });
+    },
+    onError: () => {
+      toast.error("Erro ao atualizar preço");
+    },
+  });
+
   // Delete entry mutation
   const deleteEntryMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -527,7 +576,24 @@ export default function Prices() {
                     </p>
                   </div>
                 </div>
-                <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+                <Dialog open={showAddDialog} onOpenChange={(open) => {
+                  setShowAddDialog(open);
+                  if (!open) {
+                    setEditingId(null);
+                    setNewEntry({
+                      product_name: "",
+                      store_name: "",
+                      category: "Alimentação",
+                      brand: "",
+                      price: "",
+                      quantity: "1",
+                      unit: "unidade",
+                      is_essential: true,
+                      notes: "",
+                      purchase_date: new Date().toISOString().split("T")[0],
+                    });
+                  }
+                }}>
                   <DialogTrigger asChild>
                     <Button className="gradient-primary">
                       <Plus className="h-4 w-4 mr-2" />
@@ -536,7 +602,7 @@ export default function Prices() {
                   </DialogTrigger>
                   <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
                     <DialogHeader className="p-6 pb-2">
-                      <DialogTitle>Registrar Preço de Produto</DialogTitle>
+                      <DialogTitle>{editingId ? "Editar Preço" : "Registrar Preço de Produto"}</DialogTitle>
                     </DialogHeader>
                     <div className="flex-1 overflow-hidden">
                       <div className="px-6">
@@ -783,10 +849,16 @@ export default function Prices() {
                       </Button>
                       <Button
                         className="gradient-primary"
-                        onClick={() => addEntryMutation.mutate(newEntry)}
-                        disabled={!newEntry.product_name || !newEntry.store_name || !newEntry.price || addEntryMutation.isPending}
+                        onClick={() => {
+                          if (editingId) {
+                            updateEntryMutation.mutate({ id: editingId, entry: newEntry });
+                          } else {
+                            addEntryMutation.mutate(newEntry);
+                          }
+                        }}
+                        disabled={!newEntry.product_name || !newEntry.store_name || !newEntry.price || addEntryMutation.isPending || updateEntryMutation.isPending}
                       >
-                        {addEntryMutation.isPending ? "Salvando..." : "Registrar Preço"}
+                        {addEntryMutation.isPending || updateEntryMutation.isPending ? "Salvando..." : editingId ? "Atualizar Preço" : "Registrar Preço"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -797,6 +869,7 @@ export default function Prices() {
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
             <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -1368,8 +1441,41 @@ export default function Prices() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <span className="font-bold text-lg">{formatCurrency(entry.price)}</span>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                const prod = productsCatalog.find(p => p.name.toLowerCase() === entry.product_name.toLowerCase());
+
+                                // Extract brand from notes if present
+                                let brand = "";
+                                let notes = entry.notes || "";
+                                const brandMatch = notes.match(/\[MARCA: (.*?)\]\s?/);
+                                if (brandMatch) {
+                                  brand = brandMatch[1];
+                                  notes = notes.replace(brandMatch[0], "");
+                                }
+
+                                setNewEntry({
+                                  product_name: entry.product_name,
+                                  store_name: entry.store_name,
+                                  category: prod?.category || "Alimentação",
+                                  brand: brand,
+                                  price: entry.price.toString(),
+                                  quantity: entry.quantity.toString(),
+                                  unit: entry.unit,
+                                  is_essential: entry.is_essential,
+                                  notes: notes,
+                                  purchase_date: entry.purchase_date.split("T")[0],
+                                });
+                                setEditingId(entry.id);
+                                setShowAddDialog(true);
+                              }}
+                              className="text-primary hover:text-primary hover:bg-primary/10"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
