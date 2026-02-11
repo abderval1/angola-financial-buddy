@@ -25,7 +25,9 @@ import {
   Minus,
   Maximize2,
   Minimize2,
+  Code2,
 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Popover,
   PopoverContent,
@@ -48,6 +50,8 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
   const [imageUrl, setImageUrl] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isSourceMode, setIsSourceMode] = useState(false);
+  const [localHtml, setLocalHtml] = useState(content);
 
   const editor = useEditor({
     extensions: [
@@ -82,9 +86,25 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
       },
     },
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      const html = editor.getHTML();
+      // Only update localHtml from editor if we are NOT in source mode
+      // to avoid clobbering what the user is typing in the textarea
+      setLocalHtml((prev) => {
+        if (!isSourceMode) return html;
+        return prev;
+      });
+      onChange(html);
     },
   });
+
+  // Keep internal state in sync with external content prop
+  // But ONLY if we are in visual mode and it's a genuine external update
+  useEffect(() => {
+    if (editor && !isSourceMode && content !== editor.getHTML()) {
+      editor.commands.setContent(content);
+      setLocalHtml(content);
+    }
+  }, [content, editor, isSourceMode]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -148,12 +168,36 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
           </Toggle>
         </div>
 
+        {/* Source Toggle */}
+        <div className="flex items-center gap-0.5 border-r pr-2 mr-1">
+          <Toggle
+            size="sm"
+            pressed={isSourceMode}
+            onPressedChange={() => {
+              if (isSourceMode) {
+                // Moving back to visual mode
+                // We must set the content to what's currently in localHtml
+                editor.chain().focus().setContent(localHtml).run();
+              } else {
+                // Moving to source mode
+                const currentHtml = editor.getHTML();
+                setLocalHtml(currentHtml);
+              }
+              setIsSourceMode(!isSourceMode);
+            }}
+            title="Ver Código Fonte"
+          >
+            <Code2 className="h-4 w-4" />
+          </Toggle>
+        </div>
+
         {/* Text Formatting */}
         <div className="flex items-center gap-0.5 border-r pr-2 mr-1">
           <Toggle
             size="sm"
             pressed={editor.isActive('bold')}
             onPressedChange={() => editor.chain().focus().toggleBold().run()}
+            disabled={isSourceMode}
           >
             <Bold className="h-4 w-4" />
           </Toggle>
@@ -161,6 +205,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
             size="sm"
             pressed={editor.isActive('italic')}
             onPressedChange={() => editor.chain().focus().toggleItalic().run()}
+            disabled={isSourceMode}
           >
             <Italic className="h-4 w-4" />
           </Toggle>
@@ -168,6 +213,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
             size="sm"
             pressed={editor.isActive('strike')}
             onPressedChange={() => editor.chain().focus().toggleStrike().run()}
+            disabled={isSourceMode}
           >
             <Strikethrough className="h-4 w-4" />
           </Toggle>
@@ -175,6 +221,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
             size="sm"
             pressed={editor.isActive('code')}
             onPressedChange={() => editor.chain().focus().toggleCode().run()}
+            disabled={isSourceMode}
           >
             <Code className="h-4 w-4" />
           </Toggle>
@@ -186,6 +233,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
             size="sm"
             pressed={editor.isActive('heading', { level: 1 })}
             onPressedChange={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            disabled={isSourceMode}
           >
             <Heading1 className="h-4 w-4" />
           </Toggle>
@@ -193,6 +241,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
             size="sm"
             pressed={editor.isActive('heading', { level: 2 })}
             onPressedChange={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+            disabled={isSourceMode}
           >
             <Heading2 className="h-4 w-4" />
           </Toggle>
@@ -200,6 +249,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
             size="sm"
             pressed={editor.isActive('heading', { level: 3 })}
             onPressedChange={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+            disabled={isSourceMode}
           >
             <Heading3 className="h-4 w-4" />
           </Toggle>
@@ -211,6 +261,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
             size="sm"
             pressed={editor.isActive('bulletList')}
             onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
+            disabled={isSourceMode}
           >
             <List className="h-4 w-4" />
           </Toggle>
@@ -218,6 +269,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
             size="sm"
             pressed={editor.isActive('orderedList')}
             onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
+            disabled={isSourceMode}
           >
             <ListOrdered className="h-4 w-4" />
           </Toggle>
@@ -225,6 +277,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
             size="sm"
             pressed={editor.isActive('blockquote')}
             onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
+            disabled={isSourceMode}
           >
             <Quote className="h-4 w-4" />
           </Toggle>
@@ -232,6 +285,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
             size="sm"
             pressed={false}
             onPressedChange={() => editor.chain().focus().setHorizontalRule().run()}
+            disabled={isSourceMode}
           >
             <Minus className="h-4 w-4" />
           </Toggle>
@@ -242,7 +296,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
           {/* Link */}
           <Popover>
             <PopoverTrigger asChild>
-              <Toggle size="sm" pressed={editor.isActive('link')}>
+              <Toggle size="sm" pressed={editor.isActive('link')} disabled={isSourceMode}>
                 <LinkIcon className="h-4 w-4" />
               </Toggle>
             </PopoverTrigger>
@@ -262,7 +316,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
           {/* Image */}
           <Popover>
             <PopoverTrigger asChild>
-              <Toggle size="sm" pressed={false}>
+              <Toggle size="sm" pressed={false} disabled={isSourceMode}>
                 <ImageIcon className="h-4 w-4" />
               </Toggle>
             </PopoverTrigger>
@@ -282,7 +336,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
           {/* YouTube */}
           <Popover>
             <PopoverTrigger asChild>
-              <Toggle size="sm" pressed={false}>
+              <Toggle size="sm" pressed={false} disabled={isSourceMode}>
                 <YoutubeIcon className="h-4 w-4" />
               </Toggle>
             </PopoverTrigger>
@@ -326,8 +380,25 @@ export function RichTextEditor({ content, onChange, placeholder, className, maxH
           if (isFullscreen) e.stopPropagation();
         }}
       >
-        <div className={cn(isFullscreen ? "max-w-4xl mx-auto min-h-full" : "min-h-full")}>
-          <EditorContent editor={editor} />
+        <div className={cn("h-full", isFullscreen ? "max-w-4xl mx-auto" : "")}>
+          {/* Source Mode Textarea */}
+          <div className={cn("h-full", isSourceMode ? "block" : "hidden")}>
+            <Textarea
+              className="min-h-[300px] h-full w-full font-mono text-sm p-4 border-none focus-visible:ring-0 resize-none bg-muted/20"
+              value={localHtml}
+              onChange={(e) => {
+                const val = e.target.value;
+                setLocalHtml(val);
+                onChange(val);
+              }}
+              placeholder="Digite seu HTML aqui..."
+            />
+          </div>
+
+          {/* Visual Editor */}
+          <div className={cn("h-full", !isSourceMode ? "block" : "hidden")}>
+            <EditorContent editor={editor} />
+          </div>
         </div>
       </div>
 

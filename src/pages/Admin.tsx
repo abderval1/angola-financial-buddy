@@ -20,6 +20,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -358,6 +368,18 @@ function AdminUsers() {
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [userFormOpen, setUserFormOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    phone: "",
+    role: "user"
+  });
+
   const queryClient = useQueryClient();
 
   const { data: users = [], isLoading } = useQuery({
@@ -432,6 +454,111 @@ function AdminUsers() {
     return user.is_active !== false; // Default to true
   };
 
+  const createUserMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: { name: data.name }
+        }
+      });
+      if (authError) throw authError;
+
+      if (data.role !== 'user' && authData.user) {
+        await supabase.rpc("set_user_role", {
+          target_user_id: authData.user.id,
+          new_role: data.role
+        });
+      }
+
+      if (data.phone && authData.user) {
+        await supabase
+          .from("profiles")
+          .update({ phone: data.phone })
+          .eq("user_id", authData.user.id);
+      }
+    },
+    onSuccess: () => {
+      toast.success("Usuário criado com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setUserFormOpen(false);
+      resetForm();
+    },
+    onError: (error: any) => toast.error(error.message || "Erro ao criar usuário"),
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, data }: { userId: string, data: any }) => {
+      const { error } = await supabase.rpc("admin_update_user", {
+        target_user_id: userId,
+        new_name: data.name,
+        new_phone: data.phone
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Perfil atualizado!");
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setUserFormOpen(false);
+      resetForm();
+    },
+    onError: (error: any) => toast.error(error.message || "Erro ao atualizar perfil"),
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase.rpc("admin_delete_user", { target_user_id: userId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Usuário excluído do sistema!");
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setDeleteDialogOpen(false);
+    },
+    onError: (error: any) => toast.error(error.message || "Erro ao excluir usuário"),
+  });
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      email: "",
+      password: "",
+      phone: "",
+      role: "user"
+    });
+    setIsEditing(false);
+    setSelectedUser(null);
+  };
+
+  const handleEdit = (user: any) => {
+    setSelectedUser(user);
+    setFormData({
+      name: user.name || "",
+      email: user.email || "",
+      password: "",
+      phone: user.phone || "",
+      role: getUserRole(user)
+    });
+    setIsEditing(true);
+    setUserFormOpen(true);
+  };
+
+  const handleSubmit = () => {
+    if (isEditing && selectedUser) {
+      updateUserMutation.mutate({
+        userId: selectedUser.user_id || selectedUser.id,
+        data: formData
+      });
+    } else {
+      if (!formData.email || !formData.password) {
+        toast.error("Email e senha são obrigatórios");
+        return;
+      }
+      createUserMutation.mutate(formData);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -439,6 +566,10 @@ function AdminUsers() {
           <h1 className="font-display text-2xl font-bold">Gestão de Usuários</h1>
           <p className="text-muted-foreground">{users.length} usuários registrados</p>
         </div>
+        <Button onClick={() => { resetForm(); setUserFormOpen(true); }}>
+          <Plus className="h-4 w-4 mr-2" />
+          Novo Usuário
+        </Button>
       </div>
 
       <div className="flex gap-4">
@@ -517,6 +648,9 @@ function AdminUsers() {
                         <DropdownMenuItem onClick={() => { setSelectedUser(user); setDetailsOpen(true); }}>
                           <Eye className="h-4 w-4 mr-2" /> Ver Detalhes
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEdit(user)}>
+                          <Edit2 className="h-4 w-4 mr-2" /> Editar Usuário
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuSub>
                           <DropdownMenuSubTrigger>
@@ -544,6 +678,13 @@ function AdminUsers() {
                               <CheckCircle className="h-4 w-4 mr-2" /> Desbloquear
                             </>
                           )}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => { setSelectedUser(user); setDeleteDialogOpen(true); }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" /> Excluir Usuário
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -605,6 +746,113 @@ function AdminUsers() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Create/Edit User Dialog */}
+      <Dialog open={userFormOpen} onOpenChange={(open) => { if (!open) resetForm(); setUserFormOpen(open); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isEditing ? "Editar Usuário" : "Novo Usuário"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Nome completo"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="email@exemplo.com"
+                disabled={isEditing}
+              />
+            </div>
+
+            {!isEditing && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Telefone</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="+244 ..."
+              />
+            </div>
+
+            {!isEditing && (
+              <div className="space-y-2">
+                <Label htmlFor="role">Função</Label>
+                <Select
+                  value={formData.role}
+                  onValueChange={(value) => setFormData({ ...formData, role: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a função" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">Usuário</SelectItem>
+                    <SelectItem value="moderator">Moderador</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <Button
+              className="w-full mt-4"
+              onClick={handleSubmit}
+              disabled={createUserMutation.isPending || updateUserMutation.isPending}
+            >
+              {createUserMutation.isPending || updateUserMutation.isPending ? (
+                <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+              ) : (
+                isEditing ? "Salvar Alterações" : "Criar Usuário"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente o perfil de <strong>{selectedUser?.name || selectedUser?.email}</strong> e removerá seus dados de nossos servidores.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => selectedUser && deleteUserMutation.mutate(selectedUser.user_id || selectedUser.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteUserMutation.isPending ? "Excluindo..." : "Sim, excluir usuário"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

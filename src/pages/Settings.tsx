@@ -32,6 +32,7 @@ interface Profile {
   language: string | null;
   currency: string | null;
   notification_preferences: NotificationPreferences | null;
+  two_factor_enabled: boolean | null;
 }
 
 export default function Settings() {
@@ -54,6 +55,7 @@ export default function Settings() {
       push: true,
       sms: false,
     },
+    twoFactor: false,
   });
 
   // Fetch profile
@@ -94,6 +96,7 @@ export default function Settings() {
           push: true,
           sms: false,
         },
+        twoFactor: profile.two_factor_enabled || false,
       });
     } else if (user) {
       setFormData(prev => ({
@@ -116,22 +119,33 @@ export default function Settings() {
     mutationFn: async (data: typeof formData) => {
       if (!user?.id) throw new Error("User not authenticated");
 
+      const updateData: any = {
+        user_id: user.id,
+        name: data.name,
+        phone: data.phone,
+        language: data.language,
+        currency: data.currency,
+        notification_preferences: data.notifications,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Only include two_factor_enabled if it exists in the profile model (resilience)
+      // This helps if the migration haven't been applied yet
+      if (profile && 'two_factor_enabled' in profile) {
+        updateData.two_factor_enabled = data.twoFactor;
+      }
+
       const { error } = await supabase
         .from("profiles")
-        .update({
-          name: data.name,
-          phone: data.phone,
-          language: data.language,
-          currency: data.currency,
-          notification_preferences: data.notifications,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", user.id);
+        .upsert(updateData, { onConflict: 'user_id' });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase upsert error:", error);
+        throw error;
+      }
     },
     onSuccess: async () => {
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      await queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
       toast.success("Perfil atualizado com sucesso!");
 
       // Award XP for updating profile (once)
@@ -140,9 +154,9 @@ export default function Settings() {
       // Check for achievement
       await checkProfileCompletion();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Error updating profile:", error);
-      toast.error("Erro ao atualizar perfil");
+      toast.error(`Erro ao atualizar perfil: ${error.message || 'Erro desconhecido'}`);
     },
   });
 
@@ -196,7 +210,7 @@ export default function Settings() {
       return publicUrl;
     },
     onSuccess: async (publicUrl: string) => {
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      await queryClient.invalidateQueries({ queryKey: ["profile", user?.id] });
       toast.success("Foto de perfil atualizada!");
       await awardXP(1, "Personalizou o perfil (Foto)");
 
@@ -523,9 +537,12 @@ export default function Settings() {
                   Adicione uma camada extra de segurança
                 </p>
               </div>
-              <Button type="button" variant="outline" size="sm" disabled>
-                Configurar
-              </Button>
+              <Switch
+                checked={formData.twoFactor}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, twoFactor: checked })
+                }
+              />
             </div>
           </CardContent>
         </Card>

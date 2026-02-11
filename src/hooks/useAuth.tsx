@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const { data: profile, error: profileError } = await supabase
             .from("profiles")
-            .select("id, name, status, email")
+            .select("status")
             .eq("user_id", user.id)
             .maybeSingle();
 
@@ -59,23 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           // Check for suspension/ban
           if (profile?.status === 'suspended' || profile?.status === 'banned') {
-            // Only redirect if not already on the auth page with error
             if (!window.location.pathname.includes('/auth')) {
               await supabase.auth.signOut();
               window.location.href = '/auth?error=suspended';
             }
-            return;
-          }
-
-          // If profile doesn't exist or is missing name, and we have info, upsert it
-          if ((!profile || !profile.name) && user.email) {
-            const { error: upsertError } = await supabase.from("profiles").upsert({
-              user_id: user.id,
-              name: user.user_metadata?.name || profile?.name || user.email.split('@')[0],
-              email: user.email,
-              status: 'active'
-            });
-            if (upsertError) console.error("Error upserting profile:", upsertError);
           }
         } catch (err) {
           console.error("Exception in syncProfile:", err);
