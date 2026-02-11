@@ -32,43 +32,52 @@ import { Search, Filter, RefreshCw, Loader2 } from "lucide-react";
 export function AdminAuditLogs() {
     const [searchTerm, setSearchTerm] = useState("");
     const [actionFilter, setActionFilter] = useState("all");
+    const [currentPage, setCurrentPage] = useState(1);
+    const PAGE_SIZE = 20;
 
-    const { data: logs = [], isLoading, isError, error, refetch } = useQuery({
-        queryKey: ["audit-logs"],
+    const { data, isLoading, isError, error, refetch } = useQuery({
+        queryKey: ["audit-logs", actionFilter, currentPage],
         queryFn: async () => {
-            let query = (supabase
+            const from = (currentPage - 1) * PAGE_SIZE;
+            const to = from + PAGE_SIZE - 1;
+
+            let query = supabase
                 .from("activity_logs" as any)
-                .select("*") as any)
+                .select("*", { count: 'exact' })
                 .order("created_at", { ascending: false })
-                .limit(100);
+                .range(from, to);
 
             if (actionFilter !== "all") {
                 query = query.eq("action", actionFilter);
             }
 
-            const { data, error } = await query;
+            const { data: logs, error, count } = await query;
             if (error) throw error;
 
-            // Fetch user emails separately if needed
-            if (data && data.length > 0) {
-                const userIds = [...new Set(data.map((log: any) => log.user_id).filter(Boolean))] as string[];
+            if (logs && logs.length > 0) {
+                const userIds = [...new Set(logs.map((log: any) => log.user_id).filter(Boolean))] as string[];
                 if (userIds.length > 0) {
                     const { data: profiles } = await supabase
                         .from("profiles")
-                        .select("user_id, email, first_name, last_name")
+                        .select("user_id, email, name")
                         .in("user_id", userIds);
 
-                    // Merge profile data into logs
-                    return data.map((log: any) => ({
+                    const mergedLogs = logs.map((log: any) => ({
                         ...log,
                         profiles: profiles?.find((p: any) => p.user_id === log.user_id)
                     }));
+
+                    return { logs: mergedLogs, total: count || 0 };
                 }
             }
 
-            return data;
+            return { logs: logs || [], total: count || 0 };
         },
     });
+
+    const logs = data?.logs || [];
+    const totalCount = data?.total || 0;
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
     const filteredLogs = logs.filter((log: any) => {
         const searchLower = searchTerm.toLowerCase();
@@ -131,15 +140,15 @@ export function AdminAuditLogs() {
                         </Select>
                     </div>
 
-                    <div className="rounded-md border">
+                    <div className="rounded-md border overflow-auto max-h-[600px] scrollbar-custom">
                         <Table>
-                            <TableHeader>
+                            <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                                 <TableRow>
-                                    <TableHead>Data/Hora</TableHead>
-                                    <TableHead>Usuário</TableHead>
-                                    <TableHead>Acção</TableHead>
-                                    <TableHead>Detalhes</TableHead>
-                                    <TableHead>IP/Agent</TableHead>
+                                    <TableHead className="whitespace-nowrap">Data/Hora</TableHead>
+                                    <TableHead className="whitespace-nowrap">Usuário</TableHead>
+                                    <TableHead className="whitespace-nowrap">Acção</TableHead>
+                                    <TableHead className="whitespace-nowrap min-w-[300px]">Detalhes</TableHead>
+                                    <TableHead className="whitespace-nowrap">IP/Agent</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -170,13 +179,11 @@ export function AdminAuditLogs() {
                                             <TableCell className="whitespace-nowrap font-medium">
                                                 {format(new Date(log.created_at), "dd/MM/yyyy HH:mm:ss", { locale: pt })}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="whitespace-nowrap">
                                                 <div className="flex flex-col">
                                                     <span className="font-semibold text-sm">
                                                         {log.user_id ? (
-                                                            log.profiles?.first_name
-                                                                ? `${log.profiles.first_name} ${log.profiles.last_name || ''}`
-                                                                : 'Usuário'
+                                                            log.profiles?.name || 'Usuário'
                                                         ) : (
                                                             'Anônimo'
                                                         )}
@@ -187,23 +194,50 @@ export function AdminAuditLogs() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors bg-secondary text-secondary-foreground">
+                                                <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors bg-secondary text-secondary-foreground whitespace-nowrap">
                                                     {log.action}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="max-w-[300px]">
-                                                <pre className="text-xs bg-muted/50 p-2 rounded overflow-x-auto">
+                                            <TableCell className="min-w-[400px]">
+                                                <pre className="text-xs bg-muted/50 p-2 rounded overflow-x-auto max-h-[150px] scrollbar-custom">
                                                     {JSON.stringify(log.details, null, 2)}
                                                 </pre>
                                             </TableCell>
-                                            <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate" title={log.user_agent}>
-                                                {log.user_agent ? log.user_agent.substring(0, 30) + '...' : '-'}
+                                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap px-4" title={log.user_agent}>
+                                                {log.user_agent || '-'}
                                             </TableCell>
                                         </TableRow>
                                     ))
                                 )}
                             </TableBody>
                         </Table>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-6 px-2">
+                        <div className="text-xs text-muted-foreground">
+                            Mostrando {logs.length} de {totalCount} registos
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                disabled={currentPage === 1 || isLoading}
+                            >
+                                Anterior
+                            </Button>
+                            <div className="text-xs font-bold">
+                                Página {currentPage} de {totalPages || 1}
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                disabled={currentPage === totalPages || isLoading}
+                            >
+                                Próximo
+                            </Button>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

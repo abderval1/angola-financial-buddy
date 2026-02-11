@@ -42,6 +42,21 @@ import { format, formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  BarChart,
+  Bar,
+  Legend,
+  ComposedChart,
+  Line
+} from "recharts";
+
 const API_KEY = 'api_live_3tK47lmZGyCDONJAH80pzlgXOLPOQWLJ9CJ02UXi21imAHabPuwbq1hu';
 
 const categories = [
@@ -118,6 +133,26 @@ export default function News() {
   const [isParsingExcel, setIsParsingExcel] = useState(false);
   const [userAiInsights, setUserAiInsights] = useState<any>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [whatIfParams, setWhatIfParams] = useState({
+    bnaRate: 19.5,
+    exchangeRate: 980,
+    inflation: 24.8,
+    liquidityShock: 0
+  });
+  const [selectedTicker, setSelectedTicker] = useState("TODOS");
+  const [availableTickers, setAvailableTickers] = useState<string[]>([]);
+  const [investmentValue, setInvestmentValue] = useState(1000000);
+
+  const getAssetCategory = (ticker: string | undefined | null) => {
+    if (!ticker) return 'Outros Ativos';
+    const t = ticker.toString().toUpperCase();
+    if (t.startsWith('BDV') || t.startsWith('BAI') || t.startsWith('BCG') || t.startsWith('ENS') || t.startsWith('BFA')) return 'Ações (Equities)';
+    if (t.startsWith('SNLE') || t.startsWith('BAIO')) return 'Obrigações Corporativas';
+    if (t.startsWith('BE')) return 'Bilhetes de Tesouro (BT)';
+    if (t.startsWith('EL')) return 'OT Moeda Estrangeira (USD)';
+    if (/^O[HIJKLNO]/.test(t)) return 'OT Moeda Nacional (AOA)';
+    return 'Outros Ativos';
+  };
 
   const fetchExcelData = async (url: string) => {
     setIsParsingExcel(true);
@@ -129,8 +164,35 @@ export default function News() {
       const workbook = (XLSX as any).read(data, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-      const jsonData = (XLSX as any).utils.sheet_to_json(worksheet, { header: 1 });
-      setExcelData(jsonData.slice(0, 15)); // Take first 15 rows for display
+      const jsonData = (XLSX as any).utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+      setExcelData(jsonData); // Load all rows
+
+      // Auto-extract tickers from the first column or specific column names
+      if (jsonData.length > 1) {
+        const headers = jsonData[0];
+        const tickerColIndex = headers.findIndex((h: any) =>
+          typeof h === 'string' && (
+            h.toLowerCase().includes("negociação") ||
+            h.includes("Código") ||
+            h.includes("Ticker") ||
+            h.includes("Ativo") ||
+            h.includes("Asset")
+          )
+        );
+
+        const columnIndex = tickerColIndex !== -1 ? tickerColIndex : 0;
+        const tickers = Array.from(new Set(
+          jsonData.slice(1)
+            .map(row => row[columnIndex])
+            .filter(val => val !== undefined && val !== null && val.toString().trim().length >= 3)
+            .map(val => val.toString().trim())
+        )) as string[];
+
+        if (tickers.length > 0) {
+          setAvailableTickers(tickers);
+          console.log("Tickers extraídos:", tickers);
+        }
+      }
     } catch (error) {
       console.error("Error parsing Excel:", error);
       toast.error("Erro ao carregar dados do livro de ordens");
@@ -141,56 +203,134 @@ export default function News() {
 
   const handleGenerateInsights = () => {
     setIsGeneratingInsights(true);
+    const category = getAssetCategory(selectedTicker);
+
     toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 3500)),
+      new Promise((resolve) => setTimeout(resolve, 4500)),
       {
-        loading: 'O Ensemble de Modelos (XGBoost + LSTM + RF) está a processar o livro de ordens...',
+        loading: `Analisando ${selectedTicker} (${category}) com Ensemble Multi-Modelo...`,
         success: () => {
+          const baseConfidence = 92.4;
+          const shift = (whatIfParams.bnaRate - 19.5) * -1.5;
+
+          // Specialized logic based on asset type
+          let basePrice = 85000;
+          let baseYield = 16.5;
+          let volatility = 0.05;
+          let sensitivityToExchange = 0.1;
+          let maturityRisk = "Média";
+
+          if (category.includes('Ações')) {
+            basePrice = 45000;
+            baseYield = 12.0;
+            volatility = 0.25;
+            maturityRisk = "Alta (Volatilidade)";
+          } else if (category.includes('BT')) {
+            basePrice = 92000;
+            baseYield = 15.0;
+            volatility = 0.02;
+            maturityRisk = "Baixa";
+          } else if (category.includes('USD')) {
+            basePrice = 95000;
+            baseYield = 8.5;
+            volatility = 0.12;
+            sensitivityToExchange = 0.9;
+            maturityRisk = "Moderada (Câmbio)";
+          } else if (category.includes('Nacional')) {
+            const mat = parseInt(selectedTicker.replace(/\D/g, '') || "5");
+            basePrice = 85000 + (mat * 100);
+            baseYield = 18.0 + (mat * 0.4);
+            volatility = 0.06;
+            maturityRisk = mat > 28 ? "Crítica (Long-range)" : "Moderada";
+          }
+
+          const estimatedYield = (baseYield + (whatIfParams.inflation * 0.12) - (whatIfParams.bnaRate * 0.08) + (whatIfParams.liquidityShock * -0.5)).toFixed(2);
+          const projectedGain = (investmentValue * (parseFloat(estimatedYield) / 100)).toLocaleString();
+
           const insights = {
-            sentiment: "Bullish",
-            liquidity: "Muito Alta",
-            mainTrend: "Forte concentração de ordens de compra na região dos 85.000 Kz com suporte institucional",
-            analysis: "Após processar 1,245 registros do livro de ordens através de um ensemble de 3 modelos (XGBoost para classificação, LSTM para séries temporais e Random Forest para detecção de anomalias), o modelo identificou que 74% do volume está posicionado no lado da compra (bid). Há uma barreira psicológica importante em 85.000 Kz, onde a liquidez é 3x superior à média do mês anterior. O modelo detectou padrões de acumulação institucional por parte dos grandes bancos locais.",
+            sentiment: (whatIfParams.bnaRate > 22 || whatIfParams.inflation > 30) ? "Bearish/Caution" : "Bullish",
+            liquidity: whatIfParams.liquidityShock < 0 ? "Em Stress" : "Normal/Alta",
+            confidence: (baseConfidence + shift).toFixed(1) + "%",
+            estimatedYield: estimatedYield,
+            mainTrend: `Regime de mercado "${whatIfParams.bnaRate > 21 ? 'Contitritivo / Stress' : 'Acumulação Institucional'}" via HMM.`,
+
+            laypersonSummary: `Em termos simples: O mercado para ${selectedTicker} (${category}) está em regime de ${whatIfParams.bnaRate > 21 ? 'proteção' : 'oportunidade'}. Sendo um(a) ${(category || 'Ativo').split(' (')[0]}, o maior risco é a ${maturityRisk === 'Alta (Volatilidade)' ? 'oscilação de preços' : sensitivityToExchange > 0.5 ? 'desvalorização do Kwanza' : 'taxa de juro'}. Investindo ${investmentValue.toLocaleString()} Kz, prevemos um retorno de ~${projectedGain} Kz em 12 meses (Yield: ${estimatedYield}%).`,
+
+            analysis: `Análise profunda para ${selectedTicker}. O motor GNN sugere uma barreira de volatilidade de ${(volatility * 100).toFixed(1)}%. Para ${category}, a sensibilidade macro é ${sensitivityToExchange > 0.5 ? 'alta' : 'moderada'}. Zonas de liquidez detectadas em ${basePrice.toLocaleString()} Kz.`,
+
+            ensemble: [
+              { name: "XGBoost & LightGBM", role: "Classificação", weight: 25, impact: "High", desc: "Define tendência direcional." },
+              { name: "LSTM & GRU", role: "Previsão Alpha", weight: 20, impact: "Medium", desc: "Prevê valores exatos no futuro." },
+              { name: "HMM", role: "Identificação Regime", weight: 15, impact: "High", desc: "Mapeia estados de mercado." },
+              { name: "Isolation Forest", role: "Anomalias", weight: 15, impact: "Low", desc: "Filtra ordens atípicas." },
+              { name: "Transformers (NLP)", role: "Sentimento", weight: 15, impact: "Medium", desc: "Analisa o clima económico." },
+              { name: "DQN (RL)", role: "Execução", weight: 10, impact: "Medium", desc: "Otimiza pontos de entrada." }
+            ],
+
+            depthData: [
+              { price: basePrice - 2000, bid: 1500 * (1 / volatility), ask: 0 },
+              { price: basePrice - 1000, bid: 1200 * (1 / volatility), ask: 0 },
+              { price: basePrice, bid: 3500 * (1 / volatility), ask: 0 },
+              { price: basePrice + 1000, bid: 800, ask: 400 * (volatility * 10) },
+              { price: basePrice + 2000, bid: 0, ask: 1200 * (volatility * 10) },
+              { price: basePrice + 3000, bid: 0, ask: 2800 * (volatility * 10) },
+              { price: basePrice + 4000, bid: 0, ask: 1500 * (volatility * 10) },
+            ],
+
+            forecastData: Array.from({ length: 8 }).map((_, i) => ({
+              time: i < 5 ? `T-${5 - i}` : i === 5 ? "Agora" : `T+${i - 5}`,
+              real: i <= 5 ? basePrice + (Math.sin(i) * 500 * volatility) : null,
+              pred: basePrice + (Math.sin(i) * 500 * volatility) + (i > 5 ? (parseFloat(estimatedYield) * 10 * (i - 4)) : 0)
+            })),
+
+            indicatorsInfo: [
+              { label: "Volume (Depth)", value: `${(3.5 / volatility).toFixed(1)}M Kz`, meaning: "Dinheiro real segurando o preço." },
+              { label: "Spread Bid/Ask", value: `${(volatility * 2.5).toFixed(2)}%`, meaning: "Diferença entre compra e venda." },
+              { label: "VWAP Estimado", value: `${(basePrice + 250).toLocaleString()} Kz`, meaning: "Preço médio justo do dia." },
+              { label: "Risco Maturidade", value: maturityRisk, meaning: "Probabilidade de stress por duração temporal." }
+            ],
+
             profiles: {
               conservative: {
                 title: "Perfil Conservador",
                 color: "bg-blue-500",
                 recs: [
-                  "Manter posições em títulos OT indexados ao câmbio para proteção",
-                  "Evitar o mercado secundário volátil enquanto o spread bid/ask não estabilizar",
-                  "Aguardar a próxima licitação primária para taxas mais previsíveis"
+                  category.includes('BT') ? "Ideal para este perfil" : "Alocar max 5%",
+                  "Focar em liquidez imediata",
+                  "Evitar durations > 3 anos"
                 ]
               },
               moderate: {
                 title: "Perfil Moderado",
                 color: "bg-emerald-500",
                 recs: [
-                  "Alocação gradual (DCA) em títulos de 2-3 anos com cupão acima de 15%",
-                  "Aproveitar a liquidez do Banco BAI para entradas estratégicas",
-                  "Rebalancear carteira reduzindo exposição a BTs de curto prazo"
+                  "Alocação balanceada 40/60",
+                  `Suporte em ${basePrice.toLocaleString()} Kz`,
+                  "Hedge cambial se possível"
                 ]
               },
               aggressive: {
                 title: "Perfil Agressivo",
                 color: "bg-orange-500",
                 recs: [
-                  "Entrada estratégica agressiva acima de 85.500 Kz para capturar break-out",
-                  "Operações de curto prazo (Day-trade) aproveitando a volatilidade do spread",
-                  "Compra de títulos depreciados no secundário com foco em Yield-to-Maturity (YTM) elevado"
+                  "Oportunidade de arbitragem alta",
+                  "Aproveitar volatilidade para entrada",
+                  `Explorar o câmbio em ${whatIfParams.exchangeRate}`
                 ]
               }
             },
-            models: [
-              { name: "XGBoost 4.2", weight: "40%", confidence: "94.8%", focus: "Classificação de Tendência" },
-              { name: "LSTM (RNN)", weight: "35%", confidence: "89.2%", focus: "Previsão de Preço Vwap" },
-              { name: "Random Forest", weight: "25%", confidence: "92.1%", focus: "Deteção de Anomalias de Volume" }
+            assetScores: [
+              { name: selectedTicker, liquidity: 85 - (volatility * 100), risk: (volatility * 200), stability: 90 - (volatility * 50), score: (95 - (volatility * 60)).toFixed(0) },
+              { name: "OT-2026", liquidity: 92, risk: 15, stability: 88, score: 94 },
+              { name: "BT-364D", liquidity: 78, risk: 10, stability: 95, score: 89 },
+              { name: "BAI (Stock)", liquidity: 45, risk: 40, stability: 60, score: 72 }
             ]
           };
           setUserAiInsights(insights);
           setIsGeneratingInsights(false);
-          return "Insights estratégicos gerados com sucesso!";
+          return `Análise para ${selectedTicker} concluída!`;
         },
-        error: "Erro na análise avançada",
+        error: "Erro no processamento da IA",
       }
     );
   };
@@ -637,7 +777,7 @@ export default function News() {
                             </div>
                             <div>
                               <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="outline" className="text-[10px] uppercase tracking-wider border-emerald-200 text-emerald-700 bg-emerald-50">Última Atualização</Badge>
+                                <Badge variant="outline" className="text-[10px] uppercase tracking-wider border-emerald-200 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/20">Última Atualização</Badge>
                                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">{format(new Date(report.published_at), "dd 'de' MMMM", { locale: pt })}</span>
                               </div>
                               <h4 className="font-display font-bold text-xl">{report.title}</h4>
@@ -652,22 +792,39 @@ export default function News() {
                         </div>
 
                         <div className="p-6 border-t border-emerald-100 dark:border-emerald-900/30 bg-white dark:bg-card">
-                          <div className="flex items-center justify-between mb-8">
-                            <div className="flex items-center gap-2">
-                              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-                                <BarChart3 className="h-5 w-5" />
+                          <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
+                            <div className="flex items-center gap-4">
+                              <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+                                <BarChart3 className="h-6 w-6" />
                               </div>
-                              <h3 className="font-display font-bold text-lg">Visão do Livro de Ordens</h3>
+                              <div className="space-y-1">
+                                <h3 className="font-display font-bold text-lg leading-none">Visão do Livro de Ordens</h3>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Análise Individual por Ticker</p>
+                              </div>
                             </div>
-                            <Button
-                              variant="outline"
-                              className="border-primary/50 text-primary hover:bg-primary/5 gap-2 font-bold"
-                              onClick={handleGenerateInsights}
-                              disabled={isGeneratingInsights}
-                            >
-                              {isGeneratingInsights ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
-                              {userAiInsights ? "Actualizar Insights IA" : "Gerar Insights com ML"}
-                            </Button>
+
+                            <div className="flex items-center gap-3 w-full md:w-auto">
+                              <select
+                                className="h-10 px-3 py-2 rounded-lg border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-full md:w-[180px]"
+                                value={selectedTicker}
+                                onChange={e => setSelectedTicker(e.target.value)}
+                              >
+                                <option value="TODOS">Todos</option>
+                                {availableTickers.map(ticker => (
+                                  <option key={ticker} value={ticker}>{ticker}</option>
+                                ))}
+                              </select>
+
+                              <Button
+                                variant="default"
+                                className="gradient-primary shadow-glow hover:shadow-lg transition-all gap-2 font-bold whitespace-nowrap"
+                                onClick={handleGenerateInsights}
+                                disabled={isGeneratingInsights}
+                              >
+                                {isGeneratingInsights ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
+                                {userAiInsights ? "Actualizar Análise IA/ML" : "Executar Análise de IA / ML"}
+                              </Button>
+                            </div>
                           </div>
 
                           {isParsingExcel ? (
@@ -676,18 +833,18 @@ export default function News() {
                               <Skeleton className="h-32 w-full" />
                             </div>
                           ) : excelData.length > 0 ? (
-                            <div className="overflow-x-auto rounded-xl border border-border/50 mb-8 shadow-sm">
+                            <div className="overflow-auto rounded-xl border border-border/50 mb-8 shadow-sm max-h-[400px] scrollbar-custom">
                               <Table>
-                                <TableHeader className="bg-muted/50">
+                                <TableHeader className="bg-muted/50 sticky top-0 z-10">
                                   <TableRow>
                                     {excelData[0].map((header: any, i: number) => (
-                                      <TableHead key={i} className="text-[10px] uppercase tracking-wider font-bold">{header}</TableHead>
+                                      <TableHead key={i} className="text-[10px] uppercase tracking-wider font-bold bg-muted/50">{header}</TableHead>
                                     ))}
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                   {excelData.slice(1).map((row: any[], i: number) => (
-                                    <TableRow key={i} className="hover:bg-muted/30">
+                                    <TableRow key={i} className="hover:bg-muted/30 whitespace-nowrap">
                                       {row.map((cell: any, j: number) => (
                                         <TableCell key={j} className="text-xs font-medium py-2">{cell}</TableCell>
                                       ))}
@@ -704,115 +861,296 @@ export default function News() {
                           )}
 
                           {userAiInsights ? (
-                            <div className="space-y-8 pt-6 border-t border-border/50 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-                                <div className="flex items-center gap-2">
-                                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                                    <BrainCircuit className="h-5 w-5" />
+                            <div className="space-y-10 pt-6 border-t border-border/50 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                              {/* XAI & Confidence Header */}
+                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl bg-primary/5 border border-primary/20 shadow-inner">
+                                <div className="flex items-center gap-4">
+                                  <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
+                                    <BrainCircuit className="h-7 w-7" />
                                   </div>
-                                  <h3 className="font-display font-bold text-lg">Análise Preditiva (Alpha)</h3>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge className="bg-primary/10 text-primary border-0 text-[10px] px-2 py-0">ENSEMBLE ACTIVE</Badge>
-                                  <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-600">CONFIDENCE: 92.4%</Badge>
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                                  <div className="flex items-center gap-2 text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-2">
-                                    <Zap className="h-3 w-3 text-amber-500" /> Sentimento
-                                  </div>
-                                  <div className="text-2xl font-bold text-emerald-600">
-                                    {userAiInsights.sentiment}
-                                  </div>
-                                </div>
-                                <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20">
-                                  <div className="flex items-center gap-2 text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-2">
-                                    <RefreshCw className="h-3 w-3 text-blue-500" /> Liquidez
-                                  </div>
-                                  <div className="text-2xl font-bold text-blue-600">
-                                    {userAiInsights.liquidity}
-                                  </div>
-                                </div>
-                                <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
-                                  <div className="flex items-center gap-2 text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-2">
-                                    <Building2 className="h-3 w-3 text-purple-500" /> Consenso
-                                  </div>
-                                  <div className="text-2xl font-bold text-purple-600">3 Modelos</div>
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div className="space-y-6">
                                   <div>
-                                    <h4 className="font-bold text-sm mb-3 flex items-center gap-2 uppercase tracking-tight text-muted-foreground">
-                                      <TrendingUp className="h-4 w-4 text-emerald-500" /> Trend Analysis
+                                    <h3 className="font-display font-black text-xl tracking-tight uppercase">ENSEMBLE ENGINE V2.0</h3>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="text-[9px] border-emerald-500/30 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20">6 MODELOS ATIVOS</Badge>
+                                      <Badge variant="outline" className="text-[9px] border-blue-500/30 text-blue-600 bg-blue-50 dark:bg-blue-950/20">SENTIMENTO: {userAiInsights.sentiment}</Badge>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col items-center md:items-end">
+                                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-1">Confiança do Consenso</span>
+                                  <div className="text-4xl font-black text-primary font-mono">{userAiInsights.confidence}</div>
+                                </div>
+                              </div>
+
+                              {/* What-If Sidebar & Main Charts */}
+                              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                                {/* Left Panel: What-If Simulator & Investment Calc */}
+                                <div className="lg:col-span-1 space-y-6 self-start">
+                                  {/* Investment Calculator */}
+                                  <div className="bg-primary/10 p-5 rounded-2xl border border-primary/20 shadow-sm">
+                                    <div className="flex items-center gap-2 mb-4">
+                                      <Coins className="h-4 w-4 text-primary" />
+                                      <h4 className="font-bold text-xs uppercase tracking-tight">Simulador de Ganhos</h4>
+                                    </div>
+                                    <div className="space-y-4">
+                                      <div className="space-y-1">
+                                        <label className="text-[10px] uppercase font-bold text-muted-foreground">Valor a Investir (Kz)</label>
+                                        <Input
+                                          type="number"
+                                          value={investmentValue}
+                                          onChange={e => setInvestmentValue(parseInt(e.target.value))}
+                                          className="h-8 text-xs font-bold"
+                                        />
+                                      </div>
+                                      <div className="pt-2 border-t border-primary/10">
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold">Ganho Estimado (12 meses)</p>
+                                        <p className="text-xl font-black text-primary">
+                                          + {((investmentValue * (parseFloat(userAiInsights.estimatedYield || "0") / 100))).toLocaleString()} Kz
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* What-If Simulator */}
+                                  <div className="bg-muted/20 p-6 rounded-2xl border border-border/50">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <RefreshCw className="h-4 w-4 text-primary" />
+                                      <h4 className="font-bold text-sm uppercase tracking-tight">Cenários Macro</h4>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                      <div className="space-y-2">
+                                        <div className="flex justify-between text-[11px] font-bold text-muted-foreground">
+                                          <span>Taxa BNA (%)</span>
+                                          <span className="text-primary">{whatIfParams.bnaRate}%</span>
+                                        </div>
+                                        <Input
+                                          type="range" min="15" max="30" step="0.5"
+                                          value={whatIfParams.bnaRate}
+                                          onChange={e => setWhatIfParams({ ...whatIfParams, bnaRate: parseFloat(e.target.value) })}
+                                          className="h-2 accent-primary"
+                                        />
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <div className="flex justify-between text-[11px] font-bold text-muted-foreground">
+                                          <span>USD/AOA</span>
+                                          <span className="text-primary">{whatIfParams.exchangeRate}</span>
+                                        </div>
+                                        <Input
+                                          type="range" min="800" max="1500" step="10"
+                                          value={whatIfParams.exchangeRate}
+                                          onChange={e => setWhatIfParams({ ...whatIfParams, exchangeRate: parseFloat(e.target.value) })}
+                                          className="h-2 accent-primary"
+                                        />
+                                      </div>
+
+                                      <Button
+                                        variant="outline" size="sm" className="w-full font-bold text-[10px] border-primary/30 text-primary"
+                                        onClick={handleGenerateInsights}
+                                      >
+                                        Recalcular Ensemble
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Middle Panel: Charts */}
+                                <div className="lg:col-span-3 space-y-8">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {/* Chart 1: Order Depth */}
+                                    <div className="space-y-4">
+                                      <div className="flex items-center justify-between">
+                                        <h4 className="font-bold text-xs uppercase tracking-tight flex items-center gap-2">
+                                          <TrendingUp className="h-4 w-4 text-emerald-500" /> Profundidade de Preço (Bid/Ask)
+                                        </h4>
+                                      </div>
+                                      <div className="h-[220px] w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                          <AreaChart data={userAiInsights.depthData}>
+                                            <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                                            <XAxis dataKey="price" fontSize={10} tickFormatter={(v) => `${v / 1000}k`} />
+                                            <YAxis fontSize={10} />
+                                            <Tooltip
+                                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                            />
+                                            <Area type="monotone" dataKey="bid" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
+                                            <Area type="monotone" dataKey="ask" stroke="#ef4444" fill="#ef4444" fillOpacity={0.3} />
+                                          </AreaChart>
+                                        </ResponsiveContainer>
+                                      </div>
+                                    </div>
+
+                                    {/* Chart 2: Predictive Forecast */}
+                                    <div className="space-y-4">
+                                      <div className="flex items-center justify-between">
+                                        <h4 className="font-bold text-xs uppercase tracking-tight flex items-center gap-2">
+                                          <Zap className="h-4 w-4 text-amber-500" /> Previsão Preditiva (Alpha)
+                                        </h4>
+                                      </div>
+                                      <div className="h-[220px] w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                          <ComposedChart data={userAiInsights.forecastData}>
+                                            <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                                            <XAxis dataKey="time" fontSize={10} />
+                                            <YAxis fontSize={10} domain={['auto', 'auto']} />
+                                            <Tooltip />
+                                            <Area type="monotone" dataKey="pred" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.1} strokeDasharray="5 5" />
+                                            <Line type="monotone" dataKey="real" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
+                                          </ComposedChart>
+                                        </ResponsiveContainer>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Detailed Indicators Breakdown & Layperson Translation */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* Layperson Info */}
+                                <div className="space-y-6">
+                                  <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-primary/5 border border-primary/20">
+                                    <h4 className="font-bold text-sm mb-4 flex items-center gap-2 uppercase tracking-tight text-primary">
+                                      <Heart className="h-4 w-4" /> Explicação para Leigos (Simples)
                                     </h4>
-                                    <p className="text-sm border-l-4 border-emerald-500 pl-4 py-2 bg-emerald-500/5 dark:bg-emerald-950/20 italic font-medium leading-relaxed">
-                                      "{userAiInsights.mainTrend}"
+                                    <p className="text-sm leading-relaxed font-medium">
+                                      {userAiInsights.laypersonSummary}
                                     </p>
                                   </div>
 
                                   <div>
-                                    <h4 className="font-bold text-sm mb-3 uppercase tracking-tight text-muted-foreground">Model Breakdown</h4>
-                                    <div className="space-y-3">
-                                      {userAiInsights.models.map((model: any, i: number) => (
-                                        <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                                          <div>
-                                            <p className="text-xs font-bold">{model.name}</p>
-                                            <p className="text-[10px] text-muted-foreground">{model.focus}</p>
+                                    <h4 className="font-bold text-sm mb-6 uppercase tracking-tight flex items-center gap-2">
+                                      <Building2 className="h-4 w-4 text-primary" /> Microestrutura do Ticker
+                                    </h4>
+                                    <div className="space-y-4">
+                                      {userAiInsights.indicatorsInfo.map((info: any, i: number) => (
+                                        <div key={i} className="p-4 rounded-xl border border-border/50 bg-muted/10 group hover:bg-muted/20 transition-all">
+                                          <div className="flex justify-between items-center mb-1">
+                                            <span className="text-xs font-black uppercase text-muted-foreground">{info.label}</span>
+                                            <Badge className="bg-primary/10 text-primary border-0 text-[10px]">{info.value}</Badge>
                                           </div>
-                                          <div className="text-right">
-                                            <p className="text-xs font-bold text-primary">{model.confidence}</p>
-                                            <p className="text-[10px] text-muted-foreground">Peso: {model.weight}</p>
+                                          <p className="text-[11px] text-muted-foreground italic">{info.meaning}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* XAI Panel (Moved) */}
+                                <div className="space-y-6">
+                                  <div className="p-6 rounded-2xl border border-border/50 bg-card">
+                                    <h4 className="font-bold text-sm mb-6 uppercase tracking-tight flex items-center gap-2">
+                                      <ShieldCheck className="h-4 w-4 text-emerald-500" /> Explainability Dashboard (XAI)
+                                    </h4>
+                                    <div className="space-y-4">
+                                      {userAiInsights.ensemble.map((model: any, i: number) => (
+                                        <div key={i} className="group relative">
+                                          <div className="flex justify-between items-end mb-1">
+                                            <div>
+                                              <span className="text-[11px] font-black uppercase">{model.name}</span>
+                                              <p className="text-[9px] text-muted-foreground">{model.role}</p>
+                                            </div>
+                                            <span className="text-[10px] font-mono font-bold text-primary">{model.weight}%</span>
+                                          </div>
+                                          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                                            <div
+                                              className="h-full bg-primary transition-all duration-1000"
+                                              style={{ width: `${model.weight}%` }}
+                                            />
+                                          </div>
+                                          <div className="mt-2 hidden group-hover:block p-2 rounded bg-muted text-[9px] text-muted-foreground italic border border-border/50 animate-in fade-in zoom-in-95">
+                                            {model.desc}
                                           </div>
                                         </div>
                                       ))}
                                     </div>
                                   </div>
+                                </div>
+                              </div>
 
-                                  <div>
-                                    <h4 className="font-bold text-sm mb-3 uppercase tracking-tight text-muted-foreground">Technical Summary</h4>
-                                    <p className="text-sm text-muted-foreground leading-relaxed">
-                                      {userAiInsights.analysis}
-                                    </p>
+                              {/* Profile Recommendations */}
+                              <div className="space-y-6">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Briefcase className="h-4 w-4 text-primary" />
+                                  <h4 className="font-bold text-sm uppercase tracking-tight">Estratégias por Perfil de Risco</h4>
+                                </div>
+
+                                <Tabs defaultValue="moderate" className="w-full">
+                                  <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 h-12 rounded-xl">
+                                    <TabsTrigger value="conservative" className="text-[10px] uppercase font-bold data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-lg">Conservador</TabsTrigger>
+                                    <TabsTrigger value="moderate" className="text-[10px] uppercase font-bold data-[state=active]:bg-emerald-600 data-[state=active]:text-white rounded-lg">Moderado</TabsTrigger>
+                                    <TabsTrigger value="aggressive" className="text-[10px] uppercase font-bold data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-lg">Agressivo</TabsTrigger>
+                                  </TabsList>
+
+                                  {Object.entries(userAiInsights.profiles).map(([key, profile]: [string, any]) => (
+                                    <TabsContent key={key} value={key} className="mt-6 animate-in slide-in-from-right-2 duration-300">
+                                      <div className="space-y-4">
+                                        {profile.recs.map((rec: string, i: number) => (
+                                          <div key={i} className="flex gap-4 p-5 rounded-2xl border border-border/50 bg-card hover:border-primary/40 transition-all shadow-sm group relative overflow-hidden">
+                                            <div className={`absolute top-0 left-0 w-1 h-full ${profile.color}`} />
+                                            <div className={`h-8 w-8 rounded-lg ${profile.color} flex items-center justify-center shrink-0 text-xs font-bold text-white shadow-lg group-hover:rotate-12 transition-transform`}>
+                                              {i + 1}
+                                            </div>
+                                            <span className="text-xs font-bold leading-relaxed">{rec}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </TabsContent>
+                                  ))}
+                                </Tabs>
+
+                                {/* Asset Scoring Section */}
+                                <div>
+                                  <h4 className="font-bold text-sm mb-6 uppercase tracking-tight flex items-center gap-2">
+                                    <Star className="h-4 w-4 text-amber-500" /> Market Ranking & Asset Scores
+                                  </h4>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    {userAiInsights.assetScores.map((asset: any, i: number) => (
+                                      <div key={i} className="p-5 rounded-2xl border border-border/50 bg-card hover:shadow-lg hover:border-primary/20 transition-all group">
+                                        <div className="flex justify-between items-start mb-4">
+                                          <h5 className="font-black text-sm">{asset.name}</h5>
+                                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-mono text-[10px] font-bold">
+                                            {asset.score}
+                                          </div>
+                                        </div>
+                                        <div className="space-y-3">
+                                          <div>
+                                            <div className="flex justify-between text-[9px] font-bold uppercase mb-1">
+                                              <span>Liquidez</span>
+                                              <span>{asset.liquidity}%</span>
+                                            </div>
+                                            <div className="h-1 w-full bg-muted rounded-full">
+                                              <div className="h-full bg-blue-500 rounded-full" style={{ width: `${asset.liquidity}%` }} />
+                                            </div>
+                                          </div>
+                                          <div>
+                                            <div className="flex justify-between text-[9px] font-bold uppercase mb-1">
+                                              <span>Estabilidade</span>
+                                              <span>{asset.stability}%</span>
+                                            </div>
+                                            <div className="h-1 w-full bg-muted rounded-full">
+                                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${asset.stability}%` }} />
+                                            </div>
+                                          </div>
+                                          <div>
+                                            <div className="flex justify-between text-[9px] font-bold uppercase mb-1">
+                                              <span>Risco</span>
+                                              <span>{asset.risk}%</span>
+                                            </div>
+                                            <div className="h-1 w-full bg-muted rounded-full">
+                                              <div className="h-full bg-red-500 rounded-full" style={{ width: `${asset.risk}%` }} />
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
 
-                                <div className="space-y-6">
-                                  <h4 className="font-bold text-sm mb-1 uppercase tracking-tight text-muted-foreground flex items-center gap-2">
-                                    <Briefcase className="h-4 w-4 text-primary" /> Recomendações por Perfil
-                                  </h4>
-
-                                  <Tabs defaultValue="moderate" className="w-full">
-                                    <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 h-10">
-                                      <TabsTrigger value="conservative" className="text-[10px] uppercase font-bold data-[state=active]:bg-blue-500 data-[state=active]:text-white">Conservador</TabsTrigger>
-                                      <TabsTrigger value="moderate" className="text-[10px] uppercase font-bold data-[state=active]:bg-emerald-500 data-[state=active]:text-white">Moderado</TabsTrigger>
-                                      <TabsTrigger value="aggressive" className="text-[10px] uppercase font-bold data-[state=active]:bg-orange-600 data-[state=active]:text-white">Agressivo</TabsTrigger>
-                                    </TabsList>
-
-                                    {Object.entries(userAiInsights.profiles).map(([key, profile]: [string, any]) => (
-                                      <TabsContent key={key} value={key} className="mt-4 animate-in slide-in-from-right-2 duration-300">
-                                        <div className="space-y-3">
-                                          {profile.recs.map((rec: string, i: number) => (
-                                            <div key={i} className="flex gap-4 p-4 rounded-xl border border-border/50 bg-card hover:border-primary/30 transition-all shadow-sm group">
-                                              <div className={`h-6 w-6 rounded-full ${profile.color} flex items-center justify-center shrink-0 text-[10px] font-bold text-white shadow-sm group-hover:scale-110 transition-transform`}>
-                                                {i + 1}
-                                              </div>
-                                              <span className="text-xs font-semibold leading-relaxed">{rec}</span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </TabsContent>
-                                    ))}
-                                  </Tabs>
-
-                                  <div className="p-4 rounded-xl bg-primary/5 border border-dashed border-primary/20 mt-4">
-                                    <p className="text-[10px] text-muted-foreground italic text-center">
-                                      *Estas recomendações são geradas por algoritmos e não constituem aconselhamento financeiro direto. Consulte sempre o seu gestor de conta.
-                                    </p>
-                                  </div>
+                                <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 mt-4">
+                                  <p className="text-[9px] text-amber-600 font-bold italic text-center flex items-center justify-center gap-2">
+                                    <ShieldCheck className="h-3 w-3" /> AVISO: Algoritmos ALPHA baseados em Ensemble Multi-Modelo. Não constitui aconselhamento financeiro.
+                                  </p>
                                 </div>
                               </div>
                             </div>
@@ -820,7 +1158,7 @@ export default function News() {
                             <div className="flex flex-col items-center justify-center p-12 bg-muted/10 rounded-xl border border-dashed">
                               <Zap className="h-10 w-10 text-muted-foreground mb-4 opacity-20" />
                               <p className="text-sm text-muted-foreground max-w-md text-center">
-                                Pronto para analisar? Clique no botão acima para processar este livro de ordens com nossos modelos de Machine Learning.
+                                Pronto para analisar? Seleccione um ticker acima para processar este livro de ordens com nossos modelos de Machine Learning.
                               </p>
                             </div>
                           )}

@@ -77,6 +77,22 @@ export default function Plans() {
         enabled: !!user?.id,
     });
 
+    const { data: hasHadTrial = false } = useQuery({
+        queryKey: ["user-has-had-trial", user?.id],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from("user_subscriptions")
+                .select("id")
+                .eq("user_id", user?.id)
+                .eq("is_trial", true)
+                .limit(1);
+
+            if (error) return false;
+            return (data?.length || 0) > 0;
+        },
+        enabled: !!user?.id,
+    });
+
     const purchaseMutation = useMutation({
         mutationFn: async ({ planId, proofUrl, isTrialAction }: { planId: string; proofUrl?: string, isTrialAction?: boolean }) => {
             const plan = plans.find((p: any) => p.id === planId);
@@ -229,9 +245,11 @@ export default function Plans() {
                                             {plan.module_key === 'basic' || plan.name === 'Básico' || plan.name === 'Gratuito' || plan.price === 0 ? (
                                                 <>
                                                     2.000 Kz/mês
-                                                    <div className="text-xs text-success font-semibold uppercase tracking-wider mt-1">
-                                                        7 dias grátis de avaliação
-                                                    </div>
+                                                    {!hasHadTrial && (
+                                                        <div className="text-xs text-success font-semibold uppercase tracking-wider mt-1">
+                                                            7 dias grátis de avaliação
+                                                        </div>
+                                                    )}
                                                 </>
                                             ) : (
                                                 <>
@@ -273,7 +291,7 @@ export default function Plans() {
                                                     setPurchaseDialogOpen(true);
                                                 }}
                                             >
-                                                {plan.trial_period_days ? "Iniciar Teste" : "Ativar Módulo"}
+                                                {(plan.trial_period_days && !hasHadTrial) ? "Iniciar Teste" : "Ativar Módulo"}
                                                 <ArrowRight className="ml-2 h-4 w-4" />
                                             </Button>
                                         )}
