@@ -4,15 +4,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, FileText, BarChart3, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Plus, Edit2, Trash2, FileText, BarChart3, TrendingUp, TrendingDown, Minus, Upload, Loader2, BrainCircuit, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
+import { useRef } from "react";
 
 export function AdminAnalytics() {
     const queryClient = useQueryClient();
@@ -20,6 +22,8 @@ export function AdminAnalytics() {
     const [reportDialogOpen, setReportDialogOpen] = useState(false);
     const [editingIndicator, setEditingIndicator] = useState<any>(null);
     const [editingReport, setEditingReport] = useState<any>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [indicatorForm, setIndicatorForm] = useState({
         name: "",
@@ -33,7 +37,10 @@ export function AdminAnalytics() {
         title: "",
         description: "",
         file_url: "",
-        category: "Weekly"
+        category: "Weekly",
+        report_type: "weekly" as "weekly" | "order_book",
+        published_at: new Date().toISOString(),
+        ai_insights: null as any
     });
 
     const [trendAnalysis, setTrendAnalysis] = useState("");
@@ -79,11 +86,14 @@ export function AdminAnalytics() {
         mutationFn: async (data: any) => {
             const payload = {
                 ...data,
-                value: parseFloat(data.value),
-                change: parseFloat(data.change),
+                value: parseFloat(data.value) || 0,
+                change: parseFloat(data.change) || 0,
                 updated_at: new Date().toISOString()
             };
-            const { error } = await supabase.from("market_indicators").upsert(payload, { onConflict: 'name' });
+            // Remove ID if it's a new indicator
+            if (!editingIndicator) delete payload.id;
+
+            const { error } = await supabase.from("market_indicators").upsert(payload);
             if (error) throw error;
         },
         onSuccess: () => {
@@ -91,6 +101,10 @@ export function AdminAnalytics() {
             queryClient.invalidateQueries({ queryKey: ["admin-indicators"] });
             setIndicatorDialogOpen(false);
             setEditingIndicator(null);
+        },
+        onError: (error: any) => {
+            console.error("Error saving indicator:", error);
+            toast.error(`Erro ao guardar indicador: ${error.message}`);
         }
     });
 
@@ -116,6 +130,10 @@ export function AdminAnalytics() {
             queryClient.invalidateQueries({ queryKey: ["admin-reports"] });
             setReportDialogOpen(false);
             setEditingReport(null);
+        },
+        onError: (error: any) => {
+            console.error("Error saving report:", error);
+            toast.error(`Erro ao guardar relatório: ${error.message}`);
         }
     });
 
@@ -138,8 +156,40 @@ export function AdminAnalytics() {
         onSuccess: () => {
             toast.success("Análise de tendência atualizada!");
             queryClient.invalidateQueries({ queryKey: ["admin-trend"] });
+            queryClient.invalidateQueries({ queryKey: ["market-trend"] });
         }
     });
+
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+            const filePath = `reports/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('market_reports')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('market_reports')
+                .getPublicUrl(filePath);
+
+            setReportForm(prev => ({ ...prev, file_url: publicUrl }));
+            toast.success("Arquivo enviado com sucesso!");
+        } catch (error: any) {
+            toast.error(`Erro no upload: ${error.message}`);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    // AI insights moved to user side per request
 
     return (
         <div className="space-y-8">
@@ -258,10 +308,18 @@ export function AdminAnalytics() {
                     </div>
                     <Button onClick={() => {
                         setEditingReport(null);
-                        setReportForm({ title: "", description: "", file_url: "", category: "Weekly" });
+                        setReportForm({
+                            title: "",
+                            description: "",
+                            file_url: "",
+                            category: "Order Book",
+                            report_type: "order_book",
+                            published_at: new Date().toISOString(),
+                            ai_insights: null
+                        });
                         setReportDialogOpen(true);
                     }}>
-                        <Plus className="h-4 w-4 mr-2" /> Novo Relatório
+                        <Plus className="h-4 w-4 mr-2" /> Novo Livro de Ordens
                     </Button>
                 </div>
 
@@ -278,8 +336,17 @@ export function AdminAnalytics() {
                         <TableBody>
                             {reports.map((report: any) => (
                                 <TableRow key={report.id}>
-                                    <TableCell className="font-medium">{report.title}</TableCell>
-                                    <TableCell><Badge variant="secondary">{report.category}</Badge></TableCell>
+                                    <TableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                            {report.report_type === 'order_book' ? <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> : <FileText className="h-4 w-4 text-primary" />}
+                                            {report.title}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant={report.report_type === 'order_book' ? "default" : "secondary"}>
+                                            {report.report_type === 'order_book' ? "Order Book" : report.category}
+                                        </Badge>
+                                    </TableCell>
                                     <TableCell className="text-sm text-muted-foreground">
                                         {format(new Date(report.published_at), "dd 'de' MMMM, yyyy", { locale: pt })}
                                     </TableCell>
@@ -290,7 +357,10 @@ export function AdminAnalytics() {
                                                 title: report.title,
                                                 description: report.description,
                                                 file_url: report.file_url,
-                                                category: report.category
+                                                category: report.category,
+                                                report_type: report.report_type || 'weekly',
+                                                published_at: report.published_at,
+                                                ai_insights: report.ai_insights
                                             });
                                             setReportDialogOpen(true);
                                         }}>
@@ -364,22 +434,70 @@ export function AdminAnalytics() {
                             <Label>Título do Relatório</Label>
                             <Input value={reportForm.title} onChange={e => setReportForm({ ...reportForm, title: e.target.value })} placeholder="Ex: Análise Semanal #42" />
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Categoria</Label>
+                                <Input value={reportForm.category} onChange={e => setReportForm({ ...reportForm, category: e.target.value })} placeholder="Ex: Weekly, Monthly" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Tipo de Relatório</Label>
+                                <Select value={reportForm.report_type} onValueChange={(val: any) => setReportForm({ ...reportForm, report_type: val })}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="weekly">Relatório Semanal (PDF)</SelectItem>
+                                        <SelectItem value="order_book">Livro de Ordens (Excel)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
                         <div className="space-y-2">
                             <Label>Descrição</Label>
                             <Textarea value={reportForm.description} onChange={e => setReportForm({ ...reportForm, description: e.target.value })} placeholder="Breve resumo do conteúdo..." />
                         </div>
                         <div className="space-y-2">
-                            <Label>URL do Arquivo (PDF)</Label>
-                            <Input value={reportForm.file_url} onChange={e => setReportForm({ ...reportForm, file_url: e.target.value })} placeholder="https://..." />
+                            <Label>Arquivo (PDF ou Excel)</Label>
+                            <div className="flex gap-2">
+                                <Input value={reportForm.file_url} onChange={e => setReportForm({ ...reportForm, file_url: e.target.value })} placeholder="https://..." className="flex-1" />
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept=".pdf,.xlsx,.xls"
+                                    onChange={handleFileUpload}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isUploading}
+                                >
+                                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                                </Button>
+                            </div>
                         </div>
+                        {/* AI Insights moved to user side */}
                         <div className="space-y-2">
-                            <Label>Categoria</Label>
-                            <Input value={reportForm.category} onChange={e => setReportForm({ ...reportForm, category: e.target.value })} placeholder="Ex: Weekly, Monthly, Special" />
+                            <Label>Data de Publicação</Label>
+                            <Input
+                                type="datetime-local"
+                                value={reportForm.published_at ? reportForm.published_at.slice(0, 16) : ""}
+                                onChange={e => setReportForm({ ...reportForm, published_at: new Date(e.target.value).toISOString() })}
+                            />
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setReportDialogOpen(false)}>Cancelar</Button>
-                        <Button onClick={() => upsertReportMutation.mutate(editingReport ? { ...reportForm, id: editingReport.id } : reportForm)}>Publicar</Button>
+                        <Button
+                            onClick={() => upsertReportMutation.mutate(editingReport ? { ...reportForm, id: editingReport.id } : reportForm)}
+                            disabled={upsertReportMutation.isPending}
+                        >
+                            {upsertReportMutation.isPending ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Publicando...
+                                </>
+                            ) : "Publicar"}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
