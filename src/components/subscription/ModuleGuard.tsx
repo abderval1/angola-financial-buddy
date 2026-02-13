@@ -59,7 +59,7 @@ export function ModuleGuard({ moduleKey, children, title, description }: ModuleG
         mutationFn: async () => {
             if (!user?.id || !basicPlan) throw new Error("Usuário ou plano não encontrado");
 
-            const trialDays = Number(basicPlan.trial_period_days) || 7;
+            const trialDays = Number(basicPlan.trial_period_days) || 3;
             const expirationDate = new Date();
             expirationDate.setDate(expirationDate.getDate() + trialDays);
 
@@ -74,7 +74,7 @@ export function ModuleGuard({ moduleKey, children, title, description }: ModuleG
             if (error) throw error;
         },
         onSuccess: () => {
-            toast.success("Período de teste activado com sucesso! Aproveite os próximos 7 dias.");
+            toast.success("Período de teste activado com sucesso! Aproveite os próximos 3 dias.");
             queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
             queryClient.invalidateQueries({ queryKey: ["user-has-had-trial"] });
             queryClient.invalidateQueries({ queryKey: ["module-access"] });
@@ -108,7 +108,7 @@ export function ModuleGuard({ moduleKey, children, title, description }: ModuleG
                     </h2>
                     <p className="mb-8 text-muted-foreground whitespace-pre-line">
                         {isExpired
-                            ? "O seu período de teste de 7 dias chegou ao fim.\nAtive o plano mensal por apenas 2.000 Kz para continuar a utilizar este módulo."
+                            ? "O seu período de teste de 3 dias chegou ao fim.\nAtive o plano mensal por apenas 2.000 Kz para continuar a utilizar este módulo."
                             : description}
                     </p>
                     <div className="flex flex-col gap-3 sm:flex-row">
@@ -123,7 +123,7 @@ export function ModuleGuard({ moduleKey, children, title, description }: ModuleG
                                 ) : (
                                     <Play className="mr-2 h-4 w-4" />
                                 )}
-                                Iniciar Avaliação 7 dias grátis
+                                Iniciar Avaliação 3 dias grátis
                             </Button>
                         )}
                         <Button

@@ -1,0 +1,195 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import * as base32 from "https://esm.sh/hi-base32"
+import * as otpauth from "https://esm.sh/otpauth"
+import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts"
+
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+    if (req.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders })
+    }
+
+    try {
+        const supabaseClient = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+            { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+        )
+
+        const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+        if (userError || !user) throw new Error('Unauthorized')
+
+        const { action, code, secret } = await req.json()
+
+        if (action === 'setup') {
+            const newSecret = otpauth.Secret.fromBase32(base32.encode(crypto.getRandomValues(new Uint8Array(20))))
+            const totp = new otpauth.TOTP({
+                issuer: 'Angola Finance',
+                label: user.email,
+                algorithm: 'SHA1',
+                digits: 6,
+                period: 30,
+                secret: newSecret,
+            })
+
+            const qrUri = totp.toString()
+
+            // Store temporarily or just return to UI for verification
+            return new Response(JSON.stringify({ secret: newSecret.base32, qrUri }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200,
+            })
+        }
+
+        if (action === 'verify-and-enable') {
+            if (!secret || !code) throw new Error('Secret and code required')
+
+            const totp = new otpauth.TOTP({
+                issuer: 'Angola Finance',
+                label: user.email,
+                algorithm: 'SHA1',
+                digits: 6,
+                period: 30,
+                secret: otpauth.Secret.fromBase32(secret),
+            })
+
+            const delta = totp.validate({ code, window: 1 })
+            if (delta === null) throw new Error('Invalid code')
+
+            // Generate backup codes
+            const backupCodes = Array.from({ length: 8 }, () =>
+                Math.random().toString(36).substring(2, 10).toUpperCase()
+            )
+
+            // Store in DB
+            const { error: dbError } = await supabaseClient
+                .from('user_2fa')
+                .upsert({
+                    user_id: user.id,
+                    totp_secret: secret,
+                    is_enabled: true,
+                    backup_codes: backupCodes,
+                    updated_at: new Date().toISOString()
+                })
+
+            if (dbError) throw dbError
+
+            return new Response(JSON.stringify({ success: true, backupCodes }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200,
+            })
+        }
+
+        if (action === 'check') {
+            const { data, error } = await supabaseClient
+                .from('user_2fa')
+                .select('is_enabled')
+                .eq('user_id', user.id)
+                .maybeSingle()
+
+            if (error) throw error
+            return new Response(JSON.stringify({ enabled: data?.is_enabled ?? false }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200,
+            })
+        }
+
+        if (action === 'login-verify') {
+            if (!code) throw new Error('Code required')
+
+            const { data, error } = await supabaseClient
+                .from('user_2fa')
+                .select('totp_secret, backup_codes')
+                .eq('user_id', user.id)
+                .single()
+
+            if (error || !data) throw new Error('2FA not found')
+
+            // Try TOTP code
+            const totp = new otpauth.TOTP({
+                issuer: 'Angola Finance',
+                label: user.email,
+                algorithm: 'SHA1',
+                digits: 6,
+                period: 30,
+                secret: otpauth.Secret.fromBase32(data.totp_secret),
+            })
+
+            const delta = totp.validate({ code, window: 1 })
+
+            if (delta !== null) {
+                return new Response(JSON.stringify({ success: true }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    status: 200,
+                })
+            }
+
+            // Try Backup Codes
+            const backupIndex = data.backup_codes.indexOf(code.toUpperCase())
+            if (backupIndex !== -1) {
+                const newBackupCodes = [...data.backup_codes]
+                newBackupCodes.splice(backupIndex, 1)
+
+                await supabaseClient
+                    .from('user_2fa')
+                    .update({ backup_codes: newBackupCodes })
+                    .eq('user_id', user.id)
+
+                return new Response(JSON.stringify({ success: true, message: 'Backup code used' }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                    status: 200,
+                })
+            }
+
+            throw new Error('Invalid code')
+        }
+
+        if (action === 'disable') {
+            if (!code) throw new Error('Code required for confirmation')
+
+            const { data, error } = await supabaseClient
+                .from('user_2fa')
+                .select('totp_secret')
+                .eq('user_id', user.id)
+                .single()
+
+            if (error || !data) throw new Error('2FA not active')
+
+            const totp = new otpauth.TOTP({
+                issuer: 'Angola Finance',
+                label: user.email,
+                algorithm: 'SHA1',
+                digits: 6,
+                period: 30,
+                secret: otpauth.Secret.fromBase32(data.totp_secret),
+            })
+
+            if (totp.validate({ code, window: 1 }) === null) throw new Error('Invalid code')
+
+            const { error: deleteError } = await supabaseClient
+                .from('user_2fa')
+                .delete()
+                .eq('user_id', user.id)
+
+            if (deleteError) throw deleteError
+
+            return new Response(JSON.stringify({ success: true }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200,
+            })
+        }
+
+        throw new Error('Invalid action')
+
+    } catch (error: any) {
+        return new Response(JSON.stringify({ error: error.message }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+        })
+    }
+})

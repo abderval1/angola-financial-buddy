@@ -22,8 +22,14 @@ import { pt } from "date-fns/locale";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAchievements } from "@/hooks/useAchievements";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 import { TransactionTable } from "@/components/budget/TransactionTable";
 import { TransactionCalendar } from "@/components/budget/TransactionCalendar";
+import { CategoryManager } from "@/components/budget/CategoryManager";
+import { MetricCard } from "@/components/budget/MetricCard";
+import { BudgetSettings } from "@/components/budget/BudgetSettings";
+import { Settings, Wallet, PiggyBank, Activity } from "lucide-react";
 
 interface Transaction {
   id: string;
@@ -78,7 +84,7 @@ export default function Budget() {
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'monthly' | 'yearly' | 'all'>('monthly');
-  const [viewType, setViewType] = useState<'list' | 'table' | 'calendar'>('list');
+  const [viewType, setViewType] = useState<'list' | 'table' | 'calendar'>('calendar');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [alertDialogOpen, setAlertDialogOpen] = useState(false);
   const [showNewCategoryForm, setShowNewCategoryForm] = useState(false);
@@ -103,6 +109,16 @@ export default function Budget() {
     period: 'monthly' as 'monthly' | 'yearly',
   });
 
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [previousMonthTransactions, setPreviousMonthTransactions] = useState<Transaction[]>([]);
+  const [budgetConfig, setBudgetConfig] = useState({
+    savings_goal_pct: 20,
+    needs_limit_pct: 50,
+    wants_limit_pct: 30
+  });
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+
   useEffect(() => {
     if (user) {
       fetchData();
@@ -114,8 +130,51 @@ export default function Budget() {
 
   const fetchData = async () => {
     setLoading(true);
-    await Promise.all([fetchTransactions(), fetchCategories(), fetchAlerts()]);
+    await Promise.all([
+      fetchTransactions(),
+      fetchPreviousMonthTransactions(),
+      fetchCategories(),
+      fetchAlerts(),
+      fetchBudgetConfig()
+    ]);
     setLoading(false);
+  };
+
+  const fetchBudgetConfig = async () => {
+    const { data, error } = await supabase
+      .from('financial_profiles')
+      .select('budget_config')
+      .eq('user_id', user?.id)
+      .single();
+
+    if (data?.budget_config) {
+      setBudgetConfig(data.budget_config as any);
+    }
+  };
+
+  const fetchPreviousMonthTransactions = async () => {
+    let start, end;
+
+    if (viewMode === 'monthly') {
+      const prevMonth = subMonths(currentDate, 1);
+      start = format(startOfMonth(prevMonth), 'yyyy-MM-dd');
+      end = format(endOfMonth(prevMonth), 'yyyy-MM-dd');
+    } else if (viewMode === 'yearly') {
+      const prevYear = subMonths(currentDate, 12); // or subYears(currentDate, 1)
+      start = `${prevYear.getFullYear()}-01-01`;
+      end = `${prevYear.getFullYear()}-12-31`;
+    } else {
+      setPreviousMonthTransactions([]);
+      return;
+    }
+
+    const { data } = await supabase
+      .from('transactions')
+      .select('*')
+      .gte('date', start)
+      .lte('date', end);
+
+    setPreviousMonthTransactions(data || []);
   };
 
   const fetchTransactions = async () => {
@@ -162,30 +221,71 @@ export default function Budget() {
     }
   };
 
-  const addTransaction = async () => {
+  const handleSaveTransaction = async () => {
     if (!newTransaction.amount || !newTransaction.description) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
-    const { error } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: user?.id,
-        type: newTransaction.type,
-        amount: parseFloat(newTransaction.amount),
-        description: newTransaction.description,
-        category_id: newTransaction.category_id || null,
-        date: newTransaction.date,
-      });
+    const transactionData = {
+      user_id: user?.id,
+      type: newTransaction.type,
+      amount: parseFloat(newTransaction.amount),
+      description: newTransaction.description,
+      category_id: newTransaction.category_id || null,
+      date: newTransaction.date,
+    };
+
+    let error;
+    let data;
+
+    if (editingTransactionId) {
+      const { error: updateError, data: updateData } = await supabase
+        .from('transactions')
+        .update(transactionData)
+        .eq('id', editingTransactionId)
+        .select()
+        .single();
+      error = updateError;
+      data = updateData;
+    } else {
+      const { error: insertError, data: insertData } = await supabase
+        .from('transactions')
+        .insert(transactionData)
+        .select()
+        .single();
+      error = insertError;
+      data = insertData;
+    }
 
     if (error) {
-      toast.error("Erro ao adicionar transação");
+      toast.error(editingTransactionId ? "Erro ao atualizar transação" : "Erro ao adicionar transação");
       return;
     }
 
-    toast.success("Transação adicionada com sucesso!");
+    if (data) {
+      setTransactions(prev => {
+        let newTxList;
+        if (editingTransactionId) {
+          newTxList = prev.map(t => t.id === data.id ? data : t);
+        } else {
+          newTxList = [data, ...prev];
+        }
+        // Simple sort by date desc
+        return newTxList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      });
+    }
+
+    toast.success(editingTransactionId ? "Transação atualizada!" : "Transação adicionada com sucesso!");
     setDialogOpen(false);
+    resetForm();
+    // We update state manually above, but we can still invalidate to be safe
+    queryClient.invalidateQueries({ queryKey: ["dashboard-transactions"] });
+    checkBudgetAlerts();
+  };
+
+  const resetForm = () => {
+    setEditingTransactionId(null);
     setNewTransaction({
       type: 'expense',
       amount: '',
@@ -193,9 +293,6 @@ export default function Budget() {
       category_id: '',
       date: format(new Date(), 'yyyy-MM-dd'),
     });
-    fetchTransactions();
-    queryClient.invalidateQueries({ queryKey: ["dashboard-transactions"] });
-    checkBudgetAlerts();
   };
 
   const deleteTransaction = async (id: string) => {
@@ -210,7 +307,7 @@ export default function Budget() {
     }
 
     toast.success("Transação excluída");
-    fetchTransactions();
+    setTransactions(prev => prev.filter(t => t.id !== id));
     queryClient.invalidateQueries({ queryKey: ["dashboard-transactions"] });
   };
 
@@ -255,6 +352,69 @@ export default function Budget() {
 
     toast.success("Alerta excluído");
     fetchAlerts();
+  };
+
+  const downloadBudget = async () => {
+    try {
+      toast.promise(
+        async () => {
+          // Fetch all data for the current view (or year if explicitly requested)
+          // For now, let's export what's in the current view or all year
+          let query = supabase.from('transactions').select(`
+                    *,
+                    transaction_categories (name)
+                `);
+
+          const yearStart = `${currentDate.getFullYear()}-01-01`;
+          const yearEnd = `${currentDate.getFullYear()}-12-31`;
+
+          // If user wants "current view", use viewMode filters. 
+          // But user asked for "export excel todo orcamento organizado, selecionando o ano"
+          // So let's default to the CURRENT selected year in the view.
+          query = query.gte('date', yearStart).lte('date', yearEnd).order('date', { ascending: false });
+
+          const { data: txs, error } = await query;
+          if (error) throw error;
+
+          // Prepare data for Excel
+          const exportData = txs.map(t => ({
+            Data: format(parseISO(t.date), 'dd/MM/yyyy'),
+            Tipo: t.type === 'income' ? 'Receita' : 'Despesa',
+            Categoria: t.transaction_categories?.name || 'Sem Categoria',
+            Descrição: t.description,
+            Valor: t.amount,
+          }));
+
+          // Calculate summary
+          const totalInc = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+          const totalExp = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+          const summaryData = [
+            { Métrica: 'Total Receitas', Valor: totalInc },
+            { Métrica: 'Total Despesas', Valor: totalExp },
+            { Métrica: 'Saldo', Valor: totalInc - totalExp },
+            { Métrica: 'Poupança (%)', Valor: `${totalInc > 0 ? ((totalInc - totalExp) / totalInc * 100).toFixed(1) : 0}%` }
+          ];
+
+          const wb = XLSX.utils.book_new();
+          const wsTxs = XLSX.utils.json_to_sheet(exportData);
+          const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+
+          XLSX.utils.book_append_sheet(wb, wsTxs, "Transações");
+          XLSX.utils.book_append_sheet(wb, wsSummary, "Resumo");
+
+          const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+          const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+          saveAs(blob, `Orcamento_${currentDate.getFullYear()}.xlsx`);
+        },
+        {
+          loading: 'Gerando Excel...',
+          success: 'Download iniciado!',
+          error: 'Erro ao exportar dados'
+        }
+      );
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const addCategory = async () => {
@@ -379,34 +539,53 @@ export default function Budget() {
     );
   }
 
+  const prevIncome = viewMode === 'all' ? undefined : previousMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+  const prevExpense = viewMode === 'all' ? undefined : previousMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  const prevBalance = (prevIncome !== undefined && prevExpense !== undefined) ? prevIncome - prevExpense : undefined;
+
+  const trendLabel = viewMode === 'yearly' ? 'vs ano anterior' : 'vs mês anterior';
+
+  // Financial Health Calculation
+  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
+  const savingsScore = Math.min((savingsRate / budgetConfig.savings_goal_pct) * 4, 4); // Max 4 points
+  const budgetAdherence = totalExpense > 0 ? 1 : 1; // Placeholder for now, simple logic
+  const budgetScore = budgetAdherence * 3; // Max 3 points (simplified)
+  const balanceScore = balance >= 0 ? 3 : 0; // Max 3 points
+  const healthScore = Math.min(savingsScore + budgetScore + balanceScore, 10);
+
   return (
     <AppLayout title="Orçamento" subtitle="Gerencie suas receitas e despesas">
       <ModuleGuard
         moduleKey="basic"
         title="Gestão de Orçamento"
-        description="Controle as suas finanças pessoais, registe despesas e receitas, e visualize onde o seu dinheiro está a ser gasto."
+        description="Controle as suas finanças pessoais, registe despesas e receitas."
       >
         <div className="space-y-6 animate-fade-in">
-          {/* Period Selector */}
+          {/* Header & Settings */}
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <Tabs value={viewMode} onValueChange={(v: any) => setViewMode(v)} className="w-full md:w-auto">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="monthly">Mensal</TabsTrigger>
-                <TabsTrigger value="yearly">Anual</TabsTrigger>
-                <TabsTrigger value="all">Total</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex items-center gap-2">
+              <Tabs value={viewMode} onValueChange={(v: any) => setViewMode(v)} className="w-full md:w-auto">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="monthly">Mensal</TabsTrigger>
+                  <TabsTrigger value="yearly">Anual</TabsTrigger>
+                  <TabsTrigger value="all">Total</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)}>
+                <Settings className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadBudget} className="hidden md:flex">
+                <FileText className="h-4 w-4 mr-2" />
+                Exportar Excel
+              </Button>
+            </div>
 
             {viewMode !== 'all' && (
               <div className="flex items-center gap-4 bg-card px-4 py-2 rounded-xl border-2 border-primary/10">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (viewMode === 'monthly') setCurrentDate(prev => subMonths(prev, 1));
-                    if (viewMode === 'yearly') setCurrentDate(prev => new Date(prev.setFullYear(prev.getFullYear() - 1)));
-                  }}
-                >
+                <Button variant="ghost" size="icon" onClick={() => {
+                  if (viewMode === 'monthly') setCurrentDate(prev => subMonths(prev, 1));
+                  if (viewMode === 'yearly') setCurrentDate(prev => new Date(prev.setFullYear(prev.getFullYear() - 1)));
+                }}>
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
                 <div className="text-center min-w-[120px]">
@@ -417,55 +596,97 @@ export default function Budget() {
                     }
                   </h2>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (viewMode === 'monthly') setCurrentDate(prev => addMonths(prev, 1));
-                    if (viewMode === 'yearly') setCurrentDate(prev => new Date(prev.setFullYear(prev.getFullYear() + 1)));
-                  }}
-                >
+                <Button variant="ghost" size="icon" onClick={() => {
+                  if (viewMode === 'monthly') setCurrentDate(prev => addMonths(prev, 1));
+                  if (viewMode === 'yearly') setCurrentDate(prev => new Date(prev.setFullYear(prev.getFullYear() + 1)));
+                }}>
                   <ChevronRight className="h-5 w-5" />
                 </Button>
               </div>
             )}
           </div>
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="stat-card-income p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <TrendingUp className="h-5 w-5 text-success" />
-                <span className="text-sm text-muted-foreground">Receitas</span>
+          {/* Health Score Banner */}
+          <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/20 rounded-full">
+                <Activity className="h-6 w-6 text-primary" />
               </div>
-              <p className="text-2xl font-display font-bold text-foreground">
-                Kz {totalIncome.toLocaleString('pt-AO')}
-              </p>
+              <div>
+                <h3 className="font-bold text-lg">Saúde Financeira: {healthScore.toFixed(1)}/10</h3>
+                <p className="text-sm text-muted-foreground">
+                  {healthScore >= 8 ? "Excelente! Continue assim." : healthScore >= 5 ? "Bom, mas pode melhorar." : "Atenção aos seus gastos!"}
+                </p>
+              </div>
             </div>
-
-            <div className="stat-card-expense p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <TrendingDown className="h-5 w-5 text-destructive" />
-                <span className="text-sm text-muted-foreground">Despesas</span>
-              </div>
-              <p className="text-2xl font-display font-bold text-foreground">
-                Kz {totalExpense.toLocaleString('pt-AO')}
+            <div className="text-right hidden md:block">
+              <p className="text-sm font-medium">Taxa de Poupança</p>
+              <p className={`text-2xl font-bold ${savingsRate >= budgetConfig.savings_goal_pct ? 'text-success' : 'text-warning'}`}>
+                {savingsRate.toFixed(1)}%
               </p>
-            </div>
-
-            <div className={`stat-card p-6 ${balance >= 0 ? 'stat-card-income' : 'stat-card-expense'}`}>
-              <div className="flex items-center gap-3 mb-2">
-                {balance >= 0 ? <TrendingUp className="h-5 w-5 text-success" /> : <TrendingDown className="h-5 w-5 text-destructive" />}
-                <span className="text-sm text-muted-foreground">Saldo</span>
-              </div>
-              <p className={`text-2xl font-display font-bold ${balance >= 0 ? 'text-success' : 'text-destructive'}`}>
-                Kz {balance.toLocaleString('pt-AO')}
-              </p>
+              <p className="text-xs text-muted-foreground">Meta: {budgetConfig.savings_goal_pct}%</p>
             </div>
           </div>
 
+          {/* Metrics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <MetricCard
+              title="Receitas"
+              value={totalIncome}
+              previousValue={prevIncome}
+              trendLabel={trendLabel}
+              icon={TrendingUp}
+              type="neutral"
+              valueClassName="text-success"
+              formatter={(v) => `Kz ${v.toLocaleString('pt-AO')}`}
+            />
+            <MetricCard
+              title="Despesas"
+              value={totalExpense}
+              previousValue={prevExpense}
+              trendLabel={trendLabel}
+              icon={TrendingDown}
+              type="reverse"
+              valueClassName="text-destructive"
+              formatter={(v) => `Kz ${v.toLocaleString('pt-AO')}`}
+            />
+            <MetricCard
+              title="Saldo"
+              value={balance}
+              previousValue={prevBalance}
+              trendLabel={trendLabel}
+              icon={Wallet}
+              type="neutral"
+              valueClassName={balance >= 0 ? "text-success" : "text-destructive"}
+              formatter={(v) => `Kz ${v.toLocaleString('pt-AO')}`}
+            />
+          </div>
+
+
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3">
+            <Button variant="outline" onClick={() => setCategoryManagerOpen(true)}>
+              <Layers className="h-4 w-4 mr-2" />
+              Gerir Categorias
+            </Button>
+
+            <CategoryManager
+              open={categoryManagerOpen}
+              onOpenChange={setCategoryManagerOpen}
+              categories={categories}
+              onUpdate={() => {
+                fetchCategories();
+                queryClient.invalidateQueries({ queryKey: ["dashboard-transactions"] });
+              }}
+            />
+
+            <BudgetSettings
+              open={settingsOpen}
+              onOpenChange={setSettingsOpen}
+              onUpdate={fetchBudgetConfig}
+              currentConfig={budgetConfig}
+            />
+
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="accent">
@@ -475,7 +696,7 @@ export default function Budget() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Adicionar Transação</DialogTitle>
+                  <DialogTitle>{editingTransactionId ? "Editar Transação" : "Adicionar Transação"}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div className="flex gap-2">
@@ -590,8 +811,8 @@ export default function Budget() {
                     />
                   </div>
 
-                  <Button onClick={addTransaction} className="w-full" variant="accent">
-                    Adicionar Transação
+                  <Button onClick={handleSaveTransaction} className="w-full" variant="accent">
+                    {editingTransactionId ? "Salvar Alterações" : "Adicionar Transação"}
                   </Button>
                 </div>
               </DialogContent>
@@ -695,33 +916,35 @@ export default function Budget() {
             <div className="card-finance">
               <h3 className="font-display text-lg font-semibold text-foreground mb-4">Despesas por Categoria</h3>
               {expensesByCategory.length > 0 ? (
-                <div className="h-64 flex items-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={expensesByCategory}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {expensesByCategory.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(v: number) => `Kz ${v.toLocaleString()}`} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="space-y-2 flex-1 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                <div className="flex flex-col md:flex-row h-auto md:h-64 items-center gap-4">
+                  <div className="w-full md:w-1/2 h-64 md:h-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={expensesByCategory}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {expensesByCategory.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(v: number) => `Kz ${v.toLocaleString()}`} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="w-full md:w-1/2 space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                     {expensesByCategory.map((cat, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm gap-3">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div key={i} className="flex items-center justify-between text-sm gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                           <span className="text-muted-foreground truncate" title={cat.name}>{cat.name}</span>
                         </div>
-                        <span className="font-semibold whitespace-nowrap">Kz {cat.value.toLocaleString()}</span>
+                        <span className="font-semibold whitespace-nowrap text-xs">Kz {cat.value.toLocaleString()}</span>
                       </div>
                     ))}
                   </div>
@@ -872,67 +1095,83 @@ export default function Budget() {
               ) : (
                 <>
                   {viewType === 'list' && (
-                    <div className="space-y-3">
-                      {filteredTransactionsByMode.map((tx) => {
-                        const catInfo = getCategoryInfo(tx.category_id);
-                        const IconComponent = ICON_MAP[catInfo.icon] || FileText;
-                        return (
-                          <div key={tx.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 group hover:bg-secondary/70 transition-colors">
-                            <div className="flex items-center gap-4">
-                              <div
-                                className="w-10 h-10 rounded-lg flex items-center justify-center"
-                                style={{ backgroundColor: `${COLOR_MAP[catInfo.color] || COLOR_MAP.gray}20` }}
-                              >
-                                <IconComponent
-                                  className="h-5 w-5"
-                                  style={{ color: COLOR_MAP[catInfo.color] || COLOR_MAP.gray }}
-                                />
-                              </div>
-                              <div>
-                                <p className="font-medium text-foreground">{tx.description}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {catInfo.name} • {format(parseISO(tx.date), 'dd/MM/yyyy')}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <span className={`font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                                {tx.type === 'income' ? '+' : '-'}Kz {tx.amount.toLocaleString('pt-AO')}
-                              </span>
-                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                                  onClick={() => {
-                                    // Pre-fill edit form
-                                    setNewTransaction({
-                                      type: tx.type as 'income' | 'expense',
-                                      amount: tx.amount.toString(),
-                                      description: tx.description || '',
-                                      category_id: tx.category_id || '',
-                                      date: tx.date,
-                                    });
-                                    setDialogOpen(true);
-                                    // You might want to add an ID state to know if we are updating vs creating
-                                    // keeping it simple for now as per requirement focus on view
-                                  }}
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-red-50"
-                                  onClick={() => deleteTransaction(tx.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
+                    <div className="h-[500px] overflow-y-auto pr-2 space-y-6">
+                      {Object.entries(
+                        filteredTransactionsByMode.reduce((groups, tx) => {
+                          const date = format(parseISO(tx.date), 'yyyy-MM-dd');
+                          if (!groups[date]) groups[date] = [];
+                          groups[date].push(tx);
+                          return groups;
+                        }, {} as Record<string, Transaction[]>)
+                      ).map(([date, txs]) => (
+                        <div key={date} className="space-y-2">
+                          <h3 className="font-semibold text-sm text-muted-foreground sticky top-0 bg-background/95 backdrop-blur py-1 z-10">
+                            {format(parseISO(date), "d 'de' MMMM", { locale: pt })}
+                            {date === format(new Date(), 'yyyy-MM-dd') && " (Hoje)"}
+                          </h3>
+                          <div className="space-y-2">
+                            {txs.map((tx) => {
+                              const catInfo = getCategoryInfo(tx.category_id);
+                              const IconComponent = ICON_MAP[catInfo.icon] || FileText;
+
+                              return (
+                                <div key={tx.id} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 group hover:bg-secondary/70 transition-colors">
+                                  <div className="flex items-center gap-4">
+                                    <div
+                                      className="w-10 h-10 rounded-lg flex items-center justify-center"
+                                      style={{ backgroundColor: `${COLOR_MAP[catInfo.color] || COLOR_MAP.gray}20` }}
+                                    >
+                                      <IconComponent
+                                        className="h-5 w-5"
+                                        style={{ color: COLOR_MAP[catInfo.color] || COLOR_MAP.gray }}
+                                      />
+                                    </div>
+                                    <div>
+                                      <p className="font-medium text-foreground">{tx.description}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {catInfo.name}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4">
+                                    <span className={`font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
+                                      {tx.type === 'income' ? '+' : '-'}Kz {tx.amount.toLocaleString('pt-AO')}
+                                    </span>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                        onClick={() => {
+                                          setEditingTransactionId(tx.id);
+                                          setNewTransaction({
+                                            type: tx.type as 'income' | 'expense',
+                                            amount: tx.amount.toString(),
+                                            description: tx.description || '',
+                                            category_id: tx.category_id || '',
+                                            date: tx.date,
+                                          });
+                                          setDialogOpen(true);
+                                        }}
+                                      >
+                                        <Edit2 className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-red-50"
+                                        onClick={() => deleteTransaction(tx.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
                   )}
 
@@ -941,6 +1180,7 @@ export default function Budget() {
                       transactions={filteredTransactionsByMode}
                       categories={categories}
                       onEdit={(tx) => {
+                        setEditingTransactionId(tx.id);
                         setNewTransaction({
                           type: tx.type as 'income' | 'expense',
                           amount: tx.amount.toString(),

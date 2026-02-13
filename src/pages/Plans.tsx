@@ -107,7 +107,7 @@ export default function Plans() {
                     payment_proof_url: proofUrl,
                     status: isTrial ? "active" : "pending",
                     is_trial: isTrial,
-                    expires_at: isTrial ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null
+                    expires_at: isTrial ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() : null
                 });
 
             if (error) throw error;
@@ -122,7 +122,7 @@ export default function Plans() {
 
 
             if (isTrial) {
-                toast.success("Módulo activado com sucesso! Aproveite o seu teste de 7 dias.");
+                toast.success("Módulo activado com sucesso! Aproveite o seu teste de 3 dias.");
             } else {
                 toast.success("Pedido de ativação enviado! Aguarde a aprovação do administrador.");
             }
@@ -247,7 +247,7 @@ export default function Plans() {
                                                     2.000 Kz/mês
                                                     {!hasHadTrial && (
                                                         <div className="text-xs text-success font-semibold uppercase tracking-wider mt-1">
-                                                            7 dias grátis de avaliação
+                                                            3 dias grátis de avaliação
                                                         </div>
                                                     )}
                                                 </>
@@ -339,7 +339,7 @@ export default function Plans() {
                             <DialogTitle>Ativar {selectedPlan?.name}</DialogTitle>
                             <DialogDescription>
                                 {Number(selectedPlan?.price) === 0
-                                    ? "Siga os passos abaixo para ativar seu acesso gratuito por 7 dias."
+                                    ? "Siga os passos abaixo para ativar seu acesso gratuito por 3 dias."
                                     : "Siga os passos abaixo para ativar seu acesso mensal."}
                             </DialogDescription>
                         </DialogHeader>
@@ -361,7 +361,7 @@ export default function Plans() {
                             {Number(selectedPlan?.price) === 0 && (
                                 <div className="bg-success/10 border border-success/20 p-4 rounded-xl text-center">
                                     <p className="text-sm font-medium text-success">
-                                        Este módulo inclui um período de 7 dias grátis para avaliação.
+                                        Este módulo inclui um período de 3 dias grátis para avaliação.
                                     </p>
                                 </div>
                             )}
@@ -395,7 +395,7 @@ export default function Plans() {
                                     onClick={() => purchaseMutation.mutate({ planId: selectedPlan.id, isTrialAction: true })}
                                     disabled={purchaseMutation.isPending}
                                 >
-                                    Iniciar Teste (7 dias)
+                                    Iniciar Teste (3 dias)
                                 </Button>
                             )}
 

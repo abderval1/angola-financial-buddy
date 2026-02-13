@@ -1,26 +1,31 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Plus, Target, PiggyBank, Calendar, Trophy,
-  Play, Pause, Trash2, Edit2,
-  History
+  History, ArrowUpDown, Filter, LayoutGrid, Table as TableIcon, LineChart, Download
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, parseISO } from "date-fns";
-import { pt } from "date-fns/locale";
+import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, subMonths } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAchievements } from "@/hooks/useAchievements";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
+import { SmartGoalCard } from "@/components/savings/SmartGoalCard";
+import { ReservesEvolutionChart, SavingsTable } from "@/components/savings/SavingsVisualizations";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface SavingsGoal {
   id: string;
@@ -36,7 +41,6 @@ interface SavingsGoal {
   color: string | null;
 }
 
-
 const GOAL_ICONS = [
   { name: 'Emergência', icon: '🛡️', color: 'emerald' },
   { name: 'Viagem', icon: '✈️', color: 'blue' },
@@ -47,6 +51,8 @@ const GOAL_ICONS = [
   { name: 'Aposentadoria', icon: '🏖️', color: 'cyan' },
   { name: 'Outro', icon: '🎯', color: 'gray' },
 ];
+
+type SortOption = 'closest' | 'furthest' | 'risk' | 'amount_high' | 'amount_low';
 
 export default function Savings() {
   const { user } = useAuth();
@@ -64,7 +70,10 @@ export default function Savings() {
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [activeHistoryGoal, setActiveHistoryGoal] = useState<SavingsGoal | null>(null);
   const [goalTransactions, setGoalTransactions] = useState<any[]>([]);
+  const [allSavingsTransactions, setAllSavingsTransactions] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>('closest');
+  const [viewMode, setViewMode] = useState<'cards' | 'table' | 'chart'>('cards');
 
   const [newGoal, setNewGoal] = useState({
     name: '',
@@ -76,8 +85,6 @@ export default function Savings() {
     color: 'gray',
   });
 
-
-
   useEffect(() => {
     if (user) {
       fetchData();
@@ -86,7 +93,7 @@ export default function Savings() {
 
   const fetchData = async () => {
     setLoading(true);
-    await fetchGoals();
+    await Promise.all([fetchGoals(), fetchAllSavingsTransactions()]);
     setLoading(false);
   };
 
@@ -104,6 +111,104 @@ export default function Savings() {
     setGoals(data || []);
   };
 
+  const fetchAllSavingsTransactions = async () => {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('date, amount, type, savings_goal_id')
+      .not('savings_goal_id', 'is', null)
+      .order('date', { ascending: true });
+
+    if (error) {
+      console.error("Error fetching savings txs:", error);
+    } else {
+      setAllSavingsTransactions(data || []);
+    }
+  };
+
+  const chartData = useMemo(() => {
+    if (allSavingsTransactions.length === 0) return [];
+
+    // Aggregate by date
+    const balanceByDate: Record<string, number> = {};
+    let runningBalance = 0;
+
+    // Sort txs just in case
+    const sortedTxs = [...allSavingsTransactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    sortedTxs.forEach(tx => {
+      const amount = tx.type === 'income' ? tx.amount : -tx.amount;
+      runningBalance += amount;
+      balanceByDate[tx.date] = runningBalance;
+    });
+
+    // Create daily data points for last 6 months to ensure smooth chart
+    // For MVP, we'll just map the transactions which gives "steps".
+
+    // Better approach: Get unique dates
+    const dataPoints = Object.entries(balanceByDate).map(([date, balance]) => ({
+      date,
+      balance
+    })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    return dataPoints;
+  }, [allSavingsTransactions]);
+
+  const sortedGoals = useMemo(() => {
+    return [...goals].sort((a, b) => {
+      const progressA = ((a.saved_amount || 0) / a.target_amount);
+      const progressB = ((b.saved_amount || 0) / b.target_amount);
+
+      switch (sortBy) {
+        case 'closest':
+          // Sort by progress desc (closest to 100%)
+          return progressB - progressA;
+        case 'furthest':
+          // Sort by progress asc
+          return progressA - progressB;
+        case 'amount_high':
+          return b.target_amount - a.target_amount;
+        case 'amount_low':
+          return a.target_amount - b.target_amount;
+        case 'risk':
+          // Simple risk logic: Low progress AND low/no monthly contribution
+          // Higher score = higher risk
+          const riskA = (1 - progressA) * (a.monthly_contribution ? 1 : 2);
+          const riskB = (1 - progressB) * (b.monthly_contribution ? 1 : 2);
+          return riskB - riskA;
+        default:
+          return 0;
+      }
+    });
+  }, [goals, sortBy]);
+
+  const exportToCSV = () => {
+    if (goals.length === 0) {
+      toast.error("Sem dados para exportar");
+      return;
+    }
+
+    const headers = ["Nome", "Valor Alvo", "Valor Poupado", "Contribuição Mensal", "Data Final", "Status"];
+    const csvContent = [
+      headers.join(","),
+      ...goals.map(g => [
+        `"${g.name}"`,
+        g.target_amount,
+        g.saved_amount || 0,
+        g.monthly_contribution || 0,
+        g.end_date || "",
+        g.status
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `poupanca_export_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const createGoal = async () => {
     if (!newGoal.name || !newGoal.target_amount) {
@@ -230,8 +335,6 @@ export default function Savings() {
     }
 
     // CREATE TRANSACTION RECORD
-    // User Logic: Deposit = Increase Savings (+), Withdrawal = Decrease Savings (-)
-    // We map: Deposit -> 'income' (Green/+), Withdrawal -> 'expense' (Red/-)
     const catName = isDeposit ? 'Poupança' : 'Resgate de Poupança';
     const catType = isDeposit ? 'income' : 'expense';
 
@@ -276,7 +379,6 @@ export default function Savings() {
     if (txError) {
       console.error("Error creating transaction:", txError);
       toast.error(`Erro ao registrar transação no histórico: ${txError.message}`);
-      // We don't return here because the goal balance was already updated above
     }
 
     queryClient.invalidateQueries({ queryKey: ["dashboard-transactions"] });
@@ -284,6 +386,7 @@ export default function Savings() {
     setDepositDialogOpen(false);
     setDepositAmount('');
     setSelectedGoal(null);
+    fetchAllSavingsTransactions(); // Update chart
     fetchGoals();
   };
 
@@ -331,7 +434,7 @@ export default function Savings() {
 
   if (loading) {
     return (
-      <AppLayout title="Poupança" subtitle="Planeie as suas metas financeiras">
+      <AppLayout title="Poupança Inteligente" subtitle="Planeie as suas metas financeiras">
         <ModuleGuard
           moduleKey="basic"
           title="Metas de Poupança"
@@ -346,13 +449,14 @@ export default function Savings() {
   }
 
   return (
-    <AppLayout title="Minha Poupança" subtitle="Gerencie suas metas de economia">
+    <AppLayout title="Poupança Inteligente" subtitle="Gerencie suas metas com análise avançada">
       <ModuleGuard
         moduleKey="basic"
         title="Poupança & Metas"
         description="Crie e acompanhe as suas metas de poupança, realize depósitos e visualize o seu progresso rumo à liberdade financeira."
       >
         <div className="space-y-6 animate-fade-in">
+          {/* Header Stats Logic same as before... */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="card-finance p-6 border-l-4 border-savings bg-savings/5">
               <div className="flex items-center gap-3 mb-2">
@@ -389,152 +493,120 @@ export default function Savings() {
 
 
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold">Objetivos de Poupança</h3>
-              <Button onClick={() => setDialogOpen(true)} className="gradient-primary">
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Meta
-              </Button>
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold">Objetivos de Poupança</h3>
+                <p className="text-sm text-muted-foreground">Você tem {goals.length} metas ativas</p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                {/* View Toggles */}
+                <div className="bg-muted p-1 rounded-lg flex items-center">
+                  <Button
+                    variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('cards')}
+                    className="h-7 px-3"
+                  >
+                    <LayoutGrid className="h-4 w-4 mr-2" />
+                    Cards
+                  </Button>
+                  <Button
+                    variant={viewMode === 'chart' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('chart')}
+                    className="h-7 px-3"
+                  >
+                    <LineChart className="h-4 w-4 mr-2" />
+                    Evolução
+                  </Button>
+                  <Button
+                    variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('table')}
+                    className="h-7 px-3"
+                  >
+                    <TableIcon className="h-4 w-4 mr-2" />
+                    Tabela
+                  </Button>
+                </div>
+
+                <Button variant="outline" onClick={exportToCSV} className="hidden sm:flex" title="Exportar CSV">
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar
+                </Button>
+
+                {viewMode === 'cards' && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="flex gap-2">
+                        <ArrowUpDown className="h-4 w-4" />
+                        <span className="hidden sm:inline">Ordenar</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setSortBy('closest')}>Mais Próximas</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortBy('furthest')}>Mais Distantes</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortBy('risk')}>Maior Risco</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortBy('amount_high')}>Maior Valor</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+
+                <Button onClick={() => setDialogOpen(true)} className="gradient-primary flex-1 sm:flex-none">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Meta
+                </Button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {goals.length === 0 ? (
-                <div className="col-span-full py-12 text-center card-finance">
-                  <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Você ainda não tem metas. Comece agora!</p>
+            {/* CONTENT AREA */}
+            <div className="min-h-[400px]">
+              {viewMode === 'cards' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  {goals.length === 0 ? (
+                    <div className="col-span-full py-12 text-center card-finance">
+                      <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground">Você ainda não tem metas. Comece agora!</p>
+                    </div>
+                  ) : (
+                    sortedGoals.map((goal) => (
+                      <SmartGoalCard
+                        key={goal.id}
+                        goal={goal}
+                        onEdit={(g: SavingsGoal) => { setEditingGoal(g); setEditDialogOpen(true); }}
+                        onDelete={(id: string) => { if (confirm("Tem certeza?")) deleteGoal(id); }}
+                        onDeposit={(g: SavingsGoal) => { setSelectedGoal(g); setTransactionType('deposit'); setDepositDialogOpen(true); }}
+                        onWithdraw={(g: SavingsGoal) => { setSelectedGoal(g); setTransactionType('withdraw'); setDepositDialogOpen(true); }}
+                        onHistory={(g: SavingsGoal) => { setActiveHistoryGoal(g); fetchGoalHistory(g.id); setHistoryDialogOpen(true); }}
+                        onToggleStatus={toggleGoalStatus}
+                      />
+                    ))
+                  )}
                 </div>
-              ) : (
-                goals.map((goal) => {
-                  const progress = Math.min(((goal.saved_amount || 0) / goal.target_amount) * 100, 100);
-                  const isCompleted = (goal.saved_amount || 0) >= goal.target_amount;
+              )}
 
-                  return (
-                    <Card key={goal.id} className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg ${isCompleted ? 'border-success/30 bg-success/5' : ''}`}>
-                      <CardContent className="p-6">
-                        <div className="flex justify-between items-start mb-4">
-                          <div className={`text-4xl p-3 rounded-2xl bg-${goal.color || 'gray'}-500/10`}>
-                            {goal.icon}
-                          </div>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-primary"
-                              onClick={() => {
-                                setEditingGoal(goal);
-                                setEditDialogOpen(true);
-                              }}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive"
-                              onClick={() => {
-                                if (confirm("Tem certeza que deseja excluir esta meta?")) {
-                                  deleteGoal(goal.id);
-                                }
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
+              {viewMode === 'chart' && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <ReservesEvolutionChart data={chartData} />
+                </div>
+              )}
 
-                        <h4 className="text-xl font-bold mb-1">{goal.name}</h4>
-                        <div className="flex justify-between text-sm mb-4">
-                          <span className="text-muted-foreground">
-                            {goal.monthly_contribution ? `Kz ${goal.monthly_contribution.toLocaleString()}/mês` : 'Sem contribuição'}
-                          </span>
-                          <span className={`${isCompleted ? 'text-success font-bold' : 'text-primary'}`}>
-                            {progress.toFixed(0)}%
-                          </span>
-                        </div>
-
-                        <Progress value={progress} className={`h-3 mb-2 ${isCompleted ? 'bg-success/20' : ''}`} />
-
-                        {!isCompleted && goal.monthly_contribution && goal.monthly_contribution > 0 && (
-                          <div className="text-center mb-4">
-                            <p className="text-xs text-muted-foreground">
-                              {(() => {
-                                const remaining = goal.target_amount - (goal.saved_amount || 0);
-                                const monthsRemaining = Math.ceil(remaining / goal.monthly_contribution);
-                                const years = Math.floor(monthsRemaining / 12);
-                                const months = monthsRemaining % 12;
-
-                                if (monthsRemaining <= 0) return "Meta atingida!";
-                                if (years > 0 && months > 0) return `Faltam ${years} ${years === 1 ? 'ano' : 'anos'} e ${months} ${months === 1 ? 'mês' : 'meses'}`;
-                                if (years > 0) return `Faltam ${years} ${years === 1 ? 'ano' : 'anos'}`;
-                                return `Faltam ${months} ${months === 1 ? 'mês' : 'meses'}`;
-                              })()}
-                            </p>
-                          </div>
-                        )}
-
-                        <div className="flex justify-between items-end mb-6">
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Acumulado</p>
-                            <p className="text-lg font-bold">Kz {(goal.saved_amount || 0).toLocaleString()}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Objetivo</p>
-                            <p className="text-lg font-medium">Kz {goal.target_amount.toLocaleString()}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <Button
-                            className="flex-1 gradient-savings h-9 text-xs"
-                            onClick={() => {
-                              setSelectedGoal(goal);
-                              setTransactionType('deposit');
-                              setDepositDialogOpen(true);
-                            }}
-                          >
-                            Poupar
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="flex-1 h-9 text-xs border-destructive/20 text-destructive hover:bg-destructive/10"
-                            onClick={() => {
-                              setSelectedGoal(goal);
-                              setTransactionType('withdraw');
-                              setDepositDialogOpen(true);
-                            }}
-                          >
-                            Retirar
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="h-9 w-9 p-0 rounded-full hover:bg-muted"
-                            onClick={() => {
-                              setActiveHistoryGoal(goal);
-                              fetchGoalHistory(goal.id);
-                              setHistoryDialogOpen(true);
-                            }}
-                          >
-                            <History className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            className="h-9 w-9 p-0 rounded-full hover:bg-muted"
-                            onClick={() => toggleGoalStatus(goal)}
-                          >
-                            {goal.status === 'active' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
+              {viewMode === 'table' && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <SavingsTable
+                    goals={sortedGoals}
+                    onEdit={(g: SavingsGoal) => { setEditingGoal(g); setEditDialogOpen(true); }}
+                    onDelete={(id: string) => { if (confirm("Tem certeza?")) deleteGoal(id); }}
+                  />
+                </div>
               )}
             </div>
+
           </div>
 
 
           {/* Dialogs */}
-          {/* Create Goal Dialog */}
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>

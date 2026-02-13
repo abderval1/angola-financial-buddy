@@ -225,7 +225,7 @@ export default function Landing() {
               </ul>
               <Link to="/auth?mode=register" className="inline-block mt-6 sm:mt-8">
                 <Button variant="accent" size="default" className="sm:text-base">
-                  Iniciar Teste de 7 Dias
+                  Iniciar Teste de 3 Dias
                   <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
               </Link>
@@ -281,7 +281,7 @@ export default function Landing() {
             {/* Básico */}
             <div className="group relative p-8 rounded-3xl bg-card border border-border hover:border-neutral-400/30 transition-all duration-300">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-success text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                7 Dias Grátis
+                3 Dias Grátis
               </div>
               <div className="mb-6 h-12 w-12 rounded-2xl bg-neutral-500/10 flex items-center justify-center text-neutral-500 group-hover:bg-neutral-500 group-hover:text-white transition-all">
                 <Wallet className="h-6 w-6" />
@@ -470,12 +470,12 @@ export default function Landing() {
               Comece hoje a transformar suas finanças
             </h2>
             <p className="text-sm sm:text-base text-muted-foreground mb-8 sm:mb-10 px-4">
-              Cadastre-se para o teste de 7 dias e tenha acesso a todas as ferramentas para
+              Cadastre-se para o teste de 3 dias e tenha acesso a todas as ferramentas para
               controlar seu orçamento, poupar e investir.
             </p>
             <Link to="/auth?mode=register" className="inline-block w-full sm:w-auto">
               <Button variant="hero" size="lg" className="w-full sm:w-auto">
-                Iniciar Avaliação de 7 Dias
+                Iniciar Avaliação de 3 Dias
                 <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </Link>

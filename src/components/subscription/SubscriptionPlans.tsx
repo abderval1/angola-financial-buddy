@@ -85,7 +85,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
     mutationFn: async (plan: Plan) => {
       if (!plan.trial_period_days) return;
 
-      const trialDays = Number(plan.trial_period_days) || 7;
+      const trialDays = Number(plan.trial_period_days) || 3;
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + trialDays);
 
@@ -100,7 +100,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Período de teste activado com sucesso! Aproveite os próximos 7 dias.");
+      toast.success("Período de teste activado com sucesso! Aproveite os próximos 3 dias.");
       queryClient.invalidateQueries({ queryKey: ["user-subscription"] });
       queryClient.invalidateQueries({ queryKey: ["user-has-had-trial"] });
       queryClient.invalidateQueries({ queryKey: ["module-access"] });
@@ -130,7 +130,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
     mutationFn: async ({ planId, proofUrl }: { planId: string; proofUrl?: string }) => {
       const plan = plans.find(p => p.id === planId);
       const isTrialOrFree = Number(plan?.price) === 0 || (plan?.trial_period_days && plan?.trial_period_days > 0);
-      const trialDays = plan?.trial_period_days || 7;
+      const trialDays = plan?.trial_period_days || 3;
 
       const { error } = await supabase.from("user_subscriptions").insert({
         user_id: user?.id,
@@ -148,7 +148,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
       const isTrialOrFree = Number(plan?.price) === 0;
 
       if (isTrialOrFree) {
-        toast.success("Módulo activado com sucesso! Aproveite o seu teste de 7 dias.");
+        toast.success("Módulo activado com sucesso! Aproveite o seu teste de 3 dias.");
       } else {
         toast.success("Assinatura enviada! Aguarde a aprovação do administrador.");
       }
@@ -289,7 +289,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
               <div className="mb-6">
                 {(plan.module_key === 'basic' || plan.name === 'Básico' || plan.name === 'Gratuito' || plan.trial_period_days > 0) && (
                   <Badge variant="secondary" className="mb-2 bg-success/10 text-success border-success/20">
-                    7 Dias de Avaliação
+                    3 Dias de Avaliação
                   </Badge>
                 )}
                 <div>
@@ -300,7 +300,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                 </div>
                 {isBasicPlan && plan.trial_period_days && !hasHadTrial && (
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    * Grátis nos primeiros 7 dias, depois 2.000 Kz/mês
+                    * Grátis nos primeiros 3 dias, depois 2.000 Kz/mês
                   </p>
                 )}
               </div>
@@ -411,7 +411,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
             ) : (
               <div className="space-y-4">
                 <div className="p-4 bg-success/10 border border-success/20 rounded-lg text-center">
-                  <p className="text-sm font-medium text-success">Este plano inclui um período de 7 dias grátis para avaliação.</p>
+                  <p className="text-sm font-medium text-success">Este plano inclui um período de 3 dias grátis para avaliação.</p>
                 </div>
                 <Button
                   className="w-full gradient-success"

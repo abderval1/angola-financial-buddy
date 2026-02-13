@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { TwoFactorVerify } from "@/components/auth/TwoFactorVerify";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -15,6 +16,10 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(searchParams.get("mode") !== "register");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [mfaData, setMfaData] = useState<{ required: boolean; factorId: string | null }>({
+    required: false,
+    factorId: null
+  });
 
   // Referral code from URL
   const refCode = searchParams.get("ref");
@@ -45,12 +50,26 @@ export default function Auth() {
     }
 
     if (isLogin) {
-      const { error } = await signIn(formData.email, formData.password);
+      const { error, data } = await signIn(formData.email, formData.password);
       if (error) {
         toast.error(error.message || "Erro ao fazer login");
         setLoading(false);
         return;
       }
+
+      // Check if MFA is required via custom handler
+      try {
+        const { data: mfaStatus, error: mfaError } = await (supabase.rpc as any)('mfa_check');
+
+        if (!mfaError && (mfaStatus as any)?.enabled) {
+          setMfaData({ required: true, factorId: 'custom' }); // factorId used as flag
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error("MFA check error:", err);
+      }
+
       toast.success("Bem-vindo de volta!");
     } else {
       const { error, data } = await signUp(formData.email, formData.password, {
@@ -144,93 +163,101 @@ export default function Auth() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-            {!isLogin && (
+          {mfaData.required && mfaData.factorId ? (
+            <TwoFactorVerify
+              factorId={mfaData.factorId}
+              onVerify={() => navigate("/dashboard")}
+              onCancel={() => setMfaData({ required: false, factorId: null })}
+            />
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+              {!isLogin && (
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="name" className="text-sm">Nome Completo</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="name" placeholder="João Silva" className="pl-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required={!isLogin} />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1.5 sm:space-y-2">
-                <Label htmlFor="name" className="text-sm">Nome Completo</Label>
+                <Label htmlFor="email" className="text-sm">Email</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input id="name" placeholder="João Silva" className="pl-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required={!isLogin} />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input id="email" type="email" placeholder="joao@exemplo.ao" className="pl-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
                 </div>
               </div>
-            )}
 
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label htmlFor="email" className="text-sm">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="email" type="email" placeholder="joao@exemplo.ao" className="pl-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
-              </div>
-            </div>
-
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label htmlFor="password" className="text-sm">Senha</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" className="pl-10 pr-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            {!isLogin && (
               <div className="space-y-1.5 sm:space-y-2">
-                <Label htmlFor="confirmPassword" className="text-sm">Confirmar Senha</Label>
+                <Label htmlFor="password" className="text-sm">Senha</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input id="confirmPassword" type="password" placeholder="••••••••" className="pl-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} required={!isLogin} />
+                  <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" className="pl-10 pr-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
-            )}
 
-            {!isLogin && (
-              <div className="space-y-1.5 sm:space-y-2">
-                <Label htmlFor="referralCode" className="text-sm">Código de Convite (opcional)</Label>
-                <div className="relative">
-                  <Gift className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="referralCode"
-                    placeholder="Ex: ABC12345"
-                    className="pl-10 h-10 sm:h-12 text-sm sm:text-base uppercase"
-                    value={formData.referralCode}
-                    onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
-                  />
+              {!isLogin && (
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="confirmPassword" className="text-sm">Confirmar Senha</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="confirmPassword" type="password" placeholder="••••••••" className="pl-10 h-10 sm:h-12 text-sm sm:text-base" value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} required={!isLogin} />
+                  </div>
                 </div>
-                {formData.referralCode && (
-                  <p className="text-xs text-success">🎁 Você receberá um bónus de boas-vindas!</p>
-                )}
-              </div>
-            )}
-
-            {!isLogin && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Ao criar uma conta, você concorda com nossos{" "}
-                <Link to="/terms" className="text-primary hover:underline">
-                  Termos de Serviço
-                </Link>{" "}
-                e{" "}
-                <Link to="/privacy" className="text-primary hover:underline">
-                  Política de Privacidade
-                </Link>
-                .
-              </p>
-            )}
-
-            <Button type="submit" variant="accent" className="w-full h-10 sm:h-12 text-sm sm:text-base" disabled={loading}>
-              {loading ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 border-2 border-accent-foreground/30 border-t-accent-foreground rounded-full animate-spin" />
-                  {isLogin ? "Entrando..." : "Criando conta..."}
-                </div>
-              ) : (
-                <>
-                  {isLogin ? "Entrar" : "Criar Conta"}
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </>
               )}
-            </Button>
-          </form>
+
+              {!isLogin && (
+                <div className="space-y-1.5 sm:space-y-2">
+                  <Label htmlFor="referralCode" className="text-sm">Código de Convite (opcional)</Label>
+                  <div className="relative">
+                    <Gift className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="referralCode"
+                      placeholder="Ex: ABC12345"
+                      className="pl-10 h-10 sm:h-12 text-sm sm:text-base uppercase"
+                      value={formData.referralCode}
+                      onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
+                    />
+                  </div>
+                  {formData.referralCode && (
+                    <p className="text-xs text-success">🎁 Você receberá um bónus de boas-vindas!</p>
+                  )}
+                </div>
+              )}
+
+              {!isLogin && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Ao criar uma conta, você concorda com nossos{" "}
+                  <Link to="/terms" className="text-primary hover:underline">
+                    Termos de Serviço
+                  </Link>{" "}
+                  e{" "}
+                  <Link to="/privacy" className="text-primary hover:underline">
+                    Política de Privacidade
+                  </Link>
+                  .
+                </p>
+              )}
+
+              <Button type="submit" variant="accent" className="w-full h-10 sm:h-12 text-sm sm:text-base" disabled={loading}>
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 border-2 border-accent-foreground/30 border-t-accent-foreground rounded-full animate-spin" />
+                    {isLogin ? "Entrando..." : "Criando conta..."}
+                  </div>
+                ) : (
+                  <>
+                    {isLogin ? "Entrar" : "Criar Conta"}
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            </form>
+          )}
 
           <p className="text-center mt-4 sm:mt-6 text-sm sm:text-base text-muted-foreground">
             {isLogin ? "Não tem uma conta?" : "Já tem uma conta?"}{" "}

@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAchievements } from "@/hooks/useAchievements";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { TwoFactorSetup } from "@/components/profile/TwoFactorSetup";
 
 interface NotificationPreferences {
   email: boolean;
@@ -129,8 +130,8 @@ export default function Settings() {
         updated_at: new Date().toISOString(),
       };
 
-      // Only include two_factor_enabled if it exists in the profile model (resilience)
-      // This helps if the migration haven't been applied yet
+      // Two-factor status is handled by the TwoFactorSetup component directly via Supabase Auth
+      // but we update the profile metadata/state if needed
       if (profile && 'two_factor_enabled' in profile) {
         updateData.two_factor_enabled = data.twoFactor;
       }
@@ -530,19 +531,8 @@ export default function Settings() {
               </Dialog>
             </div>
             <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Autenticação de dois fatores</Label>
-                <p className="text-sm text-muted-foreground">
-                  Adicione uma camada extra de segurança
-                </p>
-              </div>
-              <Switch
-                checked={formData.twoFactor}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, twoFactor: checked })
-                }
-              />
+            <div className="space-y-4">
+              <TwoFactorSetup onStatusChange={(enabled) => setFormData(prev => ({ ...prev, twoFactor: enabled }))} />
             </div>
           </CardContent>
         </Card>
