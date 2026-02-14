@@ -89,9 +89,9 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 
 -- 5. Helper: Validate TOTP
 CREATE OR REPLACE FUNCTION public.validate_totp(p_secret TEXT, p_code TEXT)
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN AS $
 DECLARE
-    v_key BYTEA := public.base32_decode(p_secret);
+    v_key BYTEA;
     v_timestamp BIGINT := floor(extract(epoch from now()) / 30);
     v_counter BYTEA;
     v_hmac BYTEA;
@@ -100,6 +100,109 @@ DECLARE
     v_check_code TEXT;
     v_step BIGINT;
 BEGIN
+    -- Validate inputs
+    IF p_secret IS NULL OR p_code IS NULL OR length(p_secret) < 16 THEN
+        RETURN false;
+    END IF;
+    
+    -- Validate code format (must be 6 digits)
+    IF length(p_code) != 6 OR p_code !~ '^[0-9]{6}
+
+-- 6. RPC: Verify and Enable 2FA
+CREATE OR REPLACE FUNCTION public.mfa_verify_and_enable(p_code TEXT, p_secret TEXT)
+RETURNS JSONB AS $$
+DECLARE
+    v_user_id UUID := auth.uid();
+    v_backup_codes JSONB;
+    v_code TEXT;
+BEGIN
+    IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+    -- Validate TOTP Code
+    IF NOT public.validate_totp(p_secret, p_code) THEN
+        RAISE EXCEPTION 'Código de verificação inválido';
+    END IF;
+    
+    -- Generate 8 backup codes
+    v_backup_codes := '[]'::jsonb;
+    FOR i IN 1..8 LOOP
+        v_code := upper(substring(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+        v_backup_codes := v_backup_codes || jsonb_build_array(v_code);
+    END LOOP;
+
+    INSERT INTO public.user_2fa (user_id, totp_secret, is_enabled, backup_codes)
+    VALUES (v_user_id, p_secret, true, v_backup_codes)
+    ON CONFLICT (user_id) DO UPDATE
+    SET totp_secret = p_secret, is_enabled = true, backup_codes = v_backup_codes, updated_at = NOW();
+
+    RETURN jsonb_build_object('success', true, 'backupCodes', v_backup_codes);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 7. RPC: Login Verification
+CREATE OR REPLACE FUNCTION public.mfa_login_verify(p_code TEXT)
+RETURNS JSONB AS $$
+DECLARE
+    v_user_id UUID := auth.uid();
+    v_secret TEXT;
+    v_backups JSONB;
+BEGIN
+    IF v_user_id IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+
+    SELECT totp_secret, backup_codes INTO v_secret, v_backups
+    FROM public.user_2fa WHERE user_id = v_user_id AND is_enabled = true;
+
+    IF v_secret IS NULL THEN RAISE EXCEPTION '2FA not enabled'; END IF;
+
+    -- Check TOTP
+    IF public.validate_totp(v_secret, p_code) THEN
+        RETURN jsonb_build_object('success', true);
+    END IF;
+
+    -- Check Backup Codes (supports either array logic or ? operator if valid)
+    IF v_backups ? upper(p_code) THEN
+        UPDATE public.user_2fa 
+        SET backup_codes = backup_codes - upper(p_code)
+        WHERE user_id = v_user_id;
+        RETURN jsonb_build_object('success', true, 'message', 'Backup code used');
+    END IF;
+
+    RETURN jsonb_build_object('success', false, 'error', 'Invalid code');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 8. RPC: Disable
+CREATE OR REPLACE FUNCTION public.mfa_disable(p_code TEXT)
+RETURNS JSONB AS $$
+DECLARE
+    v_user_id UUID := auth.uid();
+    v_secret TEXT;
+BEGIN
+    SELECT totp_secret INTO v_secret FROM public.user_2fa WHERE user_id = v_user_id;
+    
+    IF v_secret IS NOT NULL AND NOT public.validate_totp(v_secret, p_code) THEN
+        RAISE EXCEPTION 'Código inválido para desactivação';
+    END IF;
+
+    DELETE FROM public.user_2fa WHERE user_id = v_user_id;
+    RETURN jsonb_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+ THEN
+        RETURN false;
+    END IF;
+    
+    -- Try to decode the secret
+    BEGIN
+        v_key := public.base32_decode(p_secret);
+    EXCEPTION WHEN OTHERS THEN
+        RETURN false;
+    END;
+    
+    IF v_key IS NULL OR length(v_key) = 0 THEN
+        RETURN false;
+    END IF;
+    
     -- Check 3 time windows (current, previous, next) to account for slight clock drift
     FOR v_step IN (v_timestamp - 1)..(v_timestamp + 1) LOOP
         -- Convert timestamp to 8-byte big-endian bytea

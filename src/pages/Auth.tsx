@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, Chrome, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,10 +16,14 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(searchParams.get("mode") !== "register");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [mfaData, setMfaData] = useState<{ required: boolean; factorId: string | null }>({
+  const [mfaData, setMfaData] = useState<{ required: boolean; checked: boolean; factorId: string | null }>({
     required: false,
+    checked: false,
     factorId: null
   });
+
+  // Ref to track if MFA check has been performed for current user session
+  const mfaCheckRef = useRef<string | null>(null);
 
   // Referral code from URL
   const refCode = searchParams.get("ref");
@@ -34,10 +38,52 @@ export default function Auth() {
   });
 
   useEffect(() => {
-    if (user) {
+    const checkMFA = async () => {
+      // Skip if no user, already checked, or already checking for this user
+      if (!user || mfaData.checked || mfaCheckRef.current === user.id) {
+        return;
+      }
+
+      // Mark this user as checked
+      mfaCheckRef.current = user.id;
+
+      console.log("🔍 Checking 2FA status for user:", user.id);
+      console.log("🌐 Supabase URL:", import.meta.env.VITE_SUPABASE_URL);
+
+      try {
+        const { data: mfaData, error: mfaError } = await (supabase.rpc as any)('mfa_check');
+
+        console.log("📬 RPC Response:", { mfaData, mfaError });
+
+        if (mfaError) {
+          console.error("❌ MFA check error:", mfaError);
+          setMfaData({ required: false, checked: true, factorId: null });
+          return;
+        }
+
+        if (mfaData?.enabled) {
+          console.log("🔐 2FA is ENABLED - showing verification screen");
+          setMfaData({ required: true, checked: true, factorId: 'custom' });
+        } else {
+          console.log("❌ 2FA is NOT enabled");
+          setMfaData({ required: false, checked: true, factorId: null });
+        }
+      } catch (err) {
+        console.error("💥 MFA check exception:", err);
+        setMfaData({ required: false, checked: true, factorId: null });
+      }
+    };
+
+    checkMFA();
+  }, [user]);
+
+  useEffect(() => {
+    // Only navigate if user exists, MFA check is done, and 2FA is not required
+    if (user && mfaData.checked && !mfaData.required) {
+      console.log("🚀 Authenticated and 2FA verified (or not required). Navigating to dashboard...");
       navigate("/dashboard");
     }
-  }, [user, navigate]);
+  }, [user, mfaData.checked, mfaData.required, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,27 +96,13 @@ export default function Auth() {
     }
 
     if (isLogin) {
-      const { error, data } = await signIn(formData.email, formData.password);
+      const { error } = await signIn(formData.email, formData.password);
       if (error) {
         toast.error(error.message || "Erro ao fazer login");
         setLoading(false);
         return;
       }
-
-      // Check if MFA is required via custom handler
-      try {
-        const { data: mfaStatus, error: mfaError } = await (supabase.rpc as any)('mfa_check');
-
-        if (!mfaError && (mfaStatus as any)?.enabled) {
-          setMfaData({ required: true, factorId: 'custom' }); // factorId used as flag
-          setLoading(false);
-          return;
-        }
-      } catch (err) {
-        console.error("MFA check error:", err);
-      }
-
-      toast.success("Bem-vindo de volta!");
+      // MFA check will be triggered by useEffect when 'user' state changes
     } else {
       const { error, data } = await signUp(formData.email, formData.password, {
         name: formData.name,
@@ -166,8 +198,16 @@ export default function Auth() {
           {mfaData.required && mfaData.factorId ? (
             <TwoFactorVerify
               factorId={mfaData.factorId}
-              onVerify={() => navigate("/dashboard")}
-              onCancel={() => setMfaData({ required: false, factorId: null })}
+              onVerify={() => {
+                // Reset MFA state and let useEffect handle navigation
+                setMfaData(prev => ({ ...prev, required: false, factorId: null }));
+                toast.success("Autenticação bem-sucedida!");
+              }}
+              onCancel={async () => {
+                // Log out the user when they cancel 2FA
+                await supabase.auth.signOut();
+                setMfaData({ required: false, checked: false, factorId: null });
+              }}
             />
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">

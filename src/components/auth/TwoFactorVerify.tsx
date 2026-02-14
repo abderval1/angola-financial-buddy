@@ -22,15 +22,24 @@ export function TwoFactorVerify({ factorId, onVerify, onCancel }: TwoFactorVerif
     const handleVerify = async () => {
         setLoading(true);
         try {
+            console.log("Verifying login with code:", otpCode);
             const { data, error } = await (supabase.rpc as any)('mfa_login_verify', {
                 p_code: otpCode
             });
 
-            if (error || !data?.success) throw error || new Error((data as any)?.error || "Erro desconhecido");
+            console.log("Login verify response:", { data, error });
+
+            if (error) {
+                console.error("RPC error:", error);
+                throw new Error(error.message || "Erro desconhecido");
+            }
+
+            if (!data?.success) throw new Error(data?.error || "Código inválido");
 
             toast.success("Autenticação concluída!");
             onVerify();
         } catch (error: any) {
+            console.error("Verification error:", error);
             toast.error("Código inválido ou expirado: " + error.message);
             setOtpCode("");
         } finally {

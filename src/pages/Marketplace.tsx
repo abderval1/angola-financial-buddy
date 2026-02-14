@@ -68,16 +68,31 @@ export default function Marketplace() {
     },
   });
 
-  // Fetch user purchases
+  // Fetch user purchases - handle missing status column gracefully
   const { data: userPurchases = [] } = useQuery({
     queryKey: ["user-purchases"],
     queryFn: async () => {
+      // First try with status column
       const { data, error } = await supabase
         .from("marketplace_purchases")
         .select("product_id, status")
         .eq("user_id", user?.id);
 
-      if (error) throw error;
+      // If error is about missing column, try without status
+      if (error && error.message.includes("status")) {
+        const { data: dataWithoutStatus } = await supabase
+          .from("marketplace_purchases")
+          .select("product_id")
+          .eq("user_id", user?.id);
+
+        return (dataWithoutStatus || []).map((p: any) => ({ ...p, status: "completed" }));
+      }
+
+      if (error) {
+        console.error("Error fetching purchases:", error);
+        return [];
+      }
+
       return data || [];
     },
     enabled: !!user?.id,
@@ -89,21 +104,80 @@ export default function Marketplace() {
   // Purchase mutation
   const purchaseMutation = useMutation({
     mutationFn: async ({ product, proofUrl }: { product: any; proofUrl?: string }) => {
-      const { error } = await supabase.from("marketplace_purchases").insert({
-        user_id: user?.id,
-        product_id: product.id,
-        purchase_price: product.price,
-        status: product.price > 0 ? "pending" : "completed",
-        receipt_url: proofUrl,
-      });
+      try {
+        // First, check if there's an existing purchase
+        const { data: existingPurchases } = await supabase
+          .from("marketplace_purchases")
+          .select("id")
+          .eq("user_id", user?.id)
+          .eq("product_id", product.id)
+          .maybeSingle();
 
-      if (error) throw error;
+        if (existingPurchases) {
+          // Update existing purchase - try with status first, fallback without
+          const { error: updateError } = await supabase
+            .from("marketplace_purchases")
+            .update({
+              status: "pending",
+              payment_proof_url: proofUrl,
+              purchase_price: product.price,
+            })
+            .eq("id", existingPurchases.id);
 
-      // Increment download count
-      await supabase
-        .from("marketplace_products")
-        .update({ download_count: (product.download_count || 0) + 1 })
-        .eq("id", product.id);
+          if (updateError) {
+            // If error about status column, try without it
+            if (updateError.message.includes("status")) {
+              const { error: fallbackError } = await supabase
+                .from("marketplace_purchases")
+                .update({
+                  payment_proof_url: proofUrl,
+                  purchase_price: product.price,
+                })
+                .eq("id", existingPurchases.id);
+              if (fallbackError) throw fallbackError;
+            } else {
+              throw updateError;
+            }
+          }
+        } else {
+          // Insert new purchase - try with status first, fallback without
+          const { error: insertError } = await supabase
+            .from("marketplace_purchases")
+            .insert({
+              user_id: user?.id,
+              product_id: product.id,
+              purchase_price: product.price,
+              status: product.price > 0 ? "pending" : "completed",
+              payment_proof_url: proofUrl,
+            });
+
+          if (insertError) {
+            // If error about status column, try without it
+            if (insertError.message.includes("status")) {
+              const { error: fallbackError } = await supabase
+                .from("marketplace_purchases")
+                .insert({
+                  user_id: user?.id,
+                  product_id: product.id,
+                  purchase_price: product.price,
+                  payment_proof_url: proofUrl,
+                });
+              if (fallbackError) throw fallbackError;
+            } else {
+              throw insertError;
+            }
+          }
+        }
+
+        // Increment download count
+        await supabase
+          .from("marketplace_products")
+          .update({ download_count: (product.download_count || 0) + 1 })
+          .eq("id", product.id);
+      } catch (err: any) {
+        console.error("Purchase error:", err);
+        throw err;
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["user-purchases"] });
@@ -150,7 +224,10 @@ export default function Marketplace() {
   });
 
   const getPurchaseStatus = (productId: string) => {
-    return userPurchases.find((p: any) => p.product_id === productId)?.status;
+    const purchase = userPurchases.find((p: any) => p.product_id === productId);
+    // If we have a purchase, return the status (may be undefined if column doesn't exist)
+    // If status is undefined but we have a purchase, treat as "completed"
+    return purchase?.status || (purchase ? "completed" : undefined);
   };
 
   const getProductIcon = (type: string) => {
@@ -430,7 +507,7 @@ export default function Marketplace() {
                                   <Button
                                     size="sm"
                                     className="gradient-primary"
-                                    onClick={() => buyAgainMutation.mutate(product.id)}
+                                    onClick={() => handleBuy(product)}
                                   >
                                     <RefreshCw className="h-4 w-4 mr-1" />
                                     Comprar Novamente
@@ -580,22 +657,27 @@ export default function Marketplace() {
                     const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
 
                     const { error: uploadError } = await supabase.storage
-                      .from("receipts")
+                      .from("payment-proofs")
                       .upload(fileName, proofFile);
 
-                    if (uploadError) throw uploadError;
+                    if (uploadError) {
+                      console.error("Storage upload error:", uploadError);
+                      throw new Error(`Erro no upload: ${uploadError.message}`);
+                    }
 
                     const { data: urlData } = supabase.storage
-                      .from("receipts")
+                      .from("payment-proofs")
                       .getPublicUrl(fileName);
 
                     await purchaseMutation.mutateAsync({
                       product: selectedProduct,
                       proofUrl: urlData.publicUrl
                     });
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error("Upload error:", error);
-                    toast.error("Erro ao enviar comprovativo");
+                    // Show more specific error message
+                    const errorMessage = error?.message || error?.error_description || "Erro desconhecido";
+                    toast.error(`Erro ao enviar: ${errorMessage}`);
                   } finally {
                     setUploading(false);
                   }

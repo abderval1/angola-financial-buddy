@@ -48,11 +48,12 @@ export function AdminSalesManager() {
                 }
                 console.log("Marketplace Purchases Data:", data);
 
-                // Normalize marketplace data
+                // Normalize marketplace data - include all fields including payment_proof_url and status
                 return (data as any[])?.map(d => ({
                     ...d,
                     purchase_price: d.marketplace_products?.price || d.purchase_price || 0,
-                    receipt_url: d.payment_proof_url
+                    receipt_url: d.payment_proof_url || d.receipt_url,
+                    status: d.status
                 })) || [];
             } else {
                 const { data, error } = await supabase
@@ -204,7 +205,10 @@ export function AdminSalesManager() {
     };
 
     const getPublicUrl = (path: string) => {
-        return supabase.storage.from("receipts").getPublicUrl(path).data.publicUrl;
+        // If already a full URL, return it directly
+        if (path?.startsWith('http')) return path;
+        // Otherwise, get the public URL from the path - use payment-proofs bucket
+        return supabase.storage.from("payment-proofs").getPublicUrl(path).data.publicUrl;
     }
 
     const getStatusBadge = (status: string) => {

@@ -72,15 +72,25 @@ export function TwoFactorSetup({ onStatusChange }: TwoFactorSetupProps) {
     };
 
     const onVerify = async () => {
-        if (!secret) return;
+        if (!secret || !otpCode) return;
         setLoading(true);
         try {
+            console.log("Verifying with secret:", secret, "code:", otpCode);
             const { data, error } = await (supabase.rpc as any)('mfa_verify_and_enable', {
                 p_code: otpCode,
                 p_secret: secret
             });
 
-            if (error) throw error;
+            console.log("Verify response:", { data, error });
+
+            if (error) {
+                console.error("RPC error:", error);
+                throw error;
+            }
+
+            if (!data?.success) {
+                throw new Error(data?.error || "Código inválido");
+            }
 
             setBackupCodes((data as any)?.backupCodes);
             toast.success("Autenticação de dois factores activada!");
@@ -88,6 +98,7 @@ export function TwoFactorSetup({ onStatusChange }: TwoFactorSetupProps) {
             onStatusChange?.(true);
             setStep("backup");
         } catch (error: any) {
+            console.error("Verification error:", error);
             toast.error("Código inválido ou erro na verificação: " + error.message);
         } finally {
             setLoading(false);

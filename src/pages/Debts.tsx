@@ -1,22 +1,31 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Plus, CreditCard, Trash2, Edit2, CheckCircle, Clock, AlertTriangle,
-  TrendingDown, Calendar, Percent, DollarSign
+  Plus, CreditCard, Trash2, Edit2, CheckCircle, AlertTriangle,
+  TrendingDown, TrendingUp, Calendar, DollarSign, Users, AlertCircle, Shield, Eye, Clock
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays, parseISO } from "date-fns";
 import { pt } from "date-fns/locale";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
+import { DebtCalendar } from "@/components/debts/DebtCalendar";
 
 interface Debt {
   id: string;
@@ -26,20 +35,74 @@ interface Debt {
   interest_rate: number | null;
   monthly_payment: number | null;
   due_date: string | null;
+  contract_date?: string | null;
   status: string | null;
   notes: string | null;
   created_at: string | null;
 }
 
+interface Loan {
+  id: string;
+  borrower_name: string;
+  borrower_contact: string | null;
+  original_amount: number;
+  current_amount: number;
+  interest_rate: number | null;
+  loan_date?: string | null;
+  expected_return_date: string | null;
+  actual_return_date: string | null;
+  status: string;
+  notes: string | null;
+  created_at: string | null;
+  user_id?: string;
+}
+
+interface DebtPayment {
+  id: string;
+  debt_id: string;
+  amount: number;
+  payment_date: string;
+  notes: string | null;
+  created_at: string;
+}
+
+interface LoanCollection {
+  id: string;
+  loan_id: string;
+  amount: number;
+  collection_date: string;
+  notes: string | null;
+  created_at: string;
+}
+
 export default function Debts() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState("debts");
   const [debts, setDebts] = useState<Debt[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Dialogs
+  const [debtDialogOpen, setDebtDialogOpen] = useState(false);
+  const [loanDialogOpen, setLoanDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [collectionDialogOpen, setCollectionDialogOpen] = useState(false);
+  const [debtHistoryOpen, setDebtHistoryOpen] = useState(false);
+  const [loanHistoryOpen, setLoanHistoryOpen] = useState(false);
+
+  // Payment history
+  const [debtPayments, setDebtPayments] = useState<DebtPayment[]>([]);
+  const [loanCollections, setLoanCollections] = useState<LoanCollection[]>([]);
+
+  // Editing
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
+  const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
+  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+
+  // Form values
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [collectionAmount, setCollectionAmount] = useState('');
 
   const [newDebt, setNewDebt] = useState({
     creditor: '',
@@ -47,38 +110,48 @@ export default function Debts() {
     current_amount: '',
     interest_rate: '',
     monthly_payment: '',
+    contract_date: '',
     due_date: '',
     notes: '',
   });
 
+  const [newLoan, setNewLoan] = useState({
+    borrower_name: '',
+    borrower_contact: '',
+    original_amount: '',
+    current_amount: '',
+    interest_rate: '',
+    loan_date: '',
+    expected_return_date: '',
+    notes: '',
+  });
+
   useEffect(() => {
-    if (user) {
-      fetchDebts();
-    }
+    if (user) fetchData();
   }, [user]);
 
-  const fetchDebts = async () => {
+  const fetchData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('debts')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast.error("Erro ao carregar dívidas");
-      return;
-    }
-
-    setDebts(data || []);
+    const [debtsRes, loansRes] = await Promise.all([
+      supabase.from('debts').select('*').order('created_at', { ascending: false }),
+      (supabase as any).from('loans').select('*').order('created_at', { ascending: false })
+    ]);
+    console.log('Debts query result:', debtsRes);
+    console.log('Loans query result:', loansRes);
+    console.log('User ID:', user?.id);
+    if (debtsRes.error) console.error('Debts error:', debtsRes.error);
+    if (loansRes.error) console.error('Loans error:', loansRes.error);
+    if (debtsRes.data) setDebts(debtsRes.data as Debt[]);
+    if (loansRes.data) setLoans(loansRes.data as Loan[]);
     setLoading(false);
   };
 
+  // Debt operations
   const createOrUpdateDebt = async () => {
     if (!newDebt.creditor || !newDebt.original_amount) {
-      toast.error("Preencha o credor e valor original");
+      toast.error("Preencha o credor e valor");
       return;
     }
-
     const debtData = {
       user_id: user?.id,
       creditor: newDebt.creditor,
@@ -86,67 +159,43 @@ export default function Debts() {
       current_amount: parseFloat(newDebt.current_amount) || parseFloat(newDebt.original_amount),
       interest_rate: parseFloat(newDebt.interest_rate) || 0,
       monthly_payment: parseFloat(newDebt.monthly_payment) || null,
+      contract_date: newDebt.contract_date || null,
       due_date: newDebt.due_date || null,
       notes: newDebt.notes || null,
       status: 'pending',
     };
-
     if (editingDebt) {
-      const { error } = await supabase
-        .from('debts')
-        .update(debtData)
-        .eq('id', editingDebt.id);
-
-      if (error) {
-        toast.error("Erro ao atualizar dívida");
-        return;
-      }
+      await supabase.from('debts').update(debtData).eq('id', editingDebt.id);
       toast.success("Dívida atualizada!");
     } else {
-      const { error } = await supabase
-        .from('debts')
-        .insert(debtData);
-
-      if (error) {
-        toast.error("Erro ao criar dívida");
-        return;
-      }
+      await supabase.from('debts').insert(debtData);
       toast.success("Dívida registrada!");
     }
-
-    resetForm();
+    resetDebtForm();
     fetchDebts();
   };
 
   const makePayment = async () => {
-    if (!selectedDebt || !paymentAmount) {
-      toast.error("Informe o valor do pagamento");
-      return;
-    }
-
+    if (!selectedDebt || !paymentAmount) return;
     const payment = parseFloat(paymentAmount);
     const newAmount = Math.max(0, selectedDebt.current_amount - payment);
-    const isPaidOff = newAmount === 0;
 
-    const { error } = await supabase
-      .from('debts')
-      .update({
-        current_amount: newAmount,
-        status: isPaidOff ? 'paid' : 'pending',
-      })
-      .eq('id', selectedDebt.id);
+    // Update debt amount and status
+    await supabase.from('debts').update({
+      current_amount: newAmount,
+      status: newAmount === 0 ? 'paid' : 'pending',
+    }).eq('id', selectedDebt.id);
 
-    if (error) {
-      toast.error("Erro ao registrar pagamento");
-      return;
-    }
+    // Record payment in history
+    await (supabase as any).from('debt_payments').insert({
+      debt_id: selectedDebt.id,
+      user_id: user?.id,
+      amount: payment,
+      payment_date: new Date().toISOString(),
+    });
 
-    if (isPaidOff) {
-      toast.success("🎉 Parabéns! Dívida quitada!", { duration: 5000 });
-    } else {
-      toast.success("Pagamento registrado!");
-    }
-
+    if (newAmount === 0) toast.success("🎉 Dívida quitada!");
+    else toast.success("Pagamento registrado!");
     setPaymentDialogOpen(false);
     setPaymentAmount('');
     setSelectedDebt(null);
@@ -154,35 +203,23 @@ export default function Debts() {
   };
 
   const deleteDebt = async (id: string) => {
-    const { error } = await supabase
-      .from('debts')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      toast.error("Erro ao excluir dívida");
-      return;
-    }
-
+    await supabase.from('debts').delete().eq('id', id);
     toast.success("Dívida excluída");
     fetchDebts();
   };
 
-  const resetForm = () => {
-    setDialogOpen(false);
-    setEditingDebt(null);
-    setNewDebt({
-      creditor: '',
-      original_amount: '',
-      current_amount: '',
-      interest_rate: '',
-      monthly_payment: '',
-      due_date: '',
-      notes: '',
-    });
+  const fetchDebts = async () => {
+    const { data } = await supabase.from('debts').select('*').order('created_at', { ascending: false });
+    if (data) setDebts(data);
   };
 
-  const openEditDialog = (debt: Debt) => {
+  const resetDebtForm = () => {
+    setDebtDialogOpen(false);
+    setEditingDebt(null);
+    setNewDebt({ creditor: '', original_amount: '', current_amount: '', interest_rate: '', monthly_payment: '', contract_date: '', due_date: '', notes: '' });
+  };
+
+  const openViewDebt = (debt: Debt) => {
     setEditingDebt(debt);
     setNewDebt({
       creditor: debt.creditor,
@@ -190,48 +227,233 @@ export default function Debts() {
       current_amount: debt.current_amount.toString(),
       interest_rate: debt.interest_rate?.toString() || '',
       monthly_payment: debt.monthly_payment?.toString() || '',
+      contract_date: debt.contract_date || '',
       due_date: debt.due_date || '',
       notes: debt.notes || '',
     });
-    setDialogOpen(true);
+    setDebtDialogOpen(true);
   };
 
-  const openPaymentDialog = (debt: Debt) => {
+  const openEditDebt = (debt: Debt) => {
+    setEditingDebt(debt);
+    setNewDebt({
+      creditor: debt.creditor,
+      original_amount: debt.original_amount.toString(),
+      current_amount: debt.current_amount.toString(),
+      interest_rate: debt.interest_rate?.toString() || '',
+      monthly_payment: debt.monthly_payment?.toString() || '',
+      contract_date: debt.contract_date || '',
+      due_date: debt.due_date || '',
+      notes: debt.notes || '',
+    });
+    setDebtDialogOpen(true);
+  };
+
+  // Loan operations
+  const createOrUpdateLoan = async () => {
+    if (!newLoan.borrower_name || !newLoan.original_amount) {
+      toast.error("Preencha o nome e valor");
+      return;
+    }
+    const loanData = {
+      user_id: user?.id,
+      borrower_name: newLoan.borrower_name,
+      borrower_contact: newLoan.borrower_contact || null,
+      original_amount: parseFloat(newLoan.original_amount),
+      current_amount: parseFloat(newLoan.current_amount) || parseFloat(newLoan.original_amount),
+      interest_rate: parseFloat(newLoan.interest_rate) || 0,
+      loan_date: newLoan.loan_date || null,
+      expected_return_date: newLoan.expected_return_date || null,
+      notes: newLoan.notes || null,
+      status: 'pending',
+    };
+    if (editingLoan) {
+      await (supabase as any).from('loans').update(loanData).eq('id', editingLoan.id);
+      toast.success("Empréstimo atualizado!");
+    } else {
+      await (supabase as any).from('loans').insert(loanData);
+      toast.success("Empréstimo registrado!");
+    }
+    resetLoanForm();
+    fetchLoans();
+  };
+
+  const recordCollection = async () => {
+    if (!selectedLoan || !collectionAmount) return;
+    const collection = parseFloat(collectionAmount);
+    const newAmount = Math.max(0, selectedLoan.current_amount - collection);
+
+    // Update loan amount and status
+    await (supabase as any).from('loans').update({
+      current_amount: newAmount,
+      status: newAmount === 0 ? 'paid' : (newAmount < selectedLoan.original_amount ? 'partial' : 'pending'),
+      actual_return_date: newAmount === 0 ? new Date().toISOString().split('T')[0] : null,
+    }).eq('id', selectedLoan.id);
+
+    // Record collection in history
+    await (supabase as any).from('loan_collections').insert({
+      loan_id: selectedLoan.id,
+      user_id: user?.id,
+      amount: collection,
+      collection_date: new Date().toISOString(),
+    });
+
+    if (newAmount === 0) toast.success("🎉 Emprestimo recuperado!");
+    else toast.success("Recebimento registrado!");
+    setCollectionDialogOpen(false);
+    setCollectionAmount('');
+    setSelectedLoan(null);
+    fetchLoans();
+  };
+
+  const deleteLoan = async (id: string) => {
+    await (supabase as any).from('loans').delete().eq('id', id);
+    toast.success("Empréstimo excluído");
+    fetchLoans();
+  };
+
+  const fetchLoans = async () => {
+    const { data } = await (supabase as any).from('loans').select('*').order('created_at', { ascending: false });
+    if (data) setLoans(data);
+  };
+
+  // Payment history functions
+  const fetchDebtPayments = async (debtId: string) => {
+    const { data } = await (supabase as any).from('debt_payments').select('*').eq('debt_id', debtId).order('payment_date', { ascending: false });
+    if (data) setDebtPayments(data);
+  };
+
+  const fetchLoanCollections = async (loanId: string) => {
+    const { data } = await (supabase as any).from('loan_collections').select('*').eq('loan_id', loanId).order('collection_date', { ascending: false });
+    if (data) setLoanCollections(data);
+  };
+
+  const deleteDebtPayment = async (payment: DebtPayment) => {
+    // Reverse the payment by adding amount back to current_amount
+    const debt = debts.find(d => d.id === payment.debt_id);
+    if (!debt) return;
+    const newAmount = debt.current_amount + payment.amount;
+    await supabase.from('debts').update({
+      current_amount: newAmount,
+      status: 'pending',
+    }).eq('id', payment.debt_id);
+    // Delete the payment record
+    await (supabase as any).from('debt_payments').delete().eq('id', payment.id);
+    toast.success("Pagamento eliminado");
+    fetchDebtPayments(payment.debt_id);
+    fetchDebts();
+  };
+
+  const deleteLoanCollection = async (collection: LoanCollection) => {
+    // Reverse the collection by adding amount back to current_amount
+    const loan = loans.find(l => l.id === collection.loan_id);
+    if (!loan) return;
+    const newAmount = loan.current_amount + collection.amount;
+    await (supabase as any).from('loans').update({
+      current_amount: newAmount,
+      status: newAmount === 0 ? 'paid' : (newAmount < loan.original_amount ? 'partial' : 'pending'),
+      actual_return_date: null,
+    }).eq('id', collection.loan_id);
+    // Delete the collection record
+    await (supabase as any).from('loan_collections').delete().eq('id', collection.id);
+    toast.success("Recebimento eliminado");
+    fetchLoanCollections(collection.loan_id);
+    fetchLoans();
+  };
+
+  const openDebtHistory = async (debt: Debt) => {
     setSelectedDebt(debt);
-    setPaymentAmount(debt.monthly_payment?.toString() || '');
-    setPaymentDialogOpen(true);
+    await fetchDebtPayments(debt.id);
+    setDebtHistoryOpen(true);
   };
 
-  // Stats
+  const openLoanHistory = async (loan: Loan) => {
+    setSelectedLoan(loan);
+    await fetchLoanCollections(loan.id);
+    setLoanHistoryOpen(true);
+  };
+
+  const resetLoanForm = () => {
+    setLoanDialogOpen(false);
+    setEditingLoan(null);
+    setNewLoan({ borrower_name: '', borrower_contact: '', original_amount: '', current_amount: '', interest_rate: '', loan_date: '', expected_return_date: '', notes: '' });
+  };
+
+  const openViewLoan = (loan: Loan) => {
+    setEditingLoan(loan);
+    setNewLoan({
+      borrower_name: loan.borrower_name,
+      borrower_contact: loan.borrower_contact || '',
+      original_amount: loan.original_amount.toString(),
+      current_amount: loan.current_amount.toString(),
+      interest_rate: loan.interest_rate?.toString() || '',
+      loan_date: loan.loan_date || '',
+      expected_return_date: loan.expected_return_date || '',
+      notes: loan.notes || '',
+    });
+    setLoanDialogOpen(true);
+  };
+
+  const openEditLoan = (loan: Loan) => {
+    setEditingLoan(loan);
+    setNewLoan({
+      borrower_name: loan.borrower_name,
+      borrower_contact: loan.borrower_contact || '',
+      original_amount: loan.original_amount.toString(),
+      current_amount: loan.current_amount.toString(),
+      interest_rate: loan.interest_rate?.toString() || '',
+      loan_date: loan.loan_date || '',
+      expected_return_date: loan.expected_return_date || '',
+      notes: loan.notes || '',
+    });
+    setLoanDialogOpen(true);
+  };
+
+  // Risk Analysis
   const totalDebt = debts.filter(d => d.status === 'pending').reduce((sum, d) => sum + d.current_amount, 0);
   const totalOriginal = debts.reduce((sum, d) => sum + d.original_amount, 0);
   const totalPaid = totalOriginal - totalDebt;
   const paidDebts = debts.filter(d => d.status === 'paid').length;
-  const pendingDebts = debts.filter(d => d.status === 'pending').length;
+  const totalMonthlyPayment = debts.filter(d => d.status === 'pending' && d.monthly_payment).reduce((sum, d) => sum + (d.monthly_payment || 0), 0);
 
-  const totalMonthlyPayment = debts
-    .filter(d => d.status === 'pending' && d.monthly_payment)
-    .reduce((sum, d) => sum + (d.monthly_payment || 0), 0);
+  const totalLoansOutstanding = loans.filter(l => l.status !== 'paid').reduce((sum, l) => sum + l.current_amount, 0);
+  const totalLoansOriginal = loans.reduce((sum, l) => sum + l.original_amount, 0);
+  const totalCollected = totalLoansOriginal - totalLoansOutstanding;
+  const overdueLoansCount = loans.filter(l => l.expected_return_date && differenceInDays(parseISO(l.expected_return_date), new Date()) < 0 && l.status !== 'paid').length;
+  const netPosition = totalLoansOutstanding - totalDebt;
+
+  const recommendations = useMemo(() => {
+    const recs = [];
+    if (totalDebt > totalLoansOutstanding * 2) recs.push({ type: 'danger', text: 'Suas dívidas excedem muito o que tem a receber. Priorize quitar dívidas.' });
+    if (netPosition < 0) recs.push({ type: 'warning', text: 'Posição líquida negativa. Cuidado com novos empréstimos.' });
+    if (overdueLoansCount > 0) recs.push({ type: 'info', text: `${overdueLoansCount} empréstimo(s) atrasado(s). Contacte os devedores.` });
+    if (totalDebt === 0 && totalLoansOutstanding === 0) recs.push({ type: 'success', text: 'Parabéns! Sem dívidas nem empréstimos pendentes!' });
+    return recs;
+  }, [totalDebt, totalLoansOutstanding, overdueLoansCount, netPosition]);
 
   const getDebtStatus = (debt: Debt) => {
-    if (debt.status === 'paid') return { label: 'Quitada', color: 'text-success', bg: 'bg-success/10' };
+    if (debt.status === 'paid') return { label: 'Quitada', color: 'bg-green-500' };
     if (debt.due_date) {
-      const daysUntilDue = differenceInDays(parseISO(debt.due_date), new Date());
-      if (daysUntilDue < 0) return { label: 'Vencida', color: 'text-destructive', bg: 'bg-destructive/10' };
-      if (daysUntilDue <= 7) return { label: 'Vence em breve', color: 'text-warning', bg: 'bg-warning/10' };
+      const days = differenceInDays(parseISO(debt.due_date), new Date());
+      if (days < 0) return { label: 'Vencida', color: 'bg-red-500' };
+      if (days <= 7) return { label: 'Vence em breve', color: 'bg-yellow-500' };
     }
-    return { label: 'Em dia', color: 'text-primary', bg: 'bg-primary/10' };
+    return { label: 'Em dia', color: 'bg-blue-500' };
   };
 
-  const calculatePayoffMonths = (debt: Debt) => {
-    if (!debt.monthly_payment || debt.monthly_payment <= 0) return null;
-    const months = Math.ceil(debt.current_amount / debt.monthly_payment);
-    return months;
+  const getLoanStatus = (loan: Loan) => {
+    if (loan.status === 'paid') return { label: 'Recuperado', color: 'bg-green-500' };
+    if (loan.expected_return_date) {
+      const days = differenceInDays(parseISO(loan.expected_return_date), new Date());
+      if (days < 0) return { label: 'Atrasado', color: 'bg-red-500' };
+      if (days <= 7) return { label: 'Vence em breve', color: 'bg-yellow-500' };
+    }
+    return { label: 'Em dia', color: 'bg-blue-500' };
   };
 
   if (loading) {
     return (
-      <AppLayout title="Dívidas" subtitle="Gerencie e quite suas dívidas">
+      <AppLayout title="Dívidas & Empréstimos" subtitle="Gerencie suas finanças">
         <div className="flex items-center justify-center h-64">
           <div className="h-12 w-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
@@ -240,299 +462,318 @@ export default function Debts() {
   }
 
   return (
-    <AppLayout title="Dívidas" subtitle="Gerencie e quite suas dívidas">
-      <ModuleGuard
-        moduleKey="basic"
-        title="Controle de Dívidas"
-        description="Acompanhe todas as suas dívidas em um só lugar, planeje pagamentos e saia do vermelho com clareza."
-      >
+    <AppLayout title="Dívidas & Empréstimos" subtitle="Gerencie suas finanças">
+      <ModuleGuard moduleKey="basic" title="Controle de Dívidas" description="Gerencie o que você deve e o que os outros lhe devem">
         <div className="space-y-6 animate-fade-in">
-          {/* Summary Cards */}
+          {/* Risk Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="stat-card-expense p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <CreditCard className="h-5 w-5 text-destructive" />
-                <span className="text-sm text-muted-foreground">Dívida Total</span>
-              </div>
-              <p className="text-2xl font-display font-bold text-foreground">
-                Kz {totalDebt.toLocaleString('pt-AO')}
-              </p>
-            </div>
-
-            <div className="stat-card-income p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <TrendingDown className="h-5 w-5 text-success" />
-                <span className="text-sm text-muted-foreground">Total Pago</span>
-              </div>
-              <p className="text-2xl font-display font-bold text-foreground">
-                Kz {totalPaid.toLocaleString('pt-AO')}
-              </p>
-            </div>
-
-            <div className="card-finance p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <Calendar className="h-5 w-5 text-accent" />
-                <span className="text-sm text-muted-foreground">Pagamento Mensal</span>
-              </div>
-              <p className="text-2xl font-display font-bold text-foreground">
-                Kz {totalMonthlyPayment.toLocaleString('pt-AO')}
-              </p>
-            </div>
-
-            <div className="card-finance p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <CheckCircle className="h-5 w-5 text-success" />
-                <span className="text-sm text-muted-foreground">Dívidas Quitadas</span>
-              </div>
-              <p className="text-2xl font-display font-bold text-foreground">
-                {paidDebts} de {debts.length}
-              </p>
-            </div>
+            <Card className={netPosition < 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'}>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center gap-2"><TrendingDown className="h-4 w-4 text-red-500" /> Dívida Total</CardTitle></CardHeader>
+              <CardContent><p className="text-2xl font-bold">Kz {totalDebt.toLocaleString('pt-AO')}</p></CardContent>
+            </Card>
+            <Card className="card-finance">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center gap-2"><TrendingUp className="h-4 w-4 text-green-500" /> A Receber</CardTitle></CardHeader>
+              <CardContent><p className="text-2xl font-bold">Kz {totalLoansOutstanding.toLocaleString('pt-AO')}</p></CardContent>
+            </Card>
+            <Card className={netPosition < 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'}>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center gap-2"><Shield className="h-4 w-4" /> Posição Líquida</CardTitle></CardHeader>
+              <CardContent><p className={`text-2xl font-bold ${netPosition < 0 ? 'text-red-500' : 'text-green-500'}`}>{netPosition >= 0 ? '+' : ''}Kz {netPosition.toLocaleString('pt-AO')}</p></CardContent>
+            </Card>
+            <Card className={overdueLoansCount > 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'}>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center gap-2"><AlertCircle className="h-4 w-4 text-orange-500" /> Atrasos</CardTitle></CardHeader>
+              <CardContent><p className="text-2xl font-bold">{overdueLoansCount}</p></CardContent>
+            </Card>
           </div>
 
-          {/* Progress Bar */}
-          {totalOriginal > 0 && (
-            <div className="card-finance p-6">
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">Progresso de Quitação</span>
-                <span className="text-sm text-muted-foreground">
-                  {((totalPaid / totalOriginal) * 100).toFixed(1)}%
-                </span>
-              </div>
-              <Progress value={(totalPaid / totalOriginal) * 100} className="h-3" />
-              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                <span>Pago: Kz {totalPaid.toLocaleString('pt-AO')}</span>
-                <span>Restante: Kz {totalDebt.toLocaleString('pt-AO')}</span>
-              </div>
+          {/* Recommendations */}
+          {recommendations.length > 0 && (
+            <div className="bg-secondary/30 rounded-lg p-4 space-y-2">
+              <h4 className="font-semibold flex items-center gap-2"><Shield className="h-4 w-4" /> Análise de Risco</h4>
+              {recommendations.map((rec, idx) => (
+                <div key={idx} className={`flex items-start gap-2 text-sm ${rec.type === 'danger' ? 'text-red-500' : rec.type === 'warning' ? 'text-yellow-500' : rec.type === 'info' ? 'text-blue-500' : 'text-green-500'}`}>
+                  {rec.type === 'danger' && <AlertTriangle className="h-4 w-4 mt-0.5" />}
+                  {rec.type === 'warning' && <AlertCircle className="h-4 w-4 mt-0.5" />}
+                  {rec.type === 'success' && <CheckCircle className="h-4 w-4 mt-0.5" />}
+                  {rec.text}
+                </div>
+              ))}
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex flex-wrap gap-3">
-            <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); else setDialogOpen(true); }}>
-              <DialogTrigger asChild>
-                <Button variant="accent">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nova Dívida
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>{editingDebt ? 'Editar Dívida' : 'Registrar Dívida'}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 mt-4">
-                  <div className="space-y-2">
-                    <Label>Credor / Instituição</Label>
-                    <Input
-                      placeholder="Ex: Banco XYZ, Cartão Visa..."
-                      value={newDebt.creditor}
-                      onChange={(e) => setNewDebt({ ...newDebt, creditor: e.target.value })}
-                    />
-                  </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="debts" className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Dívidas ({debts.length})</TabsTrigger>
+              <TabsTrigger value="loans" className="flex items-center gap-2"><Users className="h-4 w-4" /> Empréstimos ({loans.length})</TabsTrigger>
+              <TabsTrigger value="calendar" className="flex items-center gap-2"><Calendar className="h-4 w-4" /> Calendário</TabsTrigger>
+              <TabsTrigger value="progress" className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> Progresso</TabsTrigger>
+            </TabsList>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Valor Original (Kz)</Label>
-                      <Input
-                        type="number"
-                        placeholder="100000"
-                        value={newDebt.original_amount}
-                        onChange={(e) => setNewDebt({ ...newDebt, original_amount: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Valor Atual (Kz)</Label>
-                      <Input
-                        type="number"
-                        placeholder="80000"
-                        value={newDebt.current_amount}
-                        onChange={(e) => setNewDebt({ ...newDebt, current_amount: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Taxa de Juros Anual (%)</Label>
-                      <Input
-                        type="number"
-                        placeholder="15"
-                        value={newDebt.interest_rate}
-                        onChange={(e) => setNewDebt({ ...newDebt, interest_rate: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Pagamento Mensal (Kz)</Label>
-                      <Input
-                        type="number"
-                        placeholder="10000"
-                        value={newDebt.monthly_payment}
-                        onChange={(e) => setNewDebt({ ...newDebt, monthly_payment: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Data de Vencimento</Label>
-                    <Input
-                      type="date"
-                      value={newDebt.due_date}
-                      onChange={(e) => setNewDebt({ ...newDebt, due_date: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Observações</Label>
-                    <Textarea
-                      placeholder="Notas adicionais sobre a dívida..."
-                      value={newDebt.notes}
-                      onChange={(e) => setNewDebt({ ...newDebt, notes: e.target.value })}
-                    />
-                  </div>
-
-                  <Button onClick={createOrUpdateDebt} className="w-full" variant="accent">
-                    {editingDebt ? 'Atualizar' : 'Registrar'} Dívida
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {/* Debts List */}
-          <div className="space-y-4">
-            {debts.length === 0 ? (
-              <div className="card-finance p-12 text-center">
-                <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="font-display text-lg font-semibold mb-2">Nenhuma dívida registrada</h3>
-                <p className="text-muted-foreground mb-4">Parabéns! Você está livre de dívidas.</p>
+            {/* DEBTS TAB */}
+            <TabsContent value="debts" className="space-y-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="stat-card-expense p-4"><p className="text-sm text-muted-foreground">Total Pago</p><p className="text-xl font-bold text-green-500">Kz {totalPaid.toLocaleString('pt-AO')}</p></div>
+                <div className="card-finance p-4"><p className="text-sm text-muted-foreground">Pagamento Mensal</p><p className="text-xl font-bold">Kz {totalMonthlyPayment.toLocaleString('pt-AO')}</p></div>
+                <div className="card-finance p-4"><p className="text-sm text-muted-foreground">Quitadas</p><p className="text-xl font-bold">{paidDebts} de {debts.length}</p></div>
               </div>
-            ) : (
-              debts.map((debt) => {
-                const status = getDebtStatus(debt);
-                const paidPercentage = ((debt.original_amount - debt.current_amount) / debt.original_amount) * 100;
-                const payoffMonths = calculatePayoffMonths(debt);
 
-                return (
-                  <div key={debt.id} className="card-finance p-6">
-                    <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <CreditCard className="h-5 w-5 text-muted-foreground" />
-                          <h3 className="font-display font-semibold text-lg">{debt.creditor}</h3>
-                          <span className={`text-xs px-2 py-1 rounded-full ${status.bg} ${status.color}`}>
-                            {status.label}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Valor Original</p>
-                            <p className="font-semibold">Kz {debt.original_amount.toLocaleString('pt-AO')}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Valor Atual</p>
-                            <p className="font-semibold text-destructive">Kz {debt.current_amount.toLocaleString('pt-AO')}</p>
-                          </div>
-                          {debt.interest_rate ? (
-                            <div>
-                              <p className="text-xs text-muted-foreground">Taxa de Juros</p>
-                              <p className="font-semibold">{debt.interest_rate}% a.a.</p>
-                            </div>
-                          ) : null}
-                          {debt.monthly_payment ? (
-                            <div>
-                              <p className="text-xs text-muted-foreground">Pagamento Mensal</p>
-                              <p className="font-semibold">Kz {debt.monthly_payment.toLocaleString('pt-AO')}</p>
-                            </div>
-                          ) : null}
-                        </div>
-
-                        {/* Progress */}
-                        <div className="mt-4">
-                          <div className="flex justify-between text-xs mb-1">
-                            <span>{paidPercentage.toFixed(0)}% quitado</span>
-                            {payoffMonths && debt.status !== 'paid' && (
-                              <span className="text-muted-foreground">~{payoffMonths} meses restantes</span>
-                            )}
-                          </div>
-                          <Progress value={paidPercentage} className="h-2" />
-                        </div>
-
-                        {debt.due_date && (
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Vencimento: {format(parseISO(debt.due_date), "dd 'de' MMMM 'de' yyyy", { locale: pt })}
-                          </p>
-                        )}
-
-                        {debt.notes && (
-                          <p className="text-sm text-muted-foreground mt-2 italic">"{debt.notes}"</p>
-                        )}
+              <div className="flex gap-3">
+                <Dialog open={debtDialogOpen} onOpenChange={(open) => { if (!open) resetDebtForm(); else setDebtDialogOpen(true); }}>
+                  <DialogTrigger asChild><Button variant="accent"><Plus className="h-4 w-4 mr-2" /> Nova Dívida</Button></DialogTrigger>
+                  <DialogContent className="sm:max-w-lg">
+                    <DialogHeader><DialogTitle>{editingDebt ? 'Editar' : 'Nova'} Dívida</DialogTitle></DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      <div className="space-y-2"><Label>Credor</Label><Input placeholder="Banco, Cartão..." value={newDebt.creditor} onChange={(e) => setNewDebt({ ...newDebt, creditor: e.target.value })} /></div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label>Valor (Kz)</Label><Input type="number" placeholder="100000" value={newDebt.original_amount} onChange={(e) => setNewDebt({ ...newDebt, original_amount: e.target.value })} /></div>
+                        <div className="space-y-2"><Label>Saldo (Kz)</Label><Input type="number" placeholder="80000" value={newDebt.current_amount} onChange={(e) => setNewDebt({ ...newDebt, current_amount: e.target.value })} /></div>
                       </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {debt.status !== 'paid' && (
-                          <Button
-                            size="sm"
-                            variant="accent"
-                            onClick={() => openPaymentDialog(debt)}
-                          >
-                            <DollarSign className="h-4 w-4 mr-1" />
-                            Pagar
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openEditDialog(debt)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => deleteDebt(debt.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label>Juros (%)</Label><Input type="number" placeholder="15" value={newDebt.interest_rate} onChange={(e) => setNewDebt({ ...newDebt, interest_rate: e.target.value })} /></div>
+                        <div className="space-y-2"><Label>Pagamento Mensal</Label><Input type="number" placeholder="10000" value={newDebt.monthly_payment} onChange={(e) => setNewDebt({ ...newDebt, monthly_payment: e.target.value })} /></div>
                       </div>
+                      <div className="space-y-2"><Label>Data Vencimento</Label><Input type="date" value={newDebt.due_date} onChange={(e) => setNewDebt({ ...newDebt, due_date: e.target.value })} /></div>
+                      <div className="space-y-2"><Label>Data da Dívida</Label><Input type="date" value={newDebt.contract_date} onChange={(e) => setNewDebt({ ...newDebt, contract_date: e.target.value })} /></div>
+                      <div className="space-y-2"><Label>Notas</Label><Textarea placeholder="Observações..." value={newDebt.notes} onChange={(e) => setNewDebt({ ...newDebt, notes: e.target.value })} /></div>
+                      <Button onClick={createOrUpdateDebt} className="w-full" variant="accent">{editingDebt ? 'Atualizar' : 'Registrar'} Dívida</Button>
                     </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              {/* Debts List */}
+              {debts.length === 0 ? (
+                <div className="card-finance p-12 text-center"><CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" /><h3 className="font-display text-lg font-semibold mb-2">Nenhuma dívida registrada</h3></div>
+              ) : (
+                <div className="space-y-4">
+                  {debts.map((debt) => {
+                    const status = getDebtStatus(debt);
+                    const paidPct = ((debt.original_amount - debt.current_amount) / debt.original_amount) * 100;
+                    return (
+                      <div key={debt.id} className="card-finance p-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2"><h3 className="font-semibold">{debt.creditor}</h3><Badge className={status.color}>{status.label}</Badge></div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div><p className="text-muted-foreground">Original</p><p className="font-medium">Kz {debt.original_amount.toLocaleString('pt-AO')}</p></div>
+                              <div><p className="text-muted-foreground">Atual</p><p className="font-medium text-red-500">Kz {debt.current_amount.toLocaleString('pt-AO')}</p></div>
+                              {debt.monthly_payment && <div><p className="text-muted-foreground">Mensal</p><p className="font-medium">Kz {debt.monthly_payment.toLocaleString('pt-AO')}</p></div>}
+                              {debt.due_date && <div><p className="text-muted-foreground">Vencimento</p><p className="font-medium">{format(parseISO(debt.due_date), 'dd/MM/yyyy')}</p></div>}
+                            </div>
+                            <Progress value={paidPct} className="h-2 mt-3" />
+                          </div>
+                          <div className="flex gap-2 ml-4">
+                            {debt.status !== 'paid' && <Button size="sm" variant="accent" onClick={() => { setSelectedDebt(debt); setPaymentAmount(debt.monthly_payment?.toString() || ''); setPaymentDialogOpen(true); }}><DollarSign className="h-4 w-4" /></Button>}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="outline"><Clock className="h-4 w-4" /></Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openDebtHistory(debt)}><Eye className="h-4 w-4 mr-2" />Ver Histórico</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openEditDebt(debt)}><Edit2 className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => deleteDebt(debt.id)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" />Eliminar</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* LOANS TAB */}
+            <TabsContent value="loans" className="space-y-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="stat-card-income p-4"><p className="text-sm text-muted-foreground">Total Recuperado</p><p className="text-xl font-bold text-green-500">Kz {totalCollected.toLocaleString('pt-AO')}</p></div>
+                <div className="card-finance p-4"><p className="text-sm text-muted-foreground">Pendente</p><p className="text-xl font-bold">Kz {totalLoansOutstanding.toLocaleString('pt-AO')}</p></div>
+                <div className="card-finance p-4"><p className="text-sm text-muted-foreground">Recuperados</p><p className="text-xl font-bold">{loans.filter(l => l.status === 'paid').length} de {loans.length}</p></div>
+              </div>
+
+              <div className="flex gap-3">
+                <Dialog open={loanDialogOpen} onOpenChange={(open) => { if (!open) resetLoanForm(); else setLoanDialogOpen(true); }}>
+                  <DialogTrigger asChild><Button variant="accent"><Plus className="h-4 w-4 mr-2" /> Novo Empréstimo</Button></DialogTrigger>
+                  <DialogContent className="sm:max-w-lg">
+                    <DialogHeader><DialogTitle>{editingLoan ? 'Editar' : 'Novo'} Empréstimo</DialogTitle></DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      <div className="space-y-2"><Label>Nome do Devedor</Label><Input placeholder="João Silva..." value={newLoan.borrower_name} onChange={(e) => setNewLoan({ ...newLoan, borrower_name: e.target.value })} /></div>
+                      <div className="space-y-2"><Label>Contacto</Label><Input placeholder="Telefone/Email..." value={newLoan.borrower_contact} onChange={(e) => setNewLoan({ ...newLoan, borrower_contact: e.target.value })} /></div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label>Valor (Kz)</Label><Input type="number" placeholder="50000" value={newLoan.original_amount} onChange={(e) => setNewLoan({ ...newLoan, original_amount: e.target.value })} /></div>
+                        <div className="space-y-2"><Label>Saldo (Kz)</Label><Input type="number" placeholder="50000" value={newLoan.current_amount} onChange={(e) => setNewLoan({ ...newLoan, current_amount: e.target.value })} /></div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label>Juros (%)</Label><Input type="number" placeholder="5" value={newLoan.interest_rate} onChange={(e) => setNewLoan({ ...newLoan, interest_rate: e.target.value })} /></div>
+                        <div className="space-y-2"><Label>Data Prevista</Label><Input type="date" value={newLoan.expected_return_date} onChange={(e) => setNewLoan({ ...newLoan, expected_return_date: e.target.value })} /></div>
+                        <div className="space-y-2"><Label>Data do Empréstimo</Label><Input type="date" value={newLoan.loan_date} onChange={(e) => setNewLoan({ ...newLoan, loan_date: e.target.value })} /></div>
+                      </div>
+                      <div className="space-y-2"><Label>Notas</Label><Textarea placeholder="Observações..." value={newLoan.notes} onChange={(e) => setNewLoan({ ...newLoan, notes: e.target.value })} /></div>
+                      <Button onClick={createOrUpdateLoan} className="w-full" variant="accent">{editingLoan ? 'Atualizar' : 'Registrar'} Empréstimo</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              {/* Loans List */}
+              {loans.length === 0 ? (
+                <div className="card-finance p-12 text-center"><Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" /><h3 className="font-display text-lg font-semibold mb-2">Nenhum empréstimo registrado</h3></div>
+              ) : (
+                <div className="space-y-4">
+                  {loans.map((loan) => {
+                    const status = getLoanStatus(loan);
+                    const collectedPct = ((loan.original_amount - loan.current_amount) / loan.original_amount) * 100;
+                    return (
+                      <div key={loan.id} className="card-finance p-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2"><h3 className="font-semibold">{loan.borrower_name}</h3><Badge className={status.color}>{status.label}</Badge></div>
+                            {loan.borrower_contact && <p className="text-sm text-muted-foreground mb-2">{loan.borrower_contact}</p>}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div><p className="text-muted-foreground">Original</p><p className="font-medium">Kz {loan.original_amount.toLocaleString('pt-AO')}</p></div>
+                              <div><p className="text-muted-foreground">Pendente</p><p className="font-medium text-orange-500">Kz {loan.current_amount.toLocaleString('pt-AO')}</p></div>
+                              {loan.interest_rate && <div><p className="text-muted-foreground">Juros</p><p className="font-medium">{loan.interest_rate}%</p></div>}
+                              {loan.expected_return_date && <div><p className="text-muted-foreground">Data Prevista</p><p className="font-medium">{format(parseISO(loan.expected_return_date), 'dd/MM/yyyy')}</p></div>}
+                            </div>
+                            <Progress value={collectedPct} className="h-2 mt-3" />
+                          </div>
+                          <div className="flex gap-2 ml-4">
+                            {loan.status !== 'paid' && <Button size="sm" variant="accent" onClick={() => { setSelectedLoan(loan); setCollectionDialogOpen(true); }}><DollarSign className="h-4 w-4" /></Button>}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="outline"><Clock className="h-4 w-4" /></Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openLoanHistory(loan)}><Eye className="h-4 w-4 mr-2" />Ver Histórico</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openEditLoan(loan)}><Edit2 className="h-4 w-4 mr-2" />Editar</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => deleteLoan(loan.id)} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" />Eliminar</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+
+          {/* Calendar Tab */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsContent value="calendar" className="mt-4">
+              <DebtCalendar debts={debts} loans={loans} />
+            </TabsContent>
+
+            {/* Progress Tab */}
+            <TabsContent value="progress" className="mt-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Debt Progress */}
+                <Card>
+                  <CardHeader><CardTitle>Progresso das Dívidas</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                    {debts.length === 0 ? <p className="text-muted-foreground">Sem dívidas registadas</p> : debts.map(debt => {
+                      const paid = debt.original_amount - debt.current_amount;
+                      const pct = (paid / debt.original_amount) * 100;
+                      return (
+                        <div key={debt.id} className="space-y-2">
+                          <div className="flex justify-between text-sm"><span>{debt.creditor}</span><span>{pct.toFixed(0)}%</span></div>
+                          <Progress value={pct} className="h-3" />
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+
+                {/* Loan Progress */}
+                <Card>
+                  <CardHeader><CardTitle>Progresso dos Empréstimos</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                    {loans.length === 0 ? <p className="text-muted-foreground">Sem empréstimos registados</p> : loans.map(loan => {
+                      const collected = loan.original_amount - loan.current_amount;
+                      const pct = (collected / loan.original_amount) * 100;
+                      return (
+                        <div key={loan.id} className="space-y-2">
+                          <div className="flex justify-between text-sm"><span>{loan.borrower_name}</span><span>{pct.toFixed(0)}%</span></div>
+                          <Progress value={pct} className="h-3" />
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
 
           {/* Payment Dialog */}
           <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
             <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Registrar Pagamento</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>Registrar Pagamento</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-4">
-                {selectedDebt && (
-                  <div className="p-4 bg-secondary/50 rounded-lg">
-                    <p className="font-medium">{selectedDebt.creditor}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Saldo devedor: Kz {selectedDebt.current_amount.toLocaleString('pt-AO')}
-                    </p>
+                {selectedDebt && <div className="p-4 bg-secondary/50 rounded-lg"><p className="font-medium">{selectedDebt.creditor}</p><p className="text-sm text-muted-foreground">Saldo: Kz {selectedDebt.current_amount.toLocaleString('pt-AO')}</p></div>}
+                <div className="space-y-2"><Label>Valor (Kz)</Label><Input type="number" placeholder="10000" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} /></div>
+                <Button onClick={makePayment} className="w-full" variant="accent"><CheckCircle className="h-4 w-4 mr-2" />Confirmar</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Collection Dialog */}
+          <Dialog open={collectionDialogOpen} onOpenChange={setCollectionDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader><DialogTitle>Registrar Recebimento</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-4">
+                {selectedLoan && <div className="p-4 bg-secondary/50 rounded-lg"><p className="font-medium">{selectedLoan.borrower_name}</p><p className="text-sm text-muted-foreground">Pendente: Kz {selectedLoan.current_amount.toLocaleString('pt-AO')}</p></div>}
+                <div className="space-y-2"><Label>Valor (Kz)</Label><Input type="number" placeholder="10000" value={collectionAmount} onChange={(e) => setCollectionAmount(e.target.value)} /></div>
+                <Button onClick={recordCollection} className="w-full" variant="accent"><CheckCircle className="h-4 w-4 mr-2" />Confirmar</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Debt History Dialog */}
+          <Dialog open={debtHistoryOpen} onOpenChange={setDebtHistoryOpen}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader><DialogTitle>Histórico de Pagamentos</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-4">
+                {selectedDebt && <div className="p-4 bg-secondary/50 rounded-lg"><p className="font-medium">{selectedDebt.creditor}</p><p className="text-sm text-muted-foreground">Pendente: Kz {selectedDebt.current_amount.toLocaleString('pt-AO')}</p></div>}
+                {debtPayments.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">Nenhum pagamento registrado</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {debtPayments.map((payment) => (
+                      <div key={payment.id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
+                        <div>
+                          <p className="font-medium text-green-600">- Kz {payment.amount.toLocaleString('pt-AO')}</p>
+                          <p className="text-xs text-muted-foreground">{payment.payment_date ? format(parseISO(payment.payment_date), 'dd/MM/yyyy HH:mm') : ''}</p>
+                        </div>
+                        <Button size="sm" variant="outline" className="text-destructive" onClick={() => deleteDebtPayment(payment)}><Trash2 className="h-4 w-4" /></Button>
+                      </div>
+                    ))}
                   </div>
                 )}
+              </div>
+            </DialogContent>
+          </Dialog>
 
-                <div className="space-y-2">
-                  <Label>Valor do Pagamento (Kz)</Label>
-                  <Input
-                    type="number"
-                    placeholder="10000"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                  />
-                </div>
-
-                <Button onClick={makePayment} className="w-full" variant="accent">
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Confirmar Pagamento
-                </Button>
+          {/* Loan History Dialog */}
+          <Dialog open={loanHistoryOpen} onOpenChange={setLoanHistoryOpen}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader><DialogTitle>Histórico de Recebimentos</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-4">
+                {selectedLoan && <div className="p-4 bg-secondary/50 rounded-lg"><p className="font-medium">{selectedLoan.borrower_name}</p><p className="text-sm text-muted-foreground">Pendente: Kz {selectedLoan.current_amount.toLocaleString('pt-AO')}</p></div>}
+                {loanCollections.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">Nenhum recebimento registrado</p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {loanCollections.map((collection) => (
+                      <div key={collection.id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
+                        <div>
+                          <p className="font-medium text-green-600">+ Kz {collection.amount.toLocaleString('pt-AO')}</p>
+                          <p className="text-xs text-muted-foreground">{collection.collection_date ? format(parseISO(collection.collection_date), 'dd/MM/yyyy HH:mm') : ''}</p>
+                        </div>
+                        <Button size="sm" variant="outline" className="text-destructive" onClick={() => deleteLoanCollection(collection)}><Trash2 className="h-4 w-4" /></Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </DialogContent>
           </Dialog>
