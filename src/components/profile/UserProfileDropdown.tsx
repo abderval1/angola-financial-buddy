@@ -54,7 +54,7 @@ export function UserProfileDropdown() {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from("profiles")
-        .select("name, email, avatar_url")
+        .select("*")
         .eq("user_id", user.id)
         .single();
 

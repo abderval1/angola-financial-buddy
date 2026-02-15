@@ -8,7 +8,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Bell, Check, ShoppingBag, TrendingDown, Newspaper, BellOff } from "lucide-react";
+import { Bell, Check, ShoppingBag, TrendingDown, Newspaper, BellOff, GraduationCap, CreditCard } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
@@ -73,8 +73,26 @@ export function NotificationCenter() {
                 return <TrendingDown className="h-4 w-4 text-success" />;
             case "news":
                 return <Newspaper className="h-4 w-4 text-blue-500" />;
+            case "admin_new_marketplace_purchase":
+                return <ShoppingBag className="h-4 w-4 text-amber-500" />;
+            case "admin_new_course_purchase":
+                return <GraduationCap className="h-4 w-4 text-primary" />;
+            case "admin_new_subscription":
+                return <CreditCard className="h-4 w-4 text-emerald-500" />;
             default:
                 return <Bell className="h-4 w-4 text-muted-foreground" />;
+        }
+    };
+
+    const handleNotificationClick = (notification: any) => {
+        if (!notification.read) {
+            markAsReadMutation.mutate(notification.id);
+        }
+
+        if (notification.type === "admin_new_marketplace_purchase" || notification.type === "admin_new_course_purchase") {
+            navigate("/admin?tab=marketplace");
+        } else if (notification.type === "admin_new_subscription") {
+            navigate("/admin?tab=subscriptions");
         }
     };
 
@@ -123,7 +141,7 @@ export function NotificationCenter() {
                                         "p-4 transition-colors hover:bg-muted/50 relative group",
                                         !notification.read && "bg-primary/5"
                                     )}
-                                    onClick={() => !notification.read && markAsReadMutation.mutate(notification.id)}
+                                    onClick={() => handleNotificationClick(notification)}
                                 >
                                     <div className="flex gap-3">
                                         <div className="h-8 w-8 rounded-full bg-background border flex items-center justify-center shrink-0">

@@ -13,9 +13,9 @@ interface AppHeaderProps {
 
 export function AppHeader({ title = "Dashboard", subtitle }: AppHeaderProps) {
   return (
-    <header className="sticky top-0 z-30 flex h-14 sm:h-16 items-center justify-between border-b border-violet-300 lg:border-border bg-violet-400 lg:bg-background/80 backdrop-blur-xl px-4 sm:px-6">
+    <header className="sticky top-0 z-30 flex h-14 sm:h-16 items-center justify-between border-b border-sidebar-border lg:border-border bg-sidebar lg:bg-background/80 backdrop-blur-xl px-4 sm:px-6">
       <div className="flex items-center gap-3 sm:gap-4">
-        {/* Mobile Menu - Lilac background on mobile */}
+        {/* Mobile Menu - Matches sidebar background on mobile */}
         <div className="lg:hidden -ml-2 sm:-ml-4">
           <MobileNav />
         </div>

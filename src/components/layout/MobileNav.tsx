@@ -127,7 +127,7 @@ export function MobileNav() {
         <Button
           variant="ghost"
           size="icon"
-          className="lg:hidden bg-violet-400 hover:bg-violet-500 text-white rounded-lg h-10 w-10 shadow-lg ring-2 ring-violet-300 ring-opacity-50"
+          className="lg:hidden bg-white/10 hover:bg-white/20 text-white rounded-lg h-10 w-10 shadow-lg ring-1 ring-white/20"
         >
           <Menu className="h-6 w-6" />
         </Button>

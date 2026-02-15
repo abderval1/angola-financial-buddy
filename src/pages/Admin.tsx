@@ -87,6 +87,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AdminLiveMonitor } from "@/components/admin/AdminLiveMonitor";
 import { AdminAuditLogs } from "@/components/admin/AdminAuditLogs";
+import { NotificationCenter } from "@/components/layout/NotificationCenter";
 import { useOnlinePresence } from "@/hooks/useOnlinePresence";
 
 export default function Admin() {
@@ -204,6 +205,7 @@ export default function Admin() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationCenter />
             <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
               Administrador
             </Badge>
