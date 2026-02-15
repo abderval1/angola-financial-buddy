@@ -31,6 +31,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [proofUrl, setProofUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: plans = [], isLoading: loadingPlans } = useQuery({
@@ -182,12 +183,11 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
         .from("receipts")
         .getPublicUrl(fileName);
 
-      await subscribeMutation.mutateAsync({
-        planId: selectedPlan.id,
-        proofUrl: urlData.publicUrl,
-      });
+      // Store the proof URL for later confirmation
+      setProofUrl(urlData.publicUrl);
+      toast.success("Comprovativo enviado com sucesso! Clique em Confirmar para finalizar.");
     } catch (error) {
-      toast.error("Erro ao enviar comprovativo");
+      toast.error("Erro ao enviar comprovativo: " + (error as Error).message);
     } finally {
       setUploading(false);
     }
@@ -377,8 +377,8 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
             )}
 
             {Number(selectedPlan?.price) !== 0 ? (
-              <div className="space-y-2">
-                <Label>Comprovativo de Pagamento</Label>
+              <div className="space-y-3">
+                <Label>Comprovativo de Pagamento (Opcional)</Label>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -400,12 +400,34 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                   ) : (
                     <>
                       <Upload className="h-4 w-4 mr-2" />
-                      Enviar Comprovativo (PDF ou Imagem)
+                      {proofUrl ? "Comprovativo Enviado" : "Enviar Comprovativo (PDF ou Imagem)"}
                     </>
                   )}
                 </Button>
+                {proofUrl && (
+                  <p className="text-xs text-success text-center flex items-center justify-center gap-1">
+                    <Check className="h-3 w-3" /> Comprovativo carregado com sucesso!
+                  </p>
+                )}
+                <Button
+                  className="w-full gradient-success"
+                  onClick={() => subscribeMutation.mutate({
+                    planId: selectedPlan!.id,
+                    proofUrl: proofUrl || undefined
+                  })}
+                  disabled={subscribeMutation.isPending}
+                >
+                  {subscribeMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Confirmando...
+                    </>
+                  ) : (
+                    "Confirmar Assinatura"
+                  )}
+                </Button>
                 <p className="text-xs text-muted-foreground text-center">
-                  Após envio, sua assinatura será analisada em até 24h.
+                  O comprovativo é opcional. Sua assinatura será analisada em até 24h.
                 </p>
               </div>
             ) : (
