@@ -1,4 +1,4 @@
-# Angola Finance
+# Kudila Finance
 
 A sua plataforma de finanças inteligentes em Angola.
 

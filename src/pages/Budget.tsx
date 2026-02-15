@@ -118,10 +118,16 @@ export default function Budget() {
     wants_limit_pct: 30
   });
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [showOnboardingGuide, setShowOnboardingGuide] = useState(false);
 
   useEffect(() => {
     if (user) {
       fetchData();
+      // Check if user has completed onboarding
+      const hasCompletedOnboarding = localStorage.getItem('budget_onboarding_completed');
+      if (!hasCompletedOnboarding) {
+        setShowOnboardingGuide(true);
+      }
     }
   }, [user, currentDate, viewMode]);
 
@@ -352,6 +358,12 @@ export default function Budget() {
 
     toast.success("Alerta excluído");
     fetchAlerts();
+  };
+
+  const completeOnboarding = () => {
+    localStorage.setItem('budget_onboarding_completed', 'true');
+    setShowOnboardingGuide(false);
+    toast.success(" Guia concluído! Boa sorte com as finanças!");
   };
 
   const downloadBudget = async () => {

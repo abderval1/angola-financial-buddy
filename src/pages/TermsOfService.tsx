@@ -12,7 +12,7 @@ export default function TermsOfService() {
 
                 <div className="flex items-center gap-3 mb-8">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-accent">
-                        <span className="font-display text-xl font-bold text-accent-foreground">A</span>
+                        <span className="font-display text-xl font-bold text-accent-foreground">K</span>
                     </div>
                     <h1 className="text-3xl font-bold">Termos de Serviço</h1>
                 </div>
@@ -21,14 +21,14 @@ export default function TermsOfService() {
                     <section>
                         <h2 className="text-xl font-semibold text-foreground">1. Aceitação dos Termos</h2>
                         <p>
-                            Ao aceder e utilizar o Angola Finance, concorda em cumprir e estar vinculado a estes Termos de Serviço. Se não concordar com qualquer parte destes termos, não deverá utilizar a nossa plataforma.
+                            Ao aceder e utilizar o Kudila Finance, concorda em cumprir e estar vinculado a estes Termos de Serviço. Se não concordar com qualquer parte destes termos, não deverá utilizar a nossa plataforma.
                         </p>
                     </section>
 
                     <section>
                         <h2 className="text-xl font-semibold text-foreground">2. Descrição do Serviço</h2>
                         <p>
-                            Angola Finance é uma plataforma de gestão financeira que oferece ferramentas de orçamento, poupança, investimento e educação financeira adaptadas à realidade angolana.
+                            Kudila Finance é uma plataforma de gestão financeira que oferece ferramentas de orçamento, poupança, investimento e educação financeira adaptadas à realidade angolana.
                         </p>
                     </section>
 
@@ -56,7 +56,7 @@ export default function TermsOfService() {
                     <section>
                         <h2 className="text-xl font-semibold text-foreground">6. Isenção de Responsabilidade Financeira</h2>
                         <p>
-                            A Angola Finance fornece ferramentas e informações para fins educativos e de planeamento. Não prestamos aconselhamento financeiro profissional ou recomendações de investimento. Todas as decisões financeiras tomadas são de sua inteira responsabilidade.
+                            A Kudila Finance fornece ferramentas e informações para fins educativos e de planeamento. Não prestamos aconselhamento financeiro profissional ou recomendações de investimento. Todas as decisões financeiras tomadas são de sua inteira responsabilidade.
                         </p>
                     </section>
 
@@ -70,7 +70,7 @@ export default function TermsOfService() {
                     <section>
                         <h2 className="text-xl font-semibold text-foreground">8. Limitação de Responsabilidade</h2>
                         <p>
-                            Na extensão permitida pela lei aplicável, a Angola Finance não será responsável por quaisquer danos indirectos, incidentais, especiais ou consequentes resultantes do seu uso ou incapacidade de usar o serviço.
+                            Na extensão permitida pela lei aplicável, a Kudila Finance não será responsável por quaisquer danos indirectos, incidentais, especiais ou consequentes resultantes do seu uso ou incapacidade de usar o serviço.
                         </p>
                     </section>
 

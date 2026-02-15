@@ -51,6 +51,7 @@ export default function Marketplace() {
   const [selectedType, setSelectedType] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   // Fetch products - only ebooks, templates, tools (no courses - those are in Education)
   const { data: products = [], isLoading } = useQuery({
@@ -414,12 +415,15 @@ export default function Marketplace() {
                       className="overflow-hidden hover:shadow-lg transition-all group"
                     >
                       {/* Cover Image */}
-                      <div className="relative h-40 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                      <div
+                        className="relative h-40 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center cursor-pointer overflow-hidden"
+                        onClick={() => product.cover_image_url && setViewingImage(product.cover_image_url)}
+                      >
                         {product.cover_image_url ? (
                           <img
                             src={product.cover_image_url}
                             alt={product.title}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                           />
                         ) : (
                           <ProductIcon className="h-16 w-16 text-primary/50" />
@@ -563,7 +567,8 @@ export default function Marketplace() {
                     <img
                       src={selectedProduct.cover_image_url}
                       alt={selectedProduct.title}
-                      className="w-24 h-24 object-cover rounded-lg"
+                      className="w-24 h-24 object-cover rounded-lg cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                      onClick={() => setViewingImage(selectedProduct.cover_image_url)}
                     />
                   ) : (
                     <div className="w-24 h-24 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -696,6 +701,21 @@ export default function Marketplace() {
                 )}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Full Screen Image Viewer */}
+        <Dialog open={!!viewingImage} onOpenChange={() => setViewingImage(null)}>
+          <DialogContent className="max-w-[95vw] md:max-w-4xl p-0 overflow-hidden border-none bg-transparent shadow-none">
+            {viewingImage && (
+              <div className="relative w-full h-full flex items-center justify-center min-h-[300px]">
+                <img
+                  src={viewingImage}
+                  alt="Product cover full size"
+                  className="max-w-full max-h-[90vh] object-contain rounded-lg animate-fade-in"
+                />
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>

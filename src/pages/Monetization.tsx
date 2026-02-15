@@ -212,10 +212,10 @@ export default function Monetization() {
 
   const shareReferralLink = () => {
     const link = `${window.location.origin}/auth?ref=${referralCode?.code}`;
-    const text = `Junte-se a mim no Angola Finance e ganhe ${settings.referral_signup_bonus?.referred || 250} Kz de bónus! Use o meu código: ${referralCode?.code}`;
+    const text = `Junte-se a mim no Kudila Finance e ganhe ${settings.referral_signup_bonus?.referred || 250} Kz de bónus! Use o meu código: ${referralCode?.code}`;
 
     if (navigator.share) {
-      navigator.share({ title: "Angola Finance - Finanças Pessoais", text, url: link });
+      navigator.share({ title: "Kudila Finance - Finanças Pessoais", text, url: link });
     } else {
       navigator.clipboard.writeText(`${text}\n${link}`);
       toast.success("Texto e link copiados!");

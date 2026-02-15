@@ -13,7 +13,7 @@ export default function PrivacyPolicy() {
 
                 <div className="flex items-center gap-3 mb-8">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-accent">
-                        <span className="font-display text-xl font-bold text-accent-foreground">A</span>
+                        <span className="font-display text-xl font-bold text-accent-foreground">K</span>
                     </div>
                     <h1 className="text-3xl font-bold">Política de Privacidade</h1>
                 </div>
@@ -22,7 +22,7 @@ export default function PrivacyPolicy() {
                     <section>
                         <h2 className="text-xl font-semibold text-foreground">1. Introdução</h2>
                         <p>
-                            A Angola Finance ("nós", "nosso" ou "nos") está comprometida em proteger a sua privacidade. Esta Política de Privacidade explica como recolhemos, utilizamos, divulgamos e protegemos as suas informações quando utiliza a nossa plataforma.
+                            A Kudila Finance ("nós", "nosso" ou "nos") está comprometida em proteger a sua privacidade. Esta Política de Privacidade explica como recolhemos, utilizamos, divulgamos e protegemos as suas informações quando utiliza a nossa plataforma.
                         </p>
                     </section>
 
@@ -71,7 +71,7 @@ export default function PrivacyPolicy() {
                     <section>
                         <h2 className="text-xl font-semibold text-foreground">7. Contacto</h2>
                         <p>
-                            Se tiver dúvidas sobre esta Política de Privacidade, contacte-nos através do suporte oficial da Angola Finance.
+                            Se tiver dúvidas sobre esta Política de Privacidade, contacte-nos através do suporte oficial da Kudila Finance.
                         </p>
                     </section>
 

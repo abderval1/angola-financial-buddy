@@ -124,7 +124,11 @@ export function MobileNav() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="lg:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden bg-violet-400 hover:bg-violet-500 text-white rounded-lg h-10 w-10 shadow-lg ring-2 ring-violet-300 ring-opacity-50"
+        >
           <Menu className="h-6 w-6" />
         </Button>
       </SheetTrigger>
@@ -134,11 +138,11 @@ export function MobileNav() {
           <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
             <Link to="/dashboard" className="flex items-center gap-3" onClick={() => setOpen(false)}>
               <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-accent">
-                <span className="font-display text-xl font-bold text-sidebar-primary-foreground">A</span>
+                <span className="font-display text-xl font-bold text-sidebar-primary-foreground">K</span>
               </div>
               <div className="flex flex-col">
                 <span className="font-display text-xl font-bold">
-                  <span className="text-sidebar-primary">Angola</span>
+                  <span className="text-sidebar-primary">Kudila</span>
                   <span className="text-sidebar-foreground">Finance</span>
                 </span>
               </div>

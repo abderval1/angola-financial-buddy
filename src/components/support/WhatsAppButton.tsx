@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 export function WhatsAppButton() {
     const phoneNumber = "244953130299";
-    const message = "Olá! Preciso de ajuda com o Angola Finance.";
+    const message = "Olá! Preciso de ajuda com o Kudila Finance.";
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
 
     return (

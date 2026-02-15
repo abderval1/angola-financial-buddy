@@ -13,15 +13,17 @@ interface AppHeaderProps {
 
 export function AppHeader({ title = "Dashboard", subtitle }: AppHeaderProps) {
   return (
-    <header className="sticky top-0 z-30 flex h-14 sm:h-16 items-center justify-between border-b border-border bg-background/80 backdrop-blur-xl px-4 sm:px-6">
+    <header className="sticky top-0 z-30 flex h-14 sm:h-16 items-center justify-between border-b border-violet-300 lg:border-border bg-violet-400 lg:bg-background/80 backdrop-blur-xl px-4 sm:px-6">
       <div className="flex items-center gap-3 sm:gap-4">
-        {/* Mobile Menu */}
-        <MobileNav />
+        {/* Mobile Menu - Lilac background on mobile */}
+        <div className="lg:hidden -ml-2 sm:-ml-4">
+          <MobileNav />
+        </div>
 
         <div className="min-w-0">
-          <h1 className="font-display text-lg sm:text-xl font-semibold text-foreground truncate">{title}</h1>
+          <h1 className="font-display text-lg sm:text-xl font-semibold text-white lg:text-foreground truncate">{title}</h1>
           {subtitle && (
-            <p className="text-xs sm:text-sm text-muted-foreground truncate hidden sm:block">{subtitle}</p>
+            <p className="text-xs sm:text-sm text-white/70 lg:text-muted-foreground truncate hidden sm:block">{subtitle}</p>
           )}
         </div>
       </div>

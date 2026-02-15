@@ -19,7 +19,7 @@ export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
 
       <div className="lg:pl-64 transition-all duration-300">
         <AppHeader title={title} subtitle={subtitle} />
-        <main className="p-4 sm:p-6">
+        <main className="p-3 sm:p-4 md:p-6">
           {children}
         </main>
         <WhatsAppButton />
