@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 const features = [
   {
@@ -70,6 +71,7 @@ const benefits = [
 export default function Landing() {
   return (
     <div className="min-h-screen bg-background">
+      <PWAInstallPrompt />
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border">
         <div className="container mx-auto px-4 sm:px-6">
