@@ -7,6 +7,7 @@ import {
   GraduationCap
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 interface QuickActionsProps {
   onInvestNow: () => void;
@@ -19,6 +20,8 @@ export function InvestmentQuickActions({
   onWithdraw,
   onViewDetails,
 }: QuickActionsProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="flex flex-wrap gap-3">
       <Button
@@ -28,7 +31,7 @@ export function InvestmentQuickActions({
         onClick={onInvestNow}
       >
         <Plus className="h-5 w-5 mr-2" />
-        Investir Agora
+        {t("Investir Agora")}
       </Button>
 
       <Button
@@ -38,7 +41,7 @@ export function InvestmentQuickActions({
         onClick={onWithdraw}
       >
         <Wallet className="h-5 w-5 mr-2" />
-        Resgatar
+        {t("Resgatar")}
       </Button>
 
       <Button
@@ -48,7 +51,7 @@ export function InvestmentQuickActions({
         onClick={onViewDetails}
       >
         <BarChart3 className="h-5 w-5 mr-2" />
-        Ver Detalhes
+        {t("Ver Detalhes")}
       </Button>
 
       <Link to="/education" className="flex-1 min-w-[140px]">
@@ -58,7 +61,7 @@ export function InvestmentQuickActions({
           className="w-full h-14 text-base border-2 border-dashed border-primary/30 hover:border-primary/50 hover:bg-primary/5"
         >
           <GraduationCap className="h-5 w-5 mr-2" />
-          Aprender a Investir
+          {t("Aprender a Investir")}
         </Button>
       </Link>
     </div>

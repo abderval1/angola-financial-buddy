@@ -16,6 +16,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAchievements } from "@/hooks/useAchievements";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { TwoFactorSetup } from "@/components/profile/TwoFactorSetup";
+import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface NotificationPreferences {
   email: boolean;
@@ -40,6 +42,8 @@ export default function Settings() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { unlockAchievement, awardXP } = useAchievements();
+  const { t, i18n } = useTranslation();
+  const { setCurrency } = useCurrency();
 
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -76,7 +80,7 @@ export default function Settings() {
         return {
           ...data,
           notification_preferences: data.notification_preferences as unknown as NotificationPreferences | null,
-        } as Profile;
+        } as unknown as Profile;
       }
       return null;
     },
@@ -129,6 +133,10 @@ export default function Settings() {
         notification_preferences: data.notifications,
         updated_at: new Date().toISOString(),
       };
+
+      // Apply changes immediately
+      i18n.changeLanguage(data.language);
+      setCurrency(data.currency as any);
 
       // Two-factor status is handled by the TwoFactorSetup component directly via Supabase Auth
       // but we update the profile metadata/state if needed
@@ -266,7 +274,7 @@ export default function Settings() {
   }
 
   return (
-    <AppLayout title="Configurações" subtitle="Gerencie suas preferências e dados pessoais">
+    <AppLayout title={t("Settings")} subtitle="Gerencie suas preferências e dados pessoais">
       <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
         {/* Profile Section */}
         <Card>
@@ -365,7 +373,10 @@ export default function Settings() {
                 <Label htmlFor="language">Idioma</Label>
                 <Select
                   value={formData.language}
-                  onValueChange={(value) => setFormData({ ...formData, language: value })}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, language: value });
+                    i18n.changeLanguage(value);
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o idioma" />
@@ -373,7 +384,11 @@ export default function Settings() {
                   <SelectContent>
                     <SelectItem value="pt">Português</SelectItem>
                     <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="fr">Français</SelectItem>
                     <SelectItem value="es">Español</SelectItem>
+                    <SelectItem value="ar">العربية (Arabic)</SelectItem>
+                    <SelectItem value="zh">中文 (Mandarin)</SelectItem>
+                    <SelectItem value="ln">Lingala</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -381,7 +396,10 @@ export default function Settings() {
                 <Label htmlFor="currency">Moeda</Label>
                 <Select
                   value={formData.currency}
-                  onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, currency: value });
+                    setCurrency(value as any);
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione a moeda" />
@@ -391,6 +409,8 @@ export default function Settings() {
                     <SelectItem value="USD">Dólar (USD)</SelectItem>
                     <SelectItem value="EUR">Euro (EUR)</SelectItem>
                     <SelectItem value="BRL">Real (BRL)</SelectItem>
+                    <SelectItem value="GBP">Libra (GBP)</SelectItem>
+                    <SelectItem value="ZAR">Rand (ZAR)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -21,6 +21,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, parseISO, differenceInDays, differenceInMonths, differenceInYears } from "date-fns";
 import { useAchievements } from "@/hooks/useAchievements";
+import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 // Import new components
 import { InvestmentPortfolioSummary } from "@/components/investments/InvestmentPortfolioSummary";
@@ -48,14 +50,14 @@ interface Investment {
 }
 
 const INVESTMENT_TYPES = [
-  { value: 'poupanca', label: 'Poupança', icon: '🏦', color: 'hsl(160 84% 39%)' },
-  { value: 'deposito_prazo', label: 'Depósito a Prazo', icon: '📅', color: 'hsl(200 90% 45%)' },
-  { value: 'obrigacoes', label: 'Obrigações do Tesouro', icon: '🏛️', color: 'hsl(270 60% 55%)' },
-  { value: 'acoes', label: 'Ações', icon: '📈', color: 'hsl(25 95% 53%)' },
-  { value: 'fundos', label: 'Fundos de Investimento', icon: '💼', color: 'hsl(340 75% 55%)' },
-  { value: 'imobiliario', label: 'Imobiliário', icon: '🏠', color: 'hsl(45 93% 47%)' },
-  { value: 'cripto', label: 'Criptomoedas', icon: '₿', color: 'hsl(30 100% 50%)' },
-  { value: 'outro', label: 'Outro', icon: '💰', color: 'hsl(220 10% 45%)' },
+  { value: 'poupanca', label: 'investment_poupanca', icon: '🏦', color: 'hsl(160 84% 39%)' },
+  { value: 'deposito_prazo', label: 'investment_deposito_prazo', icon: '📅', color: 'hsl(200 90% 45%)' },
+  { value: 'obrigacoes', label: 'investment_obrigacoes', icon: '🏛️', color: 'hsl(270 60% 55%)' },
+  { value: 'acoes', label: 'investment_acoes', icon: '📈', color: 'hsl(25 95% 53%)' },
+  { value: 'fundos', label: 'investment_fundos', icon: '💼', color: 'hsl(340 75% 55%)' },
+  { value: 'imobiliario', label: 'investment_imobiliario', icon: '🏠', color: 'hsl(45 93% 47%)' },
+  { value: 'cripto', label: 'investment_cripto', icon: '₿', color: 'hsl(30 100% 50%)' },
+  { value: 'outro', label: 'investment_outro', icon: '💰', color: 'hsl(220 10% 45%)' },
 ];
 
 const RISK_LEVELS = [
@@ -65,6 +67,8 @@ const RISK_LEVELS = [
 ];
 
 export default function Investments() {
+  const { t, i18n } = useTranslation();
+  const { formatPrice } = useCurrency();
   const { user } = useAuth();
   const { unlockAchievement } = useAchievements();
   const [investments, setInvestments] = useState<Investment[]>([]);
@@ -641,7 +645,7 @@ export default function Investments() {
 
   if (loading) {
     return (
-      <AppLayout title="Investimentos" subtitle="Sua carteira de investimentos">
+      <AppLayout title={t("Investimentos")} subtitle={t("Sua carteira de investimentos")}>
         <div className="flex items-center justify-center h-64">
           <div className="h-12 w-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
@@ -650,11 +654,11 @@ export default function Investments() {
   }
 
   return (
-    <AppLayout title="Investimentos" subtitle="Sua carteira de investimentos">
+    <AppLayout title={t("Investimentos")} subtitle={t("Sua carteira de investimentos")}>
       <ModuleGuard
         moduleKey="basic"
-        title="Carteira de Investimentos"
-        description="Acompanhe o crescimento do seu património, analise rendimentos e explore produtos financeiros em Angola."
+        title={t("Investimentos & Portfolio")}
+        description={t("Acompanhe o crescimento do seu património...")}
       >
         <div className="space-y-6 animate-fade-in">
           {/* View Toggle */}
@@ -666,7 +670,7 @@ export default function Investments() {
                 onClick={() => setActiveView("home")}
               >
                 <Wallet className="h-4 w-4 mr-2" />
-                Visão Geral
+                {t("Visão Geral")}
               </Button>
               <Button
                 variant={activeView === "details" ? "default" : "outline"}
@@ -674,7 +678,7 @@ export default function Investments() {
                 onClick={() => setActiveView("details")}
               >
                 <Eye className="h-4 w-4 mr-2" />
-                Meus Investimentos
+                {t("Meus Investimentos")}
               </Button>
             </div>
           )}
@@ -744,7 +748,7 @@ export default function Investments() {
             <div className="space-y-6">
               {/* Back Button */}
               <Button variant="ghost" onClick={() => setActiveView("home")}>
-                ← Voltar à Visão Geral
+                ← {t("Voltar à Visão Geral")}
               </Button>
 
               {/* Portfolio Distribution */}
@@ -752,7 +756,7 @@ export default function Investments() {
                 <div className="grid lg:grid-cols-2 gap-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Distribuição por Tipo</CardTitle>
+                      <CardTitle className="text-lg">{t("Distribuição por Tipo")}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center gap-6">
@@ -780,7 +784,7 @@ export default function Investments() {
                             <div key={index} className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <span>{item.icon}</span>
-                                <span className="text-sm">{item.name}</span>
+                                <span className="text-sm">{t(item.name)}</span>
                               </div>
                               <span className="text-sm font-medium">
                                 {((item.value / totalCurrentValue) * 100).toFixed(1)}%
@@ -794,43 +798,43 @@ export default function Investments() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Projeção de Investimentos</CardTitle>
+                      <CardTitle className="text-lg">{t("Projeção de Investimentos")}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label className="text-xs">Data Inicial (opcional)</Label>
+                          <Label className="text-xs">{t("Data Inicial (opcional)")}</Label>
                           <Input type="date" value={dateRangeStart} onChange={(e) => setDateRangeStart(e.target.value)} />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-xs">Data Final (opcional)</Label>
+                          <Label className="text-xs">{t("Data Final (opcional)")}</Label>
                           <Input type="date" value={dateRangeEnd} onChange={(e) => setDateRangeEnd(e.target.value)} />
                         </div>
                       </div>
                       <div className="space-y-3 pt-2 border-t">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground text-sm">Investido no período</span>
-                          <span className="font-medium">{rangeInvested.toLocaleString('pt-AO')} Kz</span>
+                          <span className="text-muted-foreground text-sm">{t("Investido no período")}</span>
+                          <span className="font-medium">{formatPrice(rangeInvested)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground text-sm">Valor Atual</span>
-                          <span className="font-medium">{rangeCurrentValue.toLocaleString('pt-AO')} Kz</span>
+                          <span className="text-muted-foreground text-sm">{t("Valor Atual")}</span>
+                          <span className="font-medium">{formatPrice(rangeCurrentValue)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground text-sm">Rendimento</span>
+                          <span className="text-muted-foreground text-sm">{t("Rendimento")}</span>
                           <span className={`font-medium ${rangeEarnings >= 0 ? 'text-success' : 'text-destructive'}`}>
-                            {rangeEarnings >= 0 ? '+' : ''}{rangeEarnings.toLocaleString('pt-AO')} Kz ({rangeEarningsPercentage.toFixed(1)}%)
+                            {rangeEarnings >= 0 ? '+' : ''}{formatPrice(rangeEarnings)} ({rangeEarningsPercentage.toFixed(1)}%)
                           </span>
                         </div>
                         {rangeMaturityValue > 0 && (
                           <>
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground text-sm">Esperado no Vencimento</span>
-                              <span className="font-medium">{rangeMaturityValue.toLocaleString('pt-AO')} Kz</span>
+                              <span className="text-muted-foreground text-sm">{t("Esperado no Vencimento")}</span>
+                              <span className="font-medium">{formatPrice(rangeMaturityValue)}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground text-sm">Falta Render</span>
-                              <span className="font-medium text-warning">{rangeRemaining.toLocaleString('pt-AO')} Kz ({rangeRemainingPercentage.toFixed(1)}%)</span>
+                              <span className="text-muted-foreground text-sm">{t("Falta Render")}</span>
+                              <span className="font-medium text-warning">{formatPrice(rangeRemaining)} ({rangeRemainingPercentage.toFixed(1)}%)</span>
                             </div>
                           </>
                         )}
@@ -840,25 +844,25 @@ export default function Investments() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg">Resumo Rápido</CardTitle>
+                      <CardTitle className="text-lg">{t("Resumo Rápido")}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Investido</span>
-                        <span className="font-bold">{totalInvested.toLocaleString('pt-AO')} Kz</span>
+                        <span className="text-muted-foreground">{t("Total Investido")}</span>
+                        <span className="font-bold">{formatPrice(totalInvested)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Valor Atual</span>
-                        <span className="font-bold">{totalCurrentValue.toLocaleString('pt-AO')} Kz</span>
+                        <span className="text-muted-foreground">{t("Valor Atual")}</span>
+                        <span className="font-bold">{formatPrice(totalCurrentValue)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Rendimento</span>
+                        <span className="text-muted-foreground">{t("Rendimento")}</span>
                         <span className={`font-bold ${totalReturn >= 0 ? 'text-success' : 'text-destructive'}`}>
-                          {totalReturn >= 0 ? '+' : ''}{totalReturn.toLocaleString('pt-AO')} Kz ({returnPercentage.toFixed(1)}%)
+                          {totalReturn >= 0 ? '+' : ''}{formatPrice(totalReturn)} ({returnPercentage.toFixed(1)}%)
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Ativos</span>
+                        <span className="text-muted-foreground">{t("Ativos")}</span>
                         <span className="font-bold">{investments.length}</span>
                       </div>
                     </CardContent>
@@ -869,23 +873,23 @@ export default function Investments() {
               {/* Investment List */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg">Meus Investimentos</CardTitle>
+                  <CardTitle className="text-lg">{t("Meus Investimentos")}</CardTitle>
                   <Button variant="accent" size="sm" onClick={() => setDialogOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Novo
+                    {t("Novo")}
                   </Button>
                 </CardHeader>
                 <CardContent>
                   {investments.length === 0 ? (
                     <div className="text-center py-12">
                       <Wallet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">Nenhum investimento ainda</h3>
+                      <h3 className="text-lg font-semibold mb-2">{t("Nenhum investimento ainda")}</h3>
                       <p className="text-muted-foreground mb-4">
-                        Comece a investir e acompanhe seu patrimônio crescer
+                        {t("Comece a investir e acompanhe seu patrimônio crescer")}
                       </p>
                       <Button variant="accent" onClick={() => setDialogOpen(true)}>
                         <Plus className="h-4 w-4 mr-2" />
-                        Registrar Primeiro Investimento
+                        {t("Registrar Primeiro Investimento")}
                       </Button>
                     </div>
                   ) : (
@@ -908,7 +912,7 @@ export default function Investments() {
                                   <h4 className="font-semibold text-foreground">{investment.name}</h4>
                                   <div className="flex items-center gap-2 mt-1">
                                     <Badge variant="secondary" className="text-xs">
-                                      {typeInfo.label}
+                                      {t(typeInfo.label)}
                                     </Badge>
                                     <Badge
                                       variant="outline"
@@ -919,7 +923,7 @@ export default function Investments() {
                                           : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
                                         }`}
                                     >
-                                      Risco {riskInfo.label}
+                                      {t("Risco")} {t(riskInfo.label)}
                                     </Badge>
                                   </div>
                                 </div>
@@ -933,7 +937,7 @@ export default function Investments() {
                                   className="text-xs"
                                 >
                                   <Plus className="h-3 w-3 mr-1" />
-                                  Reforçar
+                                  {t("Reforçar")}
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -952,23 +956,23 @@ export default function Investments() {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border/50">
+                            <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border/50">
                               <div>
-                                <span className="text-xs text-muted-foreground">Investido</span>
-                                <p className="font-semibold">{investment.amount.toLocaleString('pt-AO')} Kz</p>
+                                <span className="text-xs text-muted-foreground">{t("Investido")}</span>
+                                <p className="font-semibold">{formatPrice(investment.amount)}</p>
                               </div>
                               <div>
-                                <span className="text-xs text-muted-foreground">Valor Atual</span>
-                                <p className="font-semibold">{currentValue.toLocaleString('pt-AO')} Kz</p>
+                                <span className="text-xs text-muted-foreground">{t("Valor Atual")}</span>
+                                <p className="font-semibold">{formatPrice(currentValue)}</p>
                               </div>
                               <div>
-                                <span className="text-xs text-muted-foreground">Rendimento</span>
+                                <span className="text-xs text-muted-foreground">{t("Rendimento")}</span>
                                 <p className={`font-semibold ${returnPct >= 0 ? 'text-success' : 'text-destructive'}`}>
                                   {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%
                                 </p>
                                 {investment.expected_return && (
                                   <p className="text-xs text-success mt-1">
-                                    +{calculateExpectedReturn(investment).toLocaleString('pt-AO')} Kz {investment.return_frequency === 'monthly' ? '/mês' : '/ano'}
+                                    +{formatPrice(calculateExpectedReturn(investment))} {investment.return_frequency === 'monthly' ? `/${t("mes_one")}` : `/${t("ano_one")}`}
                                   </p>
                                 )}
                               </div>
@@ -977,7 +981,7 @@ export default function Investments() {
                             {investment.maturity_date && (
                               <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
                                 <Calendar className="h-4 w-4" />
-                                Vencimento: {format(new Date(investment.maturity_date), 'dd/MM/yyyy')}
+                                {t("Vencimento")}: {format(new Date(investment.maturity_date), 'dd/MM/yyyy')}
                               </div>
                             )}
                           </div>
@@ -995,21 +999,21 @@ export default function Investments() {
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>
-                  {reinforcingInvestment ? `Reforçar: ${reinforcingInvestment.name}` : editingInvestment ? 'Editar Investimento' : 'Registrar Investimento'}
+                  {reinforcingInvestment ? `${t("Reforçar")}: ${reinforcingInvestment.name}` : editingInvestment ? t("Editar Investimento") : t("Registrar Investimento")}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto pr-2">
                 {reinforcingInvestment && (
                   <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
-                    <p className="text-sm font-medium">Valor atual: {((reinforcingInvestment.current_value || reinforcingInvestment.amount) + (parseFloat(newInvestment.amount) || 0)).toLocaleString('pt-AO')} Kz</p>
-                    <p className="text-xs text-muted-foreground mt-1">Original: {reinforcingInvestment.amount.toLocaleString('pt-AO')} Kz + Reforço: {(parseFloat(newInvestment.amount) || 0).toLocaleString('pt-AO')} Kz</p>
+                    <p className="text-sm font-medium">{t("Valor atual")}: {formatPrice((reinforcingInvestment.current_value || reinforcingInvestment.amount) + (parseFloat(newInvestment.amount) || 0))}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t("Original")}: {formatPrice(reinforcingInvestment.amount)} + {t("Reforço")}: {formatPrice(parseFloat(newInvestment.amount) || 0)}</p>
                   </div>
                 )}
                 {!reinforcingInvestment && (
                   <div className="space-y-2">
-                    <Label>Nome do Investimento</Label>
+                    <Label>{t("Nome do Investimento")}</Label>
                     <Input
-                      placeholder="Ex: Poupança BFA, Obrigações 2027..."
+                      placeholder={t("Ex: Poupança BFA, Obrigações 2027...")}
                       value={newInvestment.name}
                       onChange={(e) => setNewInvestment({ ...newInvestment, name: e.target.value })}
                     />
@@ -1018,18 +1022,18 @@ export default function Investments() {
 
                 {!reinforcingInvestment && (
                   <div className="space-y-2">
-                    <Label>Tipo de Investimento</Label>
+                    <Label>{t("Tipo de Investimento")}</Label>
                     <Select
                       value={newInvestment.type}
                       onValueChange={(value) => setNewInvestment({ ...newInvestment, type: value })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
+                        <SelectValue placeholder={t("Selecione o tipo")} />
                       </SelectTrigger>
                       <SelectContent>
                         {INVESTMENT_TYPES.map((type) => (
                           <SelectItem key={type.value} value={type.value}>
-                            {type.icon} {type.label}
+                            {type.icon} {t(type.label)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1039,7 +1043,7 @@ export default function Investments() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>{reinforcingInvestment ? 'Valor a Adicionar (Kz)' : 'Valor Investido (Kz)'}</Label>
+                    <Label>{reinforcingInvestment ? t("Valor a Adicionar (Kz)") : t("Valor Investido (Kz)")}</Label>
                     <Input
                       type="number"
                       placeholder="100000"
@@ -1049,7 +1053,7 @@ export default function Investments() {
                   </div>
                   {!reinforcingInvestment && (
                     <div className="space-y-2">
-                      <Label>Valor Atual (Kz)</Label>
+                      <Label>{t("Valor Atual (Kz)")}</Label>
                       <Input
                         type="number"
                         placeholder="105000"
@@ -1061,9 +1065,9 @@ export default function Investments() {
                 </div>
 
                 {!reinforcingInvestment && (
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Retorno Esperado (%)</Label>
+                      <Label>{t("Retorno Esperado (%)")}</Label>
                       <Input
                         type="number"
                         step="0.1"
@@ -1074,7 +1078,7 @@ export default function Investments() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Frequência</Label>
+                      <Label>{t("Frequência")}</Label>
                       <Select
                         value={newInvestment.return_frequency}
                         onValueChange={(value: 'monthly' | 'annual') => setNewInvestment({ ...newInvestment, return_frequency: value })}
@@ -1084,13 +1088,13 @@ export default function Investments() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="annual">Anual</SelectItem>
-                          <SelectItem value="monthly">Mensal</SelectItem>
+                          <SelectItem value="annual">{t("Anual")}</SelectItem>
+                          <SelectItem value="monthly">{t("Mensal")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Nível de Risco</Label>
+                      <Label>{t("Nível de Risco")}</Label>
                       <Select
                         value={newInvestment.risk_level}
                         onValueChange={(value) => setNewInvestment({ ...newInvestment, risk_level: value })}
@@ -1102,7 +1106,7 @@ export default function Investments() {
                         <SelectContent>
                           {RISK_LEVELS.map((level) => (
                             <SelectItem key={level.value} value={level.value}>
-                              {level.label}
+                              {t(level.label)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1114,14 +1118,14 @@ export default function Investments() {
                 {newInvestment.expected_return && parseFloat(newInvestment.expected_return) > 0 && parseFloat(newInvestment.amount) > 0 && (
                   <div className="p-3 bg-success/10 rounded-lg border border-success/20">
                     <p className="text-sm font-medium text-success">
-                      Retorno Projetado: +{((parseFloat(newInvestment.amount) || 0) * (parseFloat(newInvestment.expected_return) / 100)).toLocaleString('pt-AO')} Kz {newInvestment.return_frequency === 'monthly' ? 'por mês' : 'por ano'}
+                      {t("Retorno Projetado")}: +{formatPrice((parseFloat(newInvestment.amount) || 0) * (parseFloat(newInvestment.expected_return) / 100))} {newInvestment.return_frequency === 'monthly' ? t("por_mes") : t("por_ano")}
                     </p>
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Data de Início</Label>
+                    <Label>{t("Data de Início")}</Label>
                     <Input
                       type="date"
                       value={newInvestment.start_date}
@@ -1129,7 +1133,7 @@ export default function Investments() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Data de Vencimento</Label>
+                    <Label>{t("Data de Vencimento")}</Label>
                     <Input
                       type="date"
                       value={newInvestment.maturity_date}
@@ -1139,7 +1143,7 @@ export default function Investments() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Notas (opcional)</Label>
+                  <Label>{t("Notas (opcional)")}</Label>
                   <Textarea
                     placeholder="Observações sobre este investimento..."
                     value={newInvestment.notes}
@@ -1150,10 +1154,10 @@ export default function Investments() {
 
                 <div className="flex justify-end gap-3 pt-4">
                   <Button variant="outline" onClick={resetForm}>
-                    Cancelar
+                    {t("Cancelar")}
                   </Button>
                   <Button variant="accent" onClick={createOrUpdateInvestment}>
-                    {reinforcingInvestment ? 'Reforçar Investimento' : editingInvestment ? 'Atualizar' : 'Registrar'}
+                    {reinforcingInvestment ? t("Reforçar Investimento") : editingInvestment ? t("Atualizar") : t("Registrar")}
                   </Button>
                 </div>
               </div>
@@ -1165,7 +1169,7 @@ export default function Investments() {
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div className="flex items-center gap-2">
                 <Globe className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Estatísticas do Mercado - BODIVA</CardTitle>
+                <CardTitle className="text-lg">{t("Estatísticas do Mercado - BODIVA")}</CardTitle>
               </div>
               <div className="flex items-center gap-2">
                 <Select value={selectedStatType} onValueChange={setSelectedStatType}>
@@ -1173,15 +1177,15 @@ export default function Investments() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="indices">Índices</SelectItem>
-                    <SelectItem value="volumes">Volumes</SelectItem>
-                    <SelectItem value="capitalization">Capitalização</SelectItem>
-                    <SelectItem value="topSecurities">Top Títulos</SelectItem>
-                    <SelectItem value="taxas">Taxas</SelectItem>
-                    <SelectItem value="cotacoes">Evolução Cotações</SelectItem>
-                    <SelectItem value="precoMedio">Preço Médio</SelectItem>
-                    <SelectItem value="livroOrdens">Livro de Ordens</SelectItem>
-                    <SelectItem value="resumo">Resumo Mercados</SelectItem>
+                    <SelectItem value="indices">{t("Índices")}</SelectItem>
+                    <SelectItem value="volumes">{t("Volumes")}</SelectItem>
+                    <SelectItem value="capitalization">{t("Capitalização")}</SelectItem>
+                    <SelectItem value="topSecurities">{t("Top Títulos")}</SelectItem>
+                    <SelectItem value="taxas">{t("Taxas")}</SelectItem>
+                    <SelectItem value="cotacoes">{t("Evolução Cotações")}</SelectItem>
+                    <SelectItem value="precoMedio">{t("Preço Médio")}</SelectItem>
+                    <SelectItem value="livroOrdens">{t("Livro de Ordens")}</SelectItem>
+                    <SelectItem value="resumo">{t("Resumo Mercados")}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button variant="outline" size="sm" onClick={fetchBodivaStats} disabled={bodivaLoading}>
@@ -1193,13 +1197,13 @@ export default function Investments() {
               {bodivaLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                  <span className="ml-2 text-muted-foreground">A carregar dados da BODIVA...</span>
+                  <span className="ml-2 text-muted-foreground">{t("A carregar dados da BODIVA...")}</span>
                 </div>
               ) : bodivaError ? (
                 <div className="text-center py-8 text-destructive">
-                  <p>Erro ao carregar dados: {bodivaError}</p>
+                  <p>{t("Erro ao carregar dados")}: {bodivaError}</p>
                   <Button variant="outline" className="mt-2" onClick={fetchBodivaStats}>
-                    Tentar novamente
+                    {t("Tentar novamente")}
                   </Button>
                 </div>
               ) : bodivaData && bodivaData.indices ? (
@@ -1221,9 +1225,9 @@ export default function Investments() {
                               {data.change >= 0 ? '+' : ''}{data.changePercent?.toFixed(2)}%
                             </Badge>
                           </div>
-                          <p className="text-2xl font-bold">{data.value?.toLocaleString('pt-AO')}</p>
+                          <p className="text-2xl font-bold">{data.value?.toLocaleString(i18n.language)}</p>
                           <p className={`text-sm ${data.change >= 0 ? 'text-success' : 'text-destructive'}`}>
-                            {data.change >= 0 ? '+' : ''}{data.change?.toLocaleString('pt-AO')} Kz
+                            {data.change >= 0 ? '+' : ''}{data.change?.toLocaleString(i18n.language)} Kz
                           </p>
                         </div>
                       ))}
@@ -1235,19 +1239,19 @@ export default function Investments() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="p-4 rounded-lg border border-border/50 bg-card">
-                          <span className="text-sm text-muted-foreground">Diário</span>
-                          <p className="text-2xl font-bold mt-1">{bodivaData.volumes.daily?.volume?.toLocaleString('pt-AO')} Kz</p>
-                          <p className="text-sm text-muted-foreground">{bodivaData.volumes.daily?.transactions?.toLocaleString('pt-AO')} transações</p>
+                          <span className="text-sm text-muted-foreground">{t("Diário")}</span>
+                          <p className="text-2xl font-bold mt-1">{formatPrice(bodivaData.volumes.daily?.volume)}</p>
+                          <p className="text-sm text-muted-foreground">{bodivaData.volumes.daily?.transactions?.toLocaleString(i18n.language)} {t("transações")}</p>
                         </div>
                         <div className="p-4 rounded-lg border border-border/50 bg-card">
-                          <span className="text-sm text-muted-foreground">Mensal</span>
-                          <p className="text-2xl font-bold mt-1">{bodivaData.volumes.monthly?.volume?.toLocaleString('pt-AO')} Kz</p>
-                          <p className="text-sm text-muted-foreground">{bodivaData.volumes.monthly?.transactions?.toLocaleString('pt-AO')} transações</p>
+                          <span className="text-sm text-muted-foreground">{t("Mensal")}</span>
+                          <p className="text-2xl font-bold mt-1">{formatPrice(bodivaData.volumes.monthly?.volume)}</p>
+                          <p className="text-sm text-muted-foreground">{bodivaData.volumes.monthly?.transactions?.toLocaleString(i18n.language)} {t("transações")}</p>
                         </div>
                         <div className="p-4 rounded-lg border border-border/50 bg-card">
-                          <span className="text-sm text-muted-foreground">Anual</span>
-                          <p className="text-2xl font-bold mt-1">{bodivaData.volumes.yearly?.volume?.toLocaleString('pt-AO')} Kz</p>
-                          <p className="text-sm text-muted-foreground">{bodivaData.volumes.yearly?.transactions?.toLocaleString('pt-AO')} transações</p>
+                          <span className="text-sm text-muted-foreground">{t("Anual")}</span>
+                          <p className="text-2xl font-bold mt-1">{formatPrice(bodivaData.volumes.yearly?.volume)}</p>
+                          <p className="text-sm text-muted-foreground">{bodivaData.volumes.yearly?.transactions?.toLocaleString(i18n.language)} {t("transações")}</p>
                         </div>
                       </div>
                     </div>
@@ -1257,20 +1261,20 @@ export default function Investments() {
                   {selectedStatType === 'capitalization' && bodivaData.capitalization && (
                     <div className="space-y-4">
                       <div className="p-6 rounded-lg border border-primary/30 bg-primary/5">
-                        <span className="text-sm text-muted-foreground">Capitalização Total do Mercado</span>
-                        <p className="text-3xl font-bold mt-1">{(bodivaData.capitalization.total / 1000000000).toFixed(2)} mil milhões Kz</p>
+                        <span className="text-sm text-muted-foreground">{t("Capitalização Total do Mercado")}</span>
+                        <p className="text-3xl font-bold mt-1">{(bodivaData.capitalization.total / 1000000000).toFixed(2)} {t("mil milhões")} Kz</p>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="p-4 rounded-lg border border-border/50 bg-card">
-                          <span className="text-sm text-muted-foreground">Ações</span>
+                          <span className="text-sm text-muted-foreground">{t("investment_acoes")}</span>
                           <p className="text-xl font-bold mt-1">{(bodivaData.capitalization.stocks / 1000000000).toFixed(2)} M M</p>
                         </div>
                         <div className="p-4 rounded-lg border border-border/50 bg-card">
-                          <span className="text-sm text-muted-foreground">Obrigações</span>
+                          <span className="text-sm text-muted-foreground">{t("investment_obrigacoes")}</span>
                           <p className="text-xl font-bold mt-1">{(bodivaData.capitalization.bonds / 1000000000).toFixed(2)} M M</p>
                         </div>
                         <div className="p-4 rounded-lg border border-border/50 bg-card">
-                          <span className="text-sm text-muted-foreground">Outros</span>
+                          <span className="text-sm text-muted-foreground">{t("Outros")}</span>
                           <p className="text-xl font-bold mt-1">{(bodivaData.capitalization.other / 1000000000).toFixed(2)} M M</p>
                         </div>
                       </div>
@@ -1292,7 +1296,7 @@ export default function Investments() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium">{security.volume?.toLocaleString('pt-AO')} Kz</p>
+                            <p className="font-medium">{formatPrice(security.volume)}</p>
                             <p className={`text-xs ${security.change >= 0 ? 'text-success' : 'text-destructive'}`}>
                               {security.change >= 0 ? '+' : ''}{security.change}%
                             </p>
@@ -1319,7 +1323,7 @@ export default function Investments() {
                       </div>
 
                       <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                        <p className="text-sm font-medium mb-2">Taxas do Mercado</p>
+                        <p className="text-sm font-medium mb-2">{t("Taxas do Mercado")}</p>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
                           <div>
                             <span className="text-muted-foreground">BTs - 91 Dias:</span>
@@ -1360,7 +1364,7 @@ export default function Investments() {
                         <div className="p-4 rounded-lg border border-border/50 bg-card">
                           <span className="text-sm text-muted-foreground">Câmbio USD/AOA</span>
                           <p className="text-2xl font-bold mt-1">{bodivaData.taxas?.cambioUSD || '829.50'}</p>
-                          <p className="text-xs text-success mt-1">+0.25% hoje</p>
+                          <p className="text-xs text-success mt-1">+0.25% {t("hoje")}</p>
                         </div>
                         <div className="p-4 rounded-lg border border-border/50 bg-card">
                           <span className="text-sm text-muted-foreground">Câmbio EUR/AOA</span>
@@ -1378,7 +1382,7 @@ export default function Investments() {
                   {selectedStatType === 'cotacoes' && (
                     <div className="space-y-4">
                       <div className="p-4 rounded-lg border border-border/50 bg-card">
-                        <p className="text-sm text-muted-foreground mb-3">Evolução dos principais índices (YTD)</p>
+                        <p className="text-sm text-muted-foreground mb-3">{t("Evolução dos principais índices (YTD)")}</p>
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="font-medium">All Share Index</span>
@@ -1411,24 +1415,24 @@ export default function Investments() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="p-4 rounded-lg border border-border/50 bg-card text-center">
-                          <span className="text-sm text-muted-foreground">Ações</span>
+                          <span className="text-sm text-muted-foreground">{t("investment_acoes")}</span>
                           <p className="text-xl font-bold mt-1">62%</p>
-                          <p className="text-xs text-muted-foreground">do mercado</p>
+                          <p className="text-xs text-muted-foreground">{t("do mercado")}</p>
                         </div>
                         <div className="p-4 rounded-lg border border-border/50 bg-card text-center">
-                          <span className="text-sm text-muted-foreground">Obrigações</span>
+                          <span className="text-sm text-muted-foreground">{t("investment_obrigacoes")}</span>
                           <p className="text-xl font-bold mt-1">33%</p>
-                          <p className="text-xs text-muted-foreground">do mercado</p>
+                          <p className="text-xs text-muted-foreground">{t("do mercado")}</p>
                         </div>
                         <div className="p-4 rounded-lg border border-border/50 bg-card text-center">
-                          <span className="text-sm text-muted-foreground">Fundos</span>
+                          <span className="text-sm text-muted-foreground">{t("investment_fundos")}</span>
                           <p className="text-xl font-bold mt-1">4%</p>
-                          <p className="text-xs text-muted-foreground">do mercado</p>
+                          <p className="text-xs text-muted-foreground">{t("do mercado")}</p>
                         </div>
                         <div className="p-4 rounded-lg border border-border/50 bg-card text-center">
-                          <span className="text-sm text-muted-foreground">Outros</span>
+                          <span className="text-sm text-muted-foreground">{t("Outros")}</span>
                           <p className="text-xl font-bold mt-1">1%</p>
-                          <p className="text-xs text-muted-foreground">do mercado</p>
+                          <p className="text-xs text-muted-foreground">{t("do mercado")}</p>
                         </div>
                       </div>
                     </div>
@@ -1461,10 +1465,10 @@ export default function Investments() {
                   {selectedStatType === 'livroOrdens' && bodivaData.livroOrdens && (
                     <div className="space-y-2">
                       <div className="grid grid-cols-4 gap-2 text-sm font-medium text-muted-foreground pb-2 border-b">
-                        <div>Título</div>
-                        <div className="text-right">Compra</div>
-                        <div className="text-right">Venda</div>
-                        <div className="text-right">Último</div>
+                        <div>{t("Título")}</div>
+                        <div className="text-right">{t("Compra")}</div>
+                        <div className="text-right">{t("Venda")}</div>
+                        <div className="text-right">{t("Último")}</div>
                       </div>
                       {bodivaData.livroOrdens.map((order: any, index: number) => (
                         <div key={index} className="grid grid-cols-4 gap-2 p-3 rounded-lg border border-border/50 bg-card">
@@ -1472,13 +1476,13 @@ export default function Investments() {
                             <span className="font-medium">{order.symbol}</span>
                           </div>
                           <div className="text-right text-success">
-                            {order.compra?.toLocaleString('pt-AO')} Kz
+                            {formatPrice(order.compra)}
                           </div>
                           <div className="text-right text-destructive">
-                            {order.venda?.toLocaleString('pt-AO')} Kz
+                            {formatPrice(order.venda)}
                           </div>
                           <div className="text-right font-medium">
-                            {order.ultimo?.toLocaleString('pt-AO')} Kz
+                            {formatPrice(order.ultimo)}
                           </div>
                         </div>
                       ))}
@@ -1486,13 +1490,13 @@ export default function Investments() {
                   )}
 
                   <p className="text-xs text-muted-foreground text-center mt-4">
-                    Fonte: BODIVA - Bolsa de Valores de Angola | Atualizado: {bodivaData.timestamp ? new Date(bodivaData.timestamp).toLocaleString('pt-AO') : 'N/A'}
+                    {t("Fonte: BODIVA - Bolsa de Dívida e Valores de Angola")} | {t("Atualizado")}: {bodivaData.timestamp ? new Date(bodivaData.timestamp).toLocaleString(i18n.language) : 'N/A'}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm text-amber-600">
-                    ⚠️ A carregar dados... Clique no botão de refresh para atualizar.
+                    ⚠️ {t("A carregar dados...")} {t("Clique no botão de refresh para atualizar.")}
                   </div>
 
                   {/* Default fallback data when nothing is loaded */}
@@ -1503,7 +1507,7 @@ export default function Investments() {
                         <Badge className="bg-success/10 text-success">--%</Badge>
                       </div>
                       <p className="text-2xl font-bold">---</p>
-                      <p className="text-sm text-muted-foreground">Aguardando dados</p>
+                      <p className="text-sm text-muted-foreground">{t("Aguardando dados")}</p>
                     </div>
                     <div className="p-4 rounded-lg border border-border/50 bg-card">
                       <div className="flex items-center justify-between mb-2">
@@ -1511,14 +1515,14 @@ export default function Investments() {
                         <Badge className="bg-success/10 text-success">--%</Badge>
                       </div>
                       <p className="text-2xl font-bold">---</p>
-                      <p className="text-sm text-muted-foreground">Aguardando dados</p>
+                      <p className="text-sm text-muted-foreground">{t("Aguardando dados")}</p>
                     </div>
                     <div className="p-4 rounded-lg border border-border/50 bg-card">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-sm">Volume Diário</span>
+                        <span className="font-medium text-sm">{t("Volume Diário")}</span>
                       </div>
                       <p className="text-2xl font-bold">---</p>
-                      <p className="text-sm text-muted-foreground">Aguardando dados</p>
+                      <p className="text-sm text-muted-foreground">{t("Aguardando dados")}</p>
                     </div>
                   </div>
 

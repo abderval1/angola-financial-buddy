@@ -2,12 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Shield, 
-  TrendingUp, 
-  Zap, 
-  Clock, 
-  Percent, 
+import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import {
+  Shield,
+  TrendingUp,
+  Zap,
+  Clock,
+  Percent,
   Coins,
   Calendar,
   AlertTriangle,
@@ -155,19 +157,22 @@ interface InvestmentProductsProps {
 }
 
 export function InvestmentProducts({ onSelectProduct }: InvestmentProductsProps) {
+  const { t } = useTranslation();
+  const { formatPrice } = useCurrency();
+
   const getRiskBadge = (risk: "low" | "medium" | "high") => {
     switch (risk) {
       case "low":
-        return <Badge className="bg-success/10 text-success border-success/20">Baixo Risco</Badge>;
+        return <Badge className="bg-success/10 text-success border-success/20">{t("Baixo Risco")}</Badge>;
       case "medium":
-        return <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20">Risco Moderado</Badge>;
+        return <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20">{t("Risco Moderado")}</Badge>;
       case "high":
-        return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Alto Risco</Badge>;
+        return <Badge className="bg-destructive/10 text-destructive border-destructive/20">{t("Alto Risco")}</Badge>;
     }
   };
 
   const ProductCard = ({ product }: { product: InvestmentProduct }) => (
-    <Card 
+    <Card
       className="hover:shadow-lg transition-all cursor-pointer group border-border/50 hover:border-primary/30"
       onClick={() => onSelectProduct(product.id)}
     >
@@ -179,18 +184,18 @@ export function InvestmentProducts({ onSelectProduct }: InvestmentProductsProps)
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-1">
               <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                {product.name}
+                {t(product.name)}
               </h4>
               {getRiskBadge(product.risk)}
             </div>
             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-              {product.description}
+              {t(product.description)}
             </p>
-            
+
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex items-center gap-1.5">
                 <Coins className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>Min: {product.minAmount.toLocaleString('pt-AO')} Kz</span>
+                <span>Min: {formatPrice(product.minAmount)}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Percent className="h-3.5 w-3.5 text-success" />
@@ -198,11 +203,11 @@ export function InvestmentProducts({ onSelectProduct }: InvestmentProductsProps)
               </div>
               <div className="flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>{product.term}</span>
+                <span>{t(product.term)}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>{product.paymentFrequency}</span>
+                <span>{t(product.paymentFrequency)}</span>
               </div>
             </div>
           </div>
@@ -215,24 +220,24 @@ export function InvestmentProducts({ onSelectProduct }: InvestmentProductsProps)
   return (
     <Card>
       <CardHeader className="pb-4">
-        <CardTitle className="text-lg">Produtos de Investimento</CardTitle>
+        <CardTitle className="text-lg">{t("Produtos de Investimento")}</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="safe" className="w-full">
           <TabsList className="w-full grid grid-cols-3 mb-4">
             <TabsTrigger value="safe" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Seguros</span>
+              <span className="hidden sm:inline">{t("Seguros")}</span>
               <span className="sm:hidden">🟢</span>
             </TabsTrigger>
             <TabsTrigger value="medium" className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline">Intermédios</span>
+              <span className="hidden sm:inline">{t("Intermédios")}</span>
               <span className="sm:hidden">🟡</span>
             </TabsTrigger>
             <TabsTrigger value="advanced" className="flex items-center gap-2">
               <Zap className="h-4 w-4" />
-              <span className="hidden sm:inline">Avançados</span>
+              <span className="hidden sm:inline">{t("Avançados")}</span>
               <span className="sm:hidden">🔴</span>
             </TabsTrigger>
           </TabsList>
@@ -240,7 +245,7 @@ export function InvestmentProducts({ onSelectProduct }: InvestmentProductsProps)
           <TabsContent value="safe" className="space-y-3">
             <div className="flex items-center gap-2 text-sm text-success bg-success/5 p-3 rounded-lg mb-4">
               <Shield className="h-4 w-4" />
-              <span>Investimentos ideais para iniciantes com rendimento previsível</span>
+              <span>{t("Investimentos ideais para iniciantes com rendimento previsível")}</span>
             </div>
             {SAFE_INVESTMENTS.map((product) => (
               <ProductCard key={product.id} product={product} />
@@ -250,7 +255,7 @@ export function InvestmentProducts({ onSelectProduct }: InvestmentProductsProps)
           <TabsContent value="medium" className="space-y-3">
             <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-500/5 p-3 rounded-lg mb-4">
               <TrendingUp className="h-4 w-4" />
-              <span>Equilíbrio entre risco e retorno para investidores moderados</span>
+              <span>{t("Equilíbrio entre risco e retorno para investidores moderados")}</span>
             </div>
             {MEDIUM_INVESTMENTS.map((product) => (
               <ProductCard key={product.id} product={product} />
@@ -260,7 +265,7 @@ export function InvestmentProducts({ onSelectProduct }: InvestmentProductsProps)
           <TabsContent value="advanced" className="space-y-3">
             <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/5 p-3 rounded-lg mb-4">
               <AlertTriangle className="h-4 w-4" />
-              <span>Pode gerar ganhos maiores, mas também perdas. Invista com cuidado.</span>
+              <span>{t("Pode gerar ganhos maiores, mas também perdas. Invista com cuidado.")}</span>
             </div>
             {ADVANCED_INVESTMENTS.map((product) => (
               <ProductCard key={product.id} product={product} />

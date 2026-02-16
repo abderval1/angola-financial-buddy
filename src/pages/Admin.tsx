@@ -6,6 +6,8 @@ import { Navigate, Link, useSearchParams } from "react-router-dom";
 import { AdminSubscriptions } from "@/components/admin/AdminSubscriptions";
 import { AdminCourseManager as AdminCourses } from "@/components/admin/AdminCourseManager";
 import { AdminNewsManager as AdminNews } from "@/components/admin/AdminNewsManager";
+import { AdminBlogManager } from "@/components/admin/AdminBlogManager";
+import { AdminBlogComments } from "@/components/admin/AdminBlogComments";
 import { AdminPayouts } from "@/components/admin/AdminPayouts";
 import { AdminSalesManager } from "@/components/admin/AdminSalesManager";
 import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
@@ -42,6 +44,8 @@ import {
   Settings,
   BarChart3,
   ChevronLeft,
+  ChevronDown,
+  ChevronRight,
   Plus,
   Edit2,
   Trash2,
@@ -58,6 +62,7 @@ import {
   ShoppingBag,
   FileText,
   Book,
+  BookText,
   Wrench,
   Package,
   MessageCircle,
@@ -96,6 +101,15 @@ export default function Admin() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "overview";
   const queryClient = useQueryClient();
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["blog"]);
+
+  const toggleMenu = (menuId: string) => {
+    setExpandedMenus(prev =>
+      prev.includes(menuId)
+        ? prev.filter(id => id !== menuId)
+        : [...prev, menuId]
+    );
+  };
 
   // Check if user is admin
   const { data: userRole, isLoading: isLoadingRole } = useQuery({
@@ -178,6 +192,9 @@ export default function Admin() {
     { id: "content", label: "Conteúdo Educativo", icon: GraduationCap },
     { id: "courses", label: "Gestão de Cursos", icon: BookOpen },
     { id: "news", label: "Notícias", icon: FileText },
+    { id: "blog", label: "Blog", icon: BookText, hasChildren: true },
+    { id: "blog_articles", label: "Artigos", icon: FileText, parent: "blog" },
+    { id: "blog_comments", label: "Comentários", icon: MessageCircle, parent: "blog" },
     { id: "analytics", label: "Mercado & Notícias", icon: BarChart3 },
     { id: "community", label: "Comunidade", icon: MessageSquare },
     { id: "chat", label: "Chat Público", icon: MessageCircle },
@@ -201,7 +218,7 @@ export default function Admin() {
             <div className="h-6 w-px bg-border" />
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
-              <span className="font-display font-bold text-lg">Admin Kudila Finance</span>
+              <span className="font-display font-bold text-lg">Admin Angola Finance</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -220,19 +237,63 @@ export default function Admin() {
         {/* Sidebar */}
         <aside className="w-64 min-h-[calc(100vh-73px)] bg-card border-r border-border p-4">
           <nav className="space-y-1">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === item.id
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                  }`}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </button>
-            ))}
+            {navItems.map((item) => {
+              const isExpanded = expandedMenus.includes(item.id);
+              const isActive = activeTab === item.id || (item.hasChildren && activeTab?.startsWith(item.id));
+
+              if (item.hasChildren) {
+                return (
+                  <div key={item.id}>
+                    <button
+                      onClick={() => toggleMenu(item.id)}
+                      className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
+                        ? "bg-primary/10 text-primary"
+                        : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                        }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </div>
+                      {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                    {isExpanded && (
+                      <div className="ml-6 mt-1 space-y-1 border-l-2 border-muted pl-2">
+                        {navItems.filter(sub => sub.parent === item.id).map(subItem => (
+                          <button
+                            key={subItem.id}
+                            onClick={() => setActiveTab(subItem.id)}
+                            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === subItem.id
+                              ? "bg-primary text-primary-foreground"
+                              : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                              }`}
+                          >
+                            <subItem.icon className="h-4 w-4" />
+                            {subItem.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              if (item.parent) return null; // Skip child items at top level
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === item.id
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </button>
+              );
+            })}
           </nav>
         </aside>
 
@@ -267,6 +328,9 @@ export default function Admin() {
           {activeTab === "content" && <AdminContent />}
           {activeTab === "courses" && <AdminCourses />}
           {activeTab === "news" && <AdminNews />}
+          {activeTab === "blog" && <AdminBlogManager />}
+          {activeTab === "blog_articles" && <AdminBlogManager />}
+          {activeTab === "blog_comments" && <AdminBlogComments />}
           {activeTab === "analytics" && (
             <div className="space-y-6">
               <div>

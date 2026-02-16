@@ -17,8 +17,17 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, 
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, startOfMonth, endOfMonth, parseISO, subMonths, addMonths } from "date-fns";
-import { pt } from "date-fns/locale";
+import { format, startOfMonth, endOfMonth, parseISO, subMonths, addMonths, startOfYear, endOfYear, addYears, subYears } from "date-fns";
+import { pt, enUS, fr, es } from "date-fns/locale";
+import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
+
+const localeMap: Record<string, any> = {
+  en: enUS,
+  fr: fr,
+  es: es,
+  pt: pt,
+};
 import { useQueryClient } from "@tanstack/react-query";
 import { useAchievements } from "@/hooks/useAchievements";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
@@ -76,6 +85,9 @@ const COLOR_MAP: Record<string, string> = {
 
 export default function Budget() {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+  const { formatPrice } = useCurrency();
+  const currentLocale = localeMap[i18n.language] || pt;
   const queryClient = useQueryClient();
   const { unlockAchievement } = useAchievements();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -195,7 +207,7 @@ export default function Budget() {
     const { data, error } = await query.order('date', { ascending: false });
 
     if (error) {
-      toast.error("Erro ao carregar transações");
+      toast.error(t("Erro ao carregar transações"));
       return;
     }
 
@@ -209,7 +221,7 @@ export default function Budget() {
       .order('name');
 
     if (error) {
-      toast.error("Erro ao carregar categorias");
+      toast.error(t("Erro ao carregar categorias"));
       return;
     }
 
@@ -229,7 +241,7 @@ export default function Budget() {
 
   const handleSaveTransaction = async () => {
     if (!newTransaction.amount || !newTransaction.description) {
-      toast.error("Preencha todos os campos obrigatórios");
+      toast.error(t("Preencha todos os campos obrigatórios"));
       return;
     }
 
@@ -265,7 +277,7 @@ export default function Budget() {
     }
 
     if (error) {
-      toast.error(editingTransactionId ? "Erro ao atualizar transação" : "Erro ao adicionar transação");
+      toast.error(editingTransactionId ? t("Erro ao atualizar transação") : t("Erro ao adicionar transação"));
       return;
     }
 
@@ -282,7 +294,7 @@ export default function Budget() {
       });
     }
 
-    toast.success(editingTransactionId ? "Transação atualizada!" : "Transação adicionada com sucesso!");
+    toast.success(editingTransactionId ? t("Transação atualizada!") : t("Transação adicionada com sucesso!"));
     setDialogOpen(false);
     resetForm();
     // We update state manually above, but we can still invalidate to be safe
@@ -308,18 +320,18 @@ export default function Budget() {
       .eq('id', id);
 
     if (error) {
-      toast.error("Erro ao excluir transação");
+      toast.error(t("Erro ao excluir transação"));
       return;
     }
 
-    toast.success("Transação excluída");
+    toast.success(t("Transação excluída"));
     setTransactions(prev => prev.filter(t => t.id !== id));
     queryClient.invalidateQueries({ queryKey: ["dashboard-transactions"] });
   };
 
   const addBudgetAlert = async () => {
     if (!newAlert.category_id || !newAlert.limit_amount) {
-      toast.error("Preencha todos os campos");
+      toast.error(t("Preencha todos os campos"));
       return;
     }
 
@@ -334,11 +346,11 @@ export default function Budget() {
       });
 
     if (error) {
-      toast.error("Erro ao criar alerta");
+      toast.error(t("Erro ao criar alerta"));
       return;
     }
 
-    toast.success("Alerta de orçamento criado!");
+    toast.success(t("Alerta de orçamento criado!"));
     unlockAchievement('organized', 'Organizado', 2);
     setAlertDialogOpen(false);
     setNewAlert({ category_id: '', limit_amount: '', period: 'monthly' });
@@ -352,18 +364,18 @@ export default function Budget() {
       .eq('id', id);
 
     if (error) {
-      toast.error("Erro ao excluir alerta");
+      toast.error(t("Erro ao excluir alerta"));
       return;
     }
 
-    toast.success("Alerta excluído");
+    toast.success(t("Alerta excluído"));
     fetchAlerts();
   };
 
   const completeOnboarding = () => {
     localStorage.setItem('budget_onboarding_completed', 'true');
     setShowOnboardingGuide(false);
-    toast.success(" Guia concluído! Boa sorte com as finanças!");
+    toast.success(t("Guia concluído! Boa sorte com as finanças!"));
   };
 
   const downloadBudget = async () => {
@@ -566,11 +578,11 @@ export default function Budget() {
   const healthScore = Math.min(savingsScore + budgetScore + balanceScore, 10);
 
   return (
-    <AppLayout title="Orçamento" subtitle="Gerencie suas receitas e despesas">
+    <AppLayout title={t("Orçamento")} subtitle={t("Gerencie suas receitas e despesas")}>
       <ModuleGuard
         moduleKey="basic"
-        title="Gestão de Orçamento"
-        description="Controle as suas finanças pessoais, registe despesas e receitas."
+        title={t("Gestão de Orçamento")}
+        description={t("Controle as suas finanças pessoais, registe despesas e receitas.")}
       >
         <div className="space-y-6 animate-fade-in">
           {/* Header & Settings */}
@@ -578,9 +590,9 @@ export default function Budget() {
             <div className="flex items-center gap-2">
               <Tabs value={viewMode} onValueChange={(v: any) => setViewMode(v)} className="w-full md:w-auto">
                 <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="monthly">Mensal</TabsTrigger>
-                  <TabsTrigger value="yearly">Anual</TabsTrigger>
-                  <TabsTrigger value="all">Total</TabsTrigger>
+                  <TabsTrigger value="monthly">{t("Mensal")}</TabsTrigger>
+                  <TabsTrigger value="yearly">{t("Anual")}</TabsTrigger>
+                  <TabsTrigger value="all">{t("Total")}</TabsTrigger>
                 </TabsList>
               </Tabs>
               <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)}>
@@ -588,7 +600,7 @@ export default function Budget() {
               </Button>
               <Button variant="outline" size="sm" onClick={downloadBudget} className="hidden md:flex">
                 <FileText className="h-4 w-4 mr-2" />
-                Exportar Excel
+                {t("Exportar Excel")}
               </Button>
             </div>
 
@@ -603,8 +615,8 @@ export default function Budget() {
                 <div className="text-center min-w-[120px]">
                   <h2 className="text-sm font-bold capitalize">
                     {viewMode === 'monthly'
-                      ? format(currentDate, 'MMMM yyyy', { locale: pt })
-                      : format(currentDate, 'yyyy', { locale: pt })
+                      ? format(currentDate, 'MMMM yyyy', { locale: currentLocale })
+                      : format(currentDate, 'yyyy', { locale: currentLocale })
                     }
                   </h2>
                 </div>
@@ -625,52 +637,52 @@ export default function Budget() {
                 <Activity className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h3 className="font-bold text-lg">Saúde Financeira: {healthScore.toFixed(1)}/10</h3>
+                <h3 className="font-bold text-lg">{t("Saúde Financeira")}: {healthScore.toFixed(1)}/10</h3>
                 <p className="text-sm text-muted-foreground">
-                  {healthScore >= 8 ? "Excelente! Continue assim." : healthScore >= 5 ? "Bom, mas pode melhorar." : "Atenção aos seus gastos!"}
+                  {healthScore >= 8 ? t("Excelente! Continue assim.") : healthScore >= 5 ? t("Bom, mas pode melhorar.") : t("Atenção aos seus gastos!")}
                 </p>
               </div>
             </div>
             <div className="text-right hidden md:block">
-              <p className="text-sm font-medium">Taxa de Poupança</p>
+              <p className="text-sm font-medium">{t("Taxa de Poupança")}</p>
               <p className={`text-2xl font-bold ${savingsRate >= budgetConfig.savings_goal_pct ? 'text-success' : 'text-warning'}`}>
                 {savingsRate.toFixed(1)}%
               </p>
-              <p className="text-xs text-muted-foreground">Meta: {budgetConfig.savings_goal_pct}%</p>
+              <p className="text-xs text-muted-foreground">{t("Meta")}: {budgetConfig.savings_goal_pct}%</p>
             </div>
           </div>
 
           {/* Metrics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             <MetricCard
-              title="Receitas"
+              title={t("Receitas")}
               value={totalIncome}
               previousValue={prevIncome}
               trendLabel={trendLabel}
               icon={TrendingUp}
               type="neutral"
               valueClassName="text-success"
-              formatter={(v) => `Kz ${v.toLocaleString('pt-AO')}`}
+              formatter={(v) => formatPrice(v)}
             />
             <MetricCard
-              title="Despesas"
+              title={t("Despesas")}
               value={totalExpense}
               previousValue={prevExpense}
               trendLabel={trendLabel}
               icon={TrendingDown}
               type="reverse"
               valueClassName="text-destructive"
-              formatter={(v) => `Kz ${v.toLocaleString('pt-AO')}`}
+              formatter={(v) => formatPrice(v)}
             />
             <MetricCard
-              title="Saldo"
+              title={t("Saldo")}
               value={balance}
               previousValue={prevBalance}
               trendLabel={trendLabel}
               icon={Wallet}
               type="neutral"
               valueClassName={balance >= 0 ? "text-success" : "text-destructive"}
-              formatter={(v) => `Kz ${v.toLocaleString('pt-AO')}`}
+              formatter={(v) => formatPrice(v)}
             />
           </div>
 
@@ -679,7 +691,7 @@ export default function Budget() {
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" onClick={() => setCategoryManagerOpen(true)}>
               <Layers className="h-4 w-4 mr-2" />
-              Gerir Categorias
+              {t("Gerir Categorias")}
             </Button>
 
             <CategoryManager
@@ -703,12 +715,12 @@ export default function Budget() {
               <DialogTrigger asChild>
                 <Button variant="accent">
                   <Plus className="h-4 w-4 mr-2" />
-                  Nova Transação
+                  {t("Nova Transação")}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>{editingTransactionId ? "Editar Transação" : "Adicionar Transação"}</DialogTitle>
+                  <DialogTitle>{editingTransactionId ? t("Editar Transação") : t("Adicionar Transação")}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div className="flex gap-2">
@@ -719,7 +731,7 @@ export default function Budget() {
                       onClick={() => setNewTransaction({ ...newTransaction, type: 'income', category_id: '' })}
                     >
                       <TrendingUp className="h-4 w-4 mr-2" />
-                      Receita
+                      {t("Receita")}
                     </Button>
                     <Button
                       type="button"
@@ -728,12 +740,12 @@ export default function Budget() {
                       onClick={() => setNewTransaction({ ...newTransaction, type: 'expense', category_id: '' })}
                     >
                       <TrendingDown className="h-4 w-4 mr-2" />
-                      Despesa
+                      {t("Despesa")}
                     </Button>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Valor (Kz)</Label>
+                    <Label>{t("Valor")} (Kz)</Label>
                     <Input
                       type="number"
                       placeholder="0.00"
@@ -743,9 +755,9 @@ export default function Budget() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Descrição</Label>
+                    <Label>{t("Descrição")}</Label>
                     <Input
-                      placeholder="Ex: Salário, Supermercado..."
+                      placeholder={t("Ex: Salário, Supermercado...")}
                       value={newTransaction.description}
                       onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
                     />
@@ -753,7 +765,7 @@ export default function Budget() {
 
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <Label>Categoria</Label>
+                      <Label>{t("Categoria")}</Label>
                       <Button
                         variant="link"
                         className="h-auto p-0 text-xs"
@@ -762,14 +774,14 @@ export default function Budget() {
                           setNewCategory(prev => ({ ...prev, type: newTransaction.type }));
                         }}
                       >
-                        {showNewCategoryForm ? "Selecionar Existente" : "+ Nova Categoria"}
+                        {showNewCategoryForm ? t("Selecionar Existente") : t("+ Nova Categoria")}
                       </Button>
                     </div>
 
                     {showNewCategoryForm ? (
                       <div className="p-3 border rounded-lg bg-secondary/30 space-y-3 animate-in fade-in slide-in-from-top-1">
                         <Input
-                          placeholder="Nome da categoria"
+                          placeholder={t("Nome da categoria")}
                           value={newCategory.name}
                           onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
                         />
@@ -815,7 +827,7 @@ export default function Budget() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Data</Label>
+                    <Label>{t("Data")}</Label>
                     <Input
                       type="date"
                       value={newTransaction.date}
@@ -824,7 +836,7 @@ export default function Budget() {
                   </div>
 
                   <Button onClick={handleSaveTransaction} className="w-full" variant="accent">
-                    {editingTransactionId ? "Salvar Alterações" : "Adicionar Transação"}
+                    {editingTransactionId ? t("Salvar Alterações") : t("Adicionar Transação")}
                   </Button>
                 </div>
               </DialogContent>
@@ -834,22 +846,22 @@ export default function Budget() {
               <DialogTrigger asChild>
                 <Button variant="outline">
                   <AlertTriangle className="h-4 w-4 mr-2" />
-                  Criar Alerta
+                  {t("Criar Alerta")}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Alerta de Orçamento</DialogTitle>
+                  <DialogTitle>{t("Alerta de Orçamento")}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div className="space-y-2">
-                    <Label>Categoria</Label>
+                    <Label>{t("Categoria")}</Label>
                     <Select
                       value={newAlert.category_id}
                       onValueChange={(value) => setNewAlert({ ...newAlert, category_id: value })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma categoria" />
+                        <SelectValue placeholder={t("Selecione uma categoria")} />
                       </SelectTrigger>
                       <SelectContent>
                         {categories.filter(c => c.type === 'expense').map((cat) => (
@@ -862,11 +874,11 @@ export default function Budget() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Limite (Kz)</Label>
+                    <Label>{t("Limite")} (Kz)</Label>
                     <div className="flex gap-2">
                       <Input
                         type="number"
-                        placeholder="Ex: 50000"
+                        placeholder={t("Ex: 50000")}
                         className="flex-1"
                         value={newAlert.limit_amount}
                         onChange={(e) => setNewAlert({ ...newAlert, limit_amount: e.target.value })}
@@ -876,18 +888,18 @@ export default function Budget() {
                         onValueChange={(v: any) => setNewAlert({ ...newAlert, period: v })}
                       >
                         <SelectTrigger className="w-[120px]">
-                          <SelectValue placeholder="Período" />
+                          <SelectValue placeholder={t("Período")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="monthly">Mensal</SelectItem>
-                          <SelectItem value="yearly">Anual</SelectItem>
+                          <SelectItem value="monthly">{t("Mensal")}</SelectItem>
+                          <SelectItem value="yearly">{t("Anual")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
 
                   <Button onClick={addBudgetAlert} className="w-full" variant="accent">
-                    Criar Alerta
+                    {t("Criar Alerta")}
                   </Button>
                 </div>
               </DialogContent>
@@ -900,7 +912,7 @@ export default function Budget() {
     - **Savings Goal History**: Each goal now has a **"Histórico"** button that reveals a detailed list of all deposits and withdrawals, linked directly to that specific goal. */}
             {/* Cash Flow Chart */}
             <div className="card-finance">
-              <h3 className="font-display text-lg font-semibold text-foreground mb-4">Fluxo de Caixa (14 dias)</h3>
+              <h3 className="font-display text-lg font-semibold text-foreground mb-4">{t("Fluxo de Caixa (14 dias)")}</h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={dailyData}>
@@ -926,7 +938,7 @@ export default function Budget() {
 
             {/* Expenses by Category */}
             <div className="card-finance">
-              <h3 className="font-display text-lg font-semibold text-foreground mb-4">Despesas por Categoria</h3>
+              <h3 className="font-display text-lg font-semibold text-foreground mb-4">{t("Despesas por Categoria")}</h3>
               {expensesByCategory.length > 0 ? (
                 <div className="flex flex-col md:flex-row h-auto md:h-64 items-center gap-4">
                   <div className="w-full md:w-1/2 h-64 md:h-full">
@@ -963,7 +975,7 @@ export default function Budget() {
                 </div>
               ) : (
                 <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  Nenhuma despesa registrada
+                  {t("Nenhuma despesa registrada")}
                 </div>
               )}
             </div>
@@ -974,7 +986,7 @@ export default function Budget() {
             <div className="card-finance">
               <h3 className="font-display text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-amber-500" />
-                Gestão de Alertas
+                {t("Gestão de Alertas")}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {alerts.map((alert) => {
@@ -1020,7 +1032,7 @@ export default function Budget() {
                             <p className="font-semibold text-sm flex items-center gap-2">
                               {category.name}
                               <Badge variant="outline" className="text-[10px] h-4 px-1 uppercase opacity-70">
-                                {alert.period === 'monthly' ? 'Mensal' : 'Anual'}
+                                {alert.period === 'monthly' ? t('Mensal') : t('Anual')}
                               </Badge>
                             </p>
                             <p className="text-xs text-muted-foreground">Limite: Kz {alert.limit_amount.toLocaleString()}</p>
@@ -1038,7 +1050,7 @@ export default function Budget() {
                       <div className="space-y-1.5">
                         <div className="flex justify-between text-xs">
                           <span className={isOverLimit ? "text-destructive font-bold" : isWarning ? "text-amber-600 font-bold" : "text-muted-foreground"}>
-                            Gasto: Kz {spent.toLocaleString()}
+                            {t("Gasto")}: {formatPrice(spent)}
                           </span>
                           <span className="font-medium">{progress.toFixed(0)}%</span>
                         </div>
@@ -1075,7 +1087,7 @@ export default function Budget() {
                   className="h-8 gap-2"
                 >
                   <List className="h-4 w-4" />
-                  <span className="hidden sm:inline">Lista</span>
+                  <span className="hidden sm:inline">{t("Lista")}</span>
                 </Button>
                 <Button
                   variant={viewType === 'table' ? 'secondary' : 'ghost'}
@@ -1084,7 +1096,7 @@ export default function Budget() {
                   className="h-8 gap-2"
                 >
                   <TableIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">Tabela</span>
+                  <span className="hidden sm:inline">{t("Tabela")}</span>
                 </Button>
                 <Button
                   variant={viewType === 'calendar' ? 'secondary' : 'ghost'}
@@ -1093,7 +1105,7 @@ export default function Budget() {
                   className="h-8 gap-2"
                 >
                   <CalendarIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">Calendário</span>
+                  <span className="hidden sm:inline">{t("Calendário")}</span>
                 </Button>
               </div>
             </div>
@@ -1101,8 +1113,8 @@ export default function Budget() {
             <div className="min-h-[300px]">
               {filteredTransactionsByMode.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhuma transação registrada neste período.</p>
-                  <p className="text-sm mt-1">Clique em "Nova Transação" para começar.</p>
+                  <p>{t("Nenhuma transação registrada neste período.")}</p>
+                  <p className="text-sm mt-1">{t("Clique em \"Nova Transação\" para começar.")}</p>
                 </div>
               ) : (
                 <>
@@ -1118,8 +1130,8 @@ export default function Budget() {
                       ).map(([date, txs]) => (
                         <div key={date} className="space-y-2">
                           <h3 className="font-semibold text-sm text-muted-foreground sticky top-0 bg-background/95 backdrop-blur py-1 z-10">
-                            {format(parseISO(date), "d 'de' MMMM", { locale: pt })}
-                            {date === format(new Date(), 'yyyy-MM-dd') && " (Hoje)"}
+                            {format(parseISO(date), "d 'de' MMMM", { locale: currentLocale })}
+                            {date === format(new Date(), 'yyyy-MM-dd') && ` (${t("Hoje")})`}
                           </h3>
                           <div className="space-y-2">
                             {txs.map((tx) => {

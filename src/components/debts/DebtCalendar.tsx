@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { format, isSameDay, isSameMonth, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
-import { pt } from "date-fns/locale";
+import { pt, enUS } from "date-fns/locale";
+import { useTranslation } from "react-i18next";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,7 @@ interface DebtCalendarProps {
 }
 
 export function DebtCalendar({ debts, loans }: DebtCalendarProps) {
+    const { t, i18n } = useTranslation();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
@@ -78,10 +80,10 @@ export function DebtCalendar({ debts, loans }: DebtCalendarProps) {
                 <Card>
                     <CardHeader className="pb-2">
                         <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg">Calendário de Vencimentos</CardTitle>
+                            <CardTitle className="text-lg">{t('Calendário de Vencimentos')}</CardTitle>
                             <div className="flex gap-2">
                                 <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="px-2 py-1 text-sm bg-secondary rounded">←</button>
-                                <span className="text-sm font-medium">{format(currentMonth, 'MMMM yyyy', { locale: pt })}</span>
+                                <span className="text-sm font-medium">{format(currentMonth, 'MMMM yyyy', { locale: i18n.language === 'en' ? enUS : pt })}</span>
                                 <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="px-2 py-1 text-sm bg-secondary rounded">→</button>
                             </div>
                         </div>
@@ -91,7 +93,7 @@ export function DebtCalendar({ debts, loans }: DebtCalendarProps) {
                             mode="single"
                             selected={selectedDate}
                             onSelect={setSelectedDate}
-                            locale={pt}
+                            locale={i18n.language === 'en' ? enUS : pt}
                             className="rounded-md"
                             modifiers={modifiers}
                             modifiersStyles={modifiersStyles}
@@ -107,20 +109,20 @@ export function DebtCalendar({ debts, loans }: DebtCalendarProps) {
                 {/* Monthly Summary */}
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Resumo do Mês</CardTitle>
+                        <CardTitle className="text-sm">{t('Resumo do Mês')}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                         <div className="flex justify-between items-center">
-                            <span className="text-sm text-muted-foreground">Dívidas a vencer</span>
+                            <span className="text-sm text-muted-foreground">{t('Dívidas a vencer')}</span>
                             <span className="font-bold text-red-500">Kz {monthlyDebtTotal.toLocaleString('pt-AO')}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-sm text-muted-foreground">Empréstimos a receber</span>
+                            <span className="text-sm text-muted-foreground">{t('Empréstimos a receber')}</span>
                             <span className="font-bold text-green-500">Kz {monthlyLoanTotal.toLocaleString('pt-AO')}</span>
                         </div>
                         <hr className="my-2" />
                         <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium">Saldo do mês</span>
+                            <span className="text-sm font-medium">{t('Saldo do mês')}</span>
                             <span className={`font-bold ${monthlyLoanTotal - monthlyDebtTotal >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                 Kz {(monthlyLoanTotal - monthlyDebtTotal).toLocaleString('pt-AO')}
                             </span>
@@ -132,12 +134,12 @@ export function DebtCalendar({ debts, loans }: DebtCalendarProps) {
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm">
-                            {selectedDate ? format(selectedDate, "d 'de' MMMM", { locale: pt }) : 'Selecione uma data'}
+                            {selectedDate ? format(selectedDate, "d 'de' MMMM", { locale: i18n.language === 'en' ? enUS : pt }) : t('Selecione uma data')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         {selectedDayItems.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">Nenhum vencimento nesta data</p>
+                            <p className="text-sm text-muted-foreground">{t('Nenhum vencimento nesta data')}</p>
                         ) : (
                             <div className="space-y-2">
                                 {selectedDayItems.map((item) => (
@@ -145,7 +147,7 @@ export function DebtCalendar({ debts, loans }: DebtCalendarProps) {
                                         <div>
                                             <p className="font-medium text-sm">{item.creditor || item.borrower_name}</p>
                                             <Badge variant={item.type === 'debt' ? 'destructive' : 'default'} className={item.type === 'loan' ? 'bg-green-500' : ''}>
-                                                {item.type === 'debt' ? 'Dívida' : 'Empréstimo'}
+                                                {item.type === 'debt' ? t('Dívida') : t('Empréstimo')}
                                             </Badge>
                                         </div>
                                         <span className="font-bold">Kz {item.current_amount.toLocaleString('pt-AO')}</span>
@@ -162,11 +164,11 @@ export function DebtCalendar({ debts, loans }: DebtCalendarProps) {
                         <div className="flex gap-4 text-xs">
                             <div className="flex items-center gap-1">
                                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                <span>Dívida</span>
+                                <span>{t('Dívida')}</span>
                             </div>
                             <div className="flex items-center gap-1">
                                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                                <span>Empréstimo</span>
+                                <span>{t('Empréstimo')}</span>
                             </div>
                         </div>
                     </CardContent>

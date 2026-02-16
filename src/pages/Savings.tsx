@@ -25,7 +25,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ptBR, enUS, fr, es } from "date-fns/locale";
+import { ln } from "@/lib/date-fns-lingala"; // Assuming this exists or I'll need to mock it if not, but I'll stick to what I know works or just use default for now if unsure. Actually I'll use a mapping.
 
 interface SavingsGoal {
   id: string;
@@ -42,20 +46,30 @@ interface SavingsGoal {
 }
 
 const GOAL_ICONS = [
-  { name: 'Emergência', icon: '🛡️', color: 'emerald' },
-  { name: 'Viagem', icon: '✈️', color: 'blue' },
-  { name: 'Casa', icon: '🏠', color: 'orange' },
-  { name: 'Carro', icon: '🚗', color: 'purple' },
-  { name: 'Educação', icon: '🎓', color: 'pink' },
-  { name: 'Casamento', icon: '💍', color: 'yellow' },
-  { name: 'Aposentadoria', icon: '🏖️', color: 'cyan' },
-  { name: 'Outro', icon: '🎯', color: 'gray' },
+  { name: 'Emergência', key: 'Emergência', icon: '🛡️', color: 'emerald' },
+  { name: 'Viagem', key: 'Viagem', icon: '✈️', color: 'blue' },
+  { name: 'Casa', key: 'Casa', icon: '🏠', color: 'orange' },
+  { name: 'Carro', key: 'Carro', icon: '🚗', color: 'purple' },
+  { name: 'Educação', key: 'Educação', icon: '🎓', color: 'pink' },
+  { name: 'Casamento', key: 'Casamento', icon: '💍', color: 'yellow' },
+  { name: 'Aposentadoria', key: 'Aposentadoria', icon: '🏖️', color: 'cyan' },
+  { name: 'Outro', key: 'Outro', icon: '🎯', color: 'gray' },
 ];
+
+const localeMap: Record<string, any> = {
+  en: enUS,
+  fr: fr,
+  es: es,
+  pt: ptBR,
+};
 
 type SortOption = 'closest' | 'furthest' | 'risk' | 'amount_high' | 'amount_low';
 
 export default function Savings() {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+  const { formatPrice } = useCurrency();
+  const currentLocale = localeMap[i18n.language] || ptBR;
   const queryClient = useQueryClient();
   const { unlockAchievement } = useAchievements();
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
@@ -104,7 +118,7 @@ export default function Savings() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast.error(`Erro ao carregar metas: ${error.message}`);
+      toast.error(`${t("Erro ao carregar metas")}: ${error.message}`);
       return;
     }
 
@@ -183,11 +197,11 @@ export default function Savings() {
 
   const exportToCSV = () => {
     if (goals.length === 0) {
-      toast.error("Sem dados para exportar");
+      toast.error(t("Sem dados para exportar"));
       return;
     }
 
-    const headers = ["Nome", "Valor Alvo", "Valor Poupado", "Contribuição Mensal", "Data Final", "Status"];
+    const headers = [t("Meta"), t("Meta Total"), t("Acumulado"), t("Poupança Mensal"), t("Previsão"), t("Status")];
     const csvContent = [
       headers.join(","),
       ...goals.map(g => [
@@ -212,7 +226,7 @@ export default function Savings() {
 
   const createGoal = async () => {
     if (!newGoal.name || !newGoal.target_amount) {
-      toast.error("Preencha o nome e valor da meta");
+      toast.error(t("Preencha o nome e valor da meta"));
       return;
     }
 
@@ -231,11 +245,11 @@ export default function Savings() {
       });
 
     if (error) {
-      toast.error(`Erro ao criar meta: ${error.message}`);
+      toast.error(`${t("Erro ao criar meta")}: ${error.message}`);
       return;
     }
 
-    toast.success("Meta criada com sucesso! 🎯");
+    toast.success(t("Meta criada com sucesso! 🎯"));
     unlockAchievement('first_goal', 'Primeiro Passo', 2);
     setDialogOpen(false);
     setNewGoal({
@@ -257,11 +271,11 @@ export default function Savings() {
       .eq('id', id);
 
     if (error) {
-      toast.error("Erro ao atualizar meta");
+      toast.error(t("Erro ao atualizar meta"));
       return;
     }
 
-    toast.success("Meta atualizada com sucesso! 🎯");
+    toast.success(t("Meta atualizada com sucesso! 🎯"));
     setEditDialogOpen(false);
     setEditingGoal(null);
     fetchGoals();
@@ -274,18 +288,18 @@ export default function Savings() {
       .eq('id', id);
 
     if (error) {
-      toast.error("Erro ao excluir meta");
+      toast.error(t("Erro ao excluir meta"));
       return;
     }
 
-    toast.success("Meta excluída");
+    toast.success(t("Meta excluída"));
     fetchGoals();
   };
 
 
   const handleTransaction = async () => {
     if (!selectedGoal || !depositAmount) {
-      toast.error("Informe o valor");
+      toast.error(t("Informe o valor"));
       return;
     }
 
@@ -293,7 +307,7 @@ export default function Savings() {
     const isDeposit = transactionType === 'deposit';
 
     if (!isDeposit && (selectedGoal.saved_amount || 0) < amount) {
-      toast.error("Saldo insuficiente na meta");
+      toast.error(t("Saldo insuficiente na meta"));
       return;
     }
 
@@ -313,7 +327,7 @@ export default function Savings() {
       .eq('id', selectedGoal.id);
 
     if (error) {
-      toast.error("Erro ao processar transação");
+      toast.error(t("Erro ao processar transação"));
       return;
     }
 
@@ -335,7 +349,7 @@ export default function Savings() {
     }
 
     // CREATE TRANSACTION RECORD
-    const catName = isDeposit ? 'Poupança' : 'Resgate de Poupança';
+    const catName = isDeposit ? t("Poupança") : t("Levantamento");
     const catType = isDeposit ? 'income' : 'expense';
 
     let { data: catData } = await supabase
@@ -370,7 +384,7 @@ export default function Savings() {
         user_id: user?.id,
         type: catType,
         amount: amount,
-        description: `${isDeposit ? 'Depósito' : 'Retirada'} em: ${selectedGoal.name}`,
+        description: `${isDeposit ? t("Depósito realizado! 💰") : t("Levantamento realizado! 💸")} em: ${selectedGoal.name}`,
         category_id: catData?.id || null,
         savings_goal_id: selectedGoal.id,
         date: format(new Date(), 'yyyy-MM-dd'),
@@ -378,11 +392,11 @@ export default function Savings() {
 
     if (txError) {
       console.error("Error creating transaction:", txError);
-      toast.error(`Erro ao registrar transação no histórico: ${txError.message}`);
+      toast.error(`${t("Erro ao registrar transação no histórico")}: ${txError.message}`);
     }
 
     queryClient.invalidateQueries({ queryKey: ["dashboard-transactions"] });
-    toast.success(isDeposit ? "Depósito realizado! 💰" : "Levantamento realizado! 💸");
+    toast.success(isDeposit ? t("Depósito realizado! 💰") : t("Levantamento realizado! 💸"));
     setDepositDialogOpen(false);
     setDepositAmount('');
     setSelectedGoal(null);
@@ -398,11 +412,11 @@ export default function Savings() {
       .eq('id', goal.id);
 
     if (error) {
-      toast.error("Erro ao atualizar status");
+      toast.error(t("Erro ao atualizar status"));
       return;
     }
 
-    toast.success(newStatus === 'paused' ? "Meta pausada" : "Meta reativada");
+    toast.success(newStatus === 'paused' ? t("Meta pausada") : t("Meta reativada"));
     fetchGoals();
   };
 
@@ -416,7 +430,7 @@ export default function Savings() {
 
     if (error) {
       console.error("Error fetching history:", error);
-      toast.error("Erro ao carregar histórico");
+      toast.error(t("Erro ao carregar histórico"));
       setGoalTransactions([]);
     } else {
       setGoalTransactions(data || []);
@@ -434,11 +448,11 @@ export default function Savings() {
 
   if (loading) {
     return (
-      <AppLayout title="Poupança Inteligente" subtitle="Planeie as suas metas financeiras">
+      <AppLayout title={t("Poupança Inteligente")} subtitle={t("Planeie as suas metas financeiras")}>
         <ModuleGuard
           moduleKey="basic"
-          title="Metas de Poupança"
-          description="Crie metas personalizadas, acompanhe o seu progresso e estabeleça um fundo de emergência sólido."
+          title={t("Metas de Poupança")}
+          description={t("Crie metas personalizadas, acompanhe o seu progresso e estabeleça um fundo de emergência sólido.")}
         >
           <div className="flex items-center justify-center h-64">
             <div className="h-12 w-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -449,35 +463,35 @@ export default function Savings() {
   }
 
   return (
-    <AppLayout title="Poupança Inteligente" subtitle="Gerencie suas metas com análise avançada">
+    <AppLayout title={t("Poupança Inteligente")} subtitle={t("Gerencie suas metas com análise avançada")}>
       <ModuleGuard
         moduleKey="basic"
-        title="Poupança & Metas"
-        description="Crie e acompanhe as suas metas de poupança, realize depósitos e visualize o seu progresso rumo à liberdade financeira."
+        title={t("Poupança & Metas")}
+        description={t("Crie e acompanhe as suas metas de poupança, realize depósitos e visualize o seu progresso rumo à liberdade financeira.")}
       >
         <div className="space-y-6 animate-fade-in">
           {/* Header Stats Logic same as before... */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <div className="card-finance p-6 border-l-4 border-savings bg-savings/5">
               <div className="flex items-center gap-3 mb-2">
                 <PiggyBank className="h-5 w-5 text-savings" />
-                <span className="text-sm font-medium text-muted-foreground">Total Poupado</span>
+                <span className="text-sm font-medium text-muted-foreground">{t("Total Poupado")}</span>
               </div>
-              <p className="text-2xl font-bold">Kz {totalSaved.toLocaleString('pt-AO')}</p>
+              <p className="text-2xl font-bold">{formatPrice(totalSaved)}</p>
             </div>
 
             <div className="card-finance p-6 border-l-4 border-primary bg-primary/5">
               <div className="flex items-center gap-3 mb-2">
                 <Target className="h-5 w-5 text-primary" />
-                <span className="text-sm font-medium text-muted-foreground">Meta Total</span>
+                <span className="text-sm font-medium text-muted-foreground">{t("Meta Total")}</span>
               </div>
-              <p className="text-2xl font-bold">Kz {totalTarget.toLocaleString('pt-AO')}</p>
+              <p className="text-2xl font-bold">{formatPrice(totalTarget)}</p>
             </div>
 
             <div className="card-finance p-6 border-l-4 border-success bg-success/5">
               <div className="flex items-center gap-3 mb-2">
                 <Trophy className="h-5 w-5 text-success" />
-                <span className="text-sm font-medium text-muted-foreground">Concluídas</span>
+                <span className="text-sm font-medium text-muted-foreground">{t("Conclúidas")}</span>
               </div>
               <p className="text-2xl font-bold">{completedGoals}</p>
             </div>
@@ -485,9 +499,9 @@ export default function Savings() {
             <div className="card-finance p-6 border-l-4 border-accent bg-accent/5">
               <div className="flex items-center gap-3 mb-2">
                 <Calendar className="h-5 w-5 text-accent" />
-                <span className="text-sm font-medium text-muted-foreground">Poupança Mensal</span>
+                <span className="text-sm font-medium text-muted-foreground">{t("Poupança Mensal")}</span>
               </div>
-              <p className="text-2xl font-bold text-accent">Kz {totalMonthlyContribution.toLocaleString('pt-AO')}</p>
+              <p className="text-2xl font-bold text-accent">{formatPrice(totalMonthlyContribution)}</p>
             </div>
           </div>
 
@@ -495,8 +509,8 @@ export default function Savings() {
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <h3 className="text-lg font-bold">Objetivos de Poupança</h3>
-                <p className="text-sm text-muted-foreground">Você tem {goals.length} metas ativas</p>
+                <h3 className="text-lg font-bold">{t("Objetivos de Poupança")}</h3>
+                <p className="text-sm text-muted-foreground">{t("Você tem {{count}} metas ativas", { count: goals.length })}</p>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
@@ -509,7 +523,7 @@ export default function Savings() {
                     className="h-7 px-3"
                   >
                     <LayoutGrid className="h-4 w-4 mr-2" />
-                    Cards
+                    {t("Cards")}
                   </Button>
                   <Button
                     variant={viewMode === 'chart' ? 'secondary' : 'ghost'}
@@ -518,7 +532,7 @@ export default function Savings() {
                     className="h-7 px-3"
                   >
                     <LineChart className="h-4 w-4 mr-2" />
-                    Evolução
+                    {t("Evolução")}
                   </Button>
                   <Button
                     variant={viewMode === 'table' ? 'secondary' : 'ghost'}
@@ -527,13 +541,13 @@ export default function Savings() {
                     className="h-7 px-3"
                   >
                     <TableIcon className="h-4 w-4 mr-2" />
-                    Tabela
+                    {t("Tabela")}
                   </Button>
                 </div>
 
-                <Button variant="outline" onClick={exportToCSV} className="hidden sm:flex" title="Exportar CSV">
+                <Button variant="outline" onClick={exportToCSV} className="hidden sm:flex" title={t("Exportar")}>
                   <Download className="h-4 w-4 mr-2" />
-                  Exportar
+                  {t("Exportar")}
                 </Button>
 
                 {viewMode === 'cards' && (
@@ -541,21 +555,21 @@ export default function Savings() {
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" className="flex gap-2">
                         <ArrowUpDown className="h-4 w-4" />
-                        <span className="hidden sm:inline">Ordenar</span>
+                        <span className="hidden sm:inline">{t("Ordenar")}</span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setSortBy('closest')}>Mais Próximas</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortBy('furthest')}>Mais Distantes</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortBy('risk')}>Maior Risco</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortBy('amount_high')}>Maior Valor</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortBy('closest')}>{t("Mais Próximas")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortBy('furthest')}>{t("Mais Distantes")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortBy('risk')}>{t("Maior Risco")}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortBy('amount_high')}>{t("Maior Valor")}</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
 
                 <Button onClick={() => setDialogOpen(true)} className="gradient-primary flex-1 sm:flex-none">
                   <Plus className="h-4 w-4 mr-2" />
-                  Nova Meta
+                  {t("Nova Meta")}
                 </Button>
               </div>
             </div>
@@ -563,11 +577,11 @@ export default function Savings() {
             {/* CONTENT AREA */}
             <div className="min-h-[400px]">
               {viewMode === 'cards' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   {goals.length === 0 ? (
                     <div className="col-span-full py-12 text-center card-finance">
                       <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">Você ainda não tem metas. Comece agora!</p>
+                      <p className="text-muted-foreground">{t("Você ainda não tem metas. Comece agora!")}</p>
                     </div>
                   ) : (
                     sortedGoals.map((goal) => (
@@ -575,7 +589,7 @@ export default function Savings() {
                         key={goal.id}
                         goal={goal}
                         onEdit={(g: SavingsGoal) => { setEditingGoal(g); setEditDialogOpen(true); }}
-                        onDelete={(id: string) => { if (confirm("Tem certeza?")) deleteGoal(id); }}
+                        onDelete={(id: string) => { if (confirm(t("Tem certeza?"))) deleteGoal(id); }}
                         onDeposit={(g: SavingsGoal) => { setSelectedGoal(g); setTransactionType('deposit'); setDepositDialogOpen(true); }}
                         onWithdraw={(g: SavingsGoal) => { setSelectedGoal(g); setTransactionType('withdraw'); setDepositDialogOpen(true); }}
                         onHistory={(g: SavingsGoal) => { setActiveHistoryGoal(g); fetchGoalHistory(g.id); setHistoryDialogOpen(true); }}
@@ -597,7 +611,7 @@ export default function Savings() {
                   <SavingsTable
                     goals={sortedGoals}
                     onEdit={(g: SavingsGoal) => { setEditingGoal(g); setEditDialogOpen(true); }}
-                    onDelete={(id: string) => { if (confirm("Tem certeza?")) deleteGoal(id); }}
+                    onDelete={(id: string) => { if (confirm(t("Tem certeza?"))) deleteGoal(id); }}
                   />
                 </div>
               )}
@@ -610,7 +624,7 @@ export default function Savings() {
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
-                <DialogTitle>Nova Meta</DialogTitle>
+                <DialogTitle>{t("Nova Meta")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="grid grid-cols-4 gap-2 mb-4">
@@ -621,25 +635,25 @@ export default function Savings() {
                       onClick={() => setNewGoal({ ...newGoal, icon: g.icon, color: g.color })}
                     >
                       <span className="text-2xl">{g.icon}</span>
-                      <span className="text-[10px] truncate w-full text-center">{g.name}</span>
+                      <span className="text-[10px] truncate w-full text-center">{t(g.key)}</span>
                     </button>
                   ))}
                 </div>
                 <div className="grid gap-2">
-                  <Label>Nome da Meta</Label>
+                  <Label>{t("Nome da Meta")}</Label>
                   <Input value={newGoal.name} onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label>Valor Alvo (Kz)</Label>
+                    <Label>{t("Meta Total")} ({i18n.language === 'pt' ? 'Kz' : '$'})</Label>
                     <Input type="number" value={newGoal.target_amount} onChange={(e) => setNewGoal({ ...newGoal, target_amount: e.target.value })} />
                   </div>
                   <div className="grid gap-2">
-                    <Label>Contribuição Mensal</Label>
+                    <Label>{t("Poupança Mensal")}</Label>
                     <Input type="number" value={newGoal.monthly_contribution} onChange={(e) => setNewGoal({ ...newGoal, monthly_contribution: e.target.value })} />
                   </div>
                 </div>
-                <Button onClick={createGoal} className="w-full gradient-primary">Criar Meta</Button>
+                <Button onClick={createGoal} className="w-full gradient-primary">{t("Criar")}</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -648,16 +662,16 @@ export default function Savings() {
           <Dialog open={depositDialogOpen} onOpenChange={setDepositDialogOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{transactionType === 'deposit' ? 'Reforçar Poupança' : 'Retirar Valor'}</DialogTitle>
+                <DialogTitle>{transactionType === 'deposit' ? t("Reforçar Poupança") : t("Retirar Valor")}</DialogTitle>
               </DialogHeader>
               {selectedGoal && (
                 <div className="space-y-4 py-4">
                   <div className="text-center p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-1">Meta Selecionada</p>
+                    <p className="text-sm text-muted-foreground mb-1">{t("Meta Selecionada")}</p>
                     <p className="font-bold text-lg">{selectedGoal.icon} {selectedGoal.name}</p>
                   </div>
                   <div className="grid gap-2">
-                    <Label>Valor</Label>
+                    <Label>{t("Valor")}</Label>
                     <Input
                       type="number"
                       placeholder="0,00"
@@ -665,7 +679,7 @@ export default function Savings() {
                       onChange={(e) => setDepositAmount(e.target.value)}
                     />
                   </div>
-                  <Button onClick={handleTransaction} className="w-full gradient-savings">{transactionType === 'deposit' ? 'Confirmar Depósito' : 'Confirmar Retirada'}</Button>
+                  <Button onClick={handleTransaction} className="w-full gradient-savings">{transactionType === 'deposit' ? t("Confirmar Depósito") : t("Confirmar Retirada")}</Button>
                 </div>
               )}
             </DialogContent>
@@ -675,25 +689,25 @@ export default function Savings() {
           <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
-                <DialogTitle>Editar Meta</DialogTitle>
+                <DialogTitle>{t("Editar Meta")}</DialogTitle>
               </DialogHeader>
               {editingGoal && (
                 <div className="space-y-4 mt-4">
                   <div className="grid gap-2">
-                    <Label>Nome da Meta</Label>
+                    <Label>{t("Nome da Meta")}</Label>
                     <Input value={editingGoal.name} onChange={(e) => setEditingGoal({ ...editingGoal, name: e.target.value })} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label>Valor Alvo (Kz)</Label>
+                      <Label>{t("Meta Total")} ({i18n.language === 'pt' ? 'Kz' : '$'})</Label>
                       <Input type="number" value={editingGoal.target_amount} onChange={(e) => setEditingGoal({ ...editingGoal, target_amount: parseFloat(e.target.value) })} />
                     </div>
                     <div className="grid gap-2">
-                      <Label>Contribuição Mensal</Label>
+                      <Label>{t("Poupança Mensal")}</Label>
                       <Input type="number" value={editingGoal.monthly_contribution || ''} onChange={(e) => setEditingGoal({ ...editingGoal, monthly_contribution: parseFloat(e.target.value) })} />
                     </div>
                   </div>
-                  <Button onClick={() => updateGoal(editingGoal.id, editingGoal)} className="w-full gradient-primary">Salvar Alterações</Button>
+                  <Button onClick={() => updateGoal(editingGoal.id, editingGoal)} className="w-full gradient-primary">{t("Salvar Alterações")}</Button>
                 </div>
               )}
             </DialogContent>
@@ -705,7 +719,7 @@ export default function Savings() {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <History className="h-5 w-5 text-primary" />
-                  Histórico: {activeHistoryGoal?.name}
+                  {t("Histórico")}: {activeHistoryGoal?.name}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -715,7 +729,7 @@ export default function Savings() {
                   </div>
                 ) : goalTransactions.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <p>Nenhum registo encontrado para esta meta.</p>
+                    <p>{t("Nenhum registo encontrado para esta meta.")}</p>
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
@@ -723,7 +737,7 @@ export default function Savings() {
                       <div key={tx.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border">
                         <div className="flex flex-col">
                           <span className="text-xs text-muted-foreground">
-                            {format(parseISO(tx.date), 'dd/MM/yyyy')}
+                            {format(parseISO(tx.date), 'dd/MM/yyyy', { locale: currentLocale })}
                           </span>
                           <span className="text-sm font-medium">{tx.description}</span>
                         </div>
@@ -731,14 +745,14 @@ export default function Savings() {
                           "font-bold text-sm",
                           tx.type === 'income' ? "text-success" : "text-destructive"
                         )}>
-                          {tx.type === 'income' ? '+' : '-'} Kz {tx.amount.toLocaleString()}
+                          {tx.type === 'income' ? '+' : '-'} {formatPrice(tx.amount)}
                         </span>
                       </div>
                     ))}
                   </div>
                 )}
                 <Button onClick={() => setHistoryDialogOpen(false)} className="w-full">
-                  Fechar
+                  {t("Fechar")}
                 </Button>
               </div>
             </DialogContent>

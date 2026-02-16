@@ -446,7 +446,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
                   </div>
 
                   <Badge className="bg-primary text-primary-foreground text-lg px-6 py-2">
-                    +{course?.points_reward || 50} Pontos Kudila Finance
+                    +{course?.points_reward || 50} Pontos Angola Finance
                   </Badge>
                 </div>
               </div>

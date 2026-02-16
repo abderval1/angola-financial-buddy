@@ -26,36 +26,40 @@ import {
   Tags,
   Coins,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
-const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Orçamento", href: "/budget", icon: Wallet },
-  { name: "Poupança", href: "/savings", icon: PiggyBank },
-  { name: "Dívidas", href: "/debts", icon: CreditCard },
-  { name: "Investimentos", href: "/investments", icon: TrendingUp },
-  { name: "Metas & FIRE", href: "/goals", icon: Target, badge: "FIRE" },
-  { name: "Educação", href: "/education", icon: GraduationCap },
-  { name: "Renda Extra", href: "/income", icon: Briefcase },
-  { name: "Calculadoras", href: "/calculators", icon: Calculator },
-  { name: "Comparar Preços", href: "/prices", icon: Tags },
-  { name: "Planos", href: "/plans", icon: Coins, badge: "PRO" },
-  { name: "Monetização", href: "/monetization", icon: Coins, badge: "NOVO" },
-  { name: "Análises", href: "/reports", icon: BarChart3 },
-  { name: "Notícias", href: "/news", icon: Newspaper },
-  { name: "Comunidade", href: "/community", icon: Users },
-  { name: "Marketplace", href: "/marketplace", icon: ShoppingBag },
-];
 
 export function MobileNav() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+
+  const navigation = [
+    { name: t("Dashboard"), href: "/dashboard", icon: LayoutDashboard },
+    { name: t("Orçamento"), href: "/budget", icon: Wallet },
+    { name: t("Poupança"), href: "/savings", icon: PiggyBank },
+    { name: t("Dívidas"), href: "/debts", icon: CreditCard },
+    { name: t("Investimentos"), href: "/investments", icon: TrendingUp },
+    { name: t("Metas & FIRE"), href: "/goals", icon: Target, badge: "FIRE" },
+    { name: t("Educação"), href: "/education", icon: GraduationCap },
+    { name: t("Renda Extra"), href: "/income", icon: Briefcase },
+    { name: t("Calculadoras"), href: "/calculators", icon: Calculator },
+    { name: t("Comparar Preços"), href: "/prices", icon: Tags },
+    { name: t("Planos"), href: "/plans", icon: Coins, badge: "PRO" },
+    { name: t("Monetização"), href: "/monetization", icon: Coins, badge: t("NOVO") },
+    { name: t("Análises"), href: "/reports", icon: BarChart3 },
+    { name: t("Notícias"), href: "/news", icon: Newspaper },
+    { name: t("Comunidade"), href: "/community", icon: Users },
+    { name: t("Marketplace"), href: "/marketplace", icon: ShoppingBag },
+    { name: t("Blog"), href: "/blog", icon: Newspaper },
+  ];
 
   const { data: userRole } = useQuery({
     queryKey: ["user-role-mobile", user?.id],
@@ -102,7 +106,7 @@ export function MobileNav() {
 
   const handleSignOut = async () => {
     await signOut();
-    toast.success("Sessão encerrada");
+    toast.success(t("Sessão encerrada"));
     navigate("/");
     setOpen(false);
   };
@@ -118,7 +122,7 @@ export function MobileNav() {
   };
 
   const getUserName = () => {
-    return user?.user_metadata?.name || user?.email?.split("@")[0] || "Usuário";
+    return user?.user_metadata?.name || user?.email?.split("@")[0] || t("Usuário");
   };
 
   return (
@@ -142,7 +146,7 @@ export function MobileNav() {
               </div>
               <div className="flex flex-col">
                 <span className="font-display text-xl font-bold">
-                  <span className="text-sidebar-primary">Kudila</span>
+                  <span className="text-sidebar-primary">Angola</span>
                   <span className="text-sidebar-foreground">Finance</span>
                 </span>
               </div>
@@ -198,7 +202,7 @@ export function MobileNav() {
                 )}
               >
                 <Shield className="h-5 w-5 shrink-0" />
-                <span className="font-medium">Admin</span>
+                <span className="font-medium">{t("Admin")}</span>
               </Link>
             )}
 
@@ -213,7 +217,7 @@ export function MobileNav() {
               )}
             >
               <Settings className="h-5 w-5 shrink-0" />
-              <span className="font-medium">Configurações</span>
+              <span className="font-medium">{t("Settings")}</span>
             </Link>
 
             <button
@@ -221,7 +225,7 @@ export function MobileNav() {
               className="flex w-full items-center gap-3 px-3 py-3 rounded-lg text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive transition-all duration-200 group"
             >
               <LogOut className="h-5 w-5 shrink-0" />
-              <span className="font-medium">Sair</span>
+              <span className="font-medium">{t("Logout")}</span>
             </button>
           </div>
 
@@ -238,7 +242,7 @@ export function MobileNav() {
                 <div className="flex items-center gap-1">
                   <Flame className="h-3 w-3 text-amber-500" />
                   <p className="text-xs text-sidebar-foreground/60 truncate">
-                    {isAdmin ? "Administrador" : "Nível Iniciante"}
+                    {isAdmin ? t("Administrador") : t("Nível Iniciante")}
                   </p>
                 </div>
               </div>

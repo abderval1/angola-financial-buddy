@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import {
   ShoppingBag,
   Book,
@@ -37,16 +39,11 @@ const PRODUCT_TYPES = [
   { value: "tool", label: "Ferramentas", icon: Wrench },
 ];
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-AO", {
-    style: "currency",
-    currency: "AOA",
-    minimumFractionDigits: 0,
-  }).format(value);
-};
 
 export default function Marketplace() {
   const { user } = useAuth();
+  const { t } = useTranslation();
+  const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
   const [selectedType, setSelectedType] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -268,8 +265,8 @@ export default function Marketplace() {
 
   return (
     <AppLayout
-      title="Marketplace"
-      subtitle="Ebooks, planilhas e ferramentas para sua jornada financeira"
+      title={t("Marketplace")}
+      subtitle={t("Ebooks, planilhas e ferramentas para sua jornada financeira", "Ebooks, planilhas e ferramentas para sua jornada financeira")}
     >
       <div className="space-y-6">
         {/* Hero Banner */}
@@ -481,7 +478,7 @@ export default function Marketplace() {
                         <div className="flex flex-col gap-3">
                           <div className="flex items-center justify-between">
                             <span className="text-xl font-bold text-primary">
-                              {product.price === 0 ? "Grátis" : formatCurrency(product.price)}
+                              {product.price === 0 ? t('free') : formatPrice(product.price)}
                             </span>
 
                             {(() => {
@@ -584,7 +581,7 @@ export default function Marketplace() {
                       {selectedProduct.description}
                     </p>
                     <p className="text-2xl font-bold text-primary mt-2">
-                      {formatCurrency(selectedProduct.price)}
+                      {formatPrice(selectedProduct.price)}
                     </p>
                   </div>
                 </div>

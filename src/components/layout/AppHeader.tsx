@@ -5,13 +5,16 @@ import { UserProfileDropdown } from "@/components/profile/UserProfileDropdown";
 import { MobileNav } from "./MobileNav";
 import { NotificationCenter } from "./NotificationCenter";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
+import { useTranslation } from "react-i18next";
 
 interface AppHeaderProps {
   title?: string;
   subtitle?: string;
 }
 
-export function AppHeader({ title = "Dashboard", subtitle }: AppHeaderProps) {
+export function AppHeader({ title, subtitle }: AppHeaderProps) {
+  const { t } = useTranslation();
+  const displayTitle = title || t("Dashboard");
   return (
     <header className="sticky top-0 z-30 flex h-14 sm:h-16 items-center justify-between border-b border-sidebar-border lg:border-border bg-sidebar lg:bg-background/80 backdrop-blur-xl px-4 sm:px-6">
       <div className="flex items-center gap-3 sm:gap-4">
@@ -21,7 +24,7 @@ export function AppHeader({ title = "Dashboard", subtitle }: AppHeaderProps) {
         </div>
 
         <div className="min-w-0">
-          <h1 className="font-display text-lg sm:text-xl font-semibold text-white lg:text-foreground truncate">{title}</h1>
+          <h1 className="font-display text-lg sm:text-xl font-semibold text-white lg:text-foreground truncate">{displayTitle}</h1>
           {subtitle && (
             <p className="text-xs sm:text-sm text-white/70 lg:text-muted-foreground truncate hidden sm:block">{subtitle}</p>
           )}

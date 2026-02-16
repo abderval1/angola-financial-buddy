@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -33,46 +33,110 @@ export function AdminAuditLogs() {
     const [searchTerm, setSearchTerm] = useState("");
     const [actionFilter, setActionFilter] = useState("all");
     const [currentPage, setCurrentPage] = useState(1);
+    const [isAdmin, setIsAdmin] = useState(false);
     const PAGE_SIZE = 20;
 
+    // Check if user is admin
+    useEffect(() => {
+        const checkAdminRole = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: roleData } = await supabase
+                .from("user_roles")
+                .select("role")
+                .eq("user_id", user.id)
+                .eq("role", "admin")
+                .maybeSingle();
+
+            setIsAdmin(!!roleData);
+        };
+
+        checkAdminRole();
+    }, []);
+
     const { data, isLoading, isError, error, refetch } = useQuery({
-        queryKey: ["audit-logs", actionFilter, currentPage],
+        queryKey: ["audit-logs", actionFilter, currentPage, isAdmin],
         queryFn: async () => {
             const from = (currentPage - 1) * PAGE_SIZE;
             const to = from + PAGE_SIZE - 1;
 
-            let query = supabase
-                .from("activity_logs" as any)
-                .select("*", { count: 'exact' })
-                .order("created_at", { ascending: false })
-                .range(from, to);
+            // Use RPC function for admin users to bypass RLS issues
+            let logs: any[] = [];
+            let count = 0;
 
-            if (actionFilter !== "all") {
-                query = query.eq("action", actionFilter);
-            }
+            if (isAdmin) {
+                // Get total count first
+                const { count: totalCount } = await supabase
+                    .from("activity_logs" as any)
+                    .select("*", { count: 'exact', head: true });
+                count = totalCount || 0;
 
-            const { data: logs, error, count } = await query;
-            if (error) throw error;
+                // Use the function for admin to get paginated logs
+                const { data: logsData, error: logsError } = await supabase
+                    .rpc('get_activity_logs', { p_is_admin: true })
+                    .range(from, to);
 
-            if (logs && logs.length > 0) {
-                const userIds = [...new Set(logs.map((log: any) => log.user_id).filter(Boolean))] as string[];
-                if (userIds.length > 0) {
-                    const { data: profiles } = await supabase
-                        .from("profiles")
-                        .select("user_id, email, name")
-                        .in("user_id", userIds);
+                if (logsError) {
+                    console.error('Error fetching all logs via RPC:', logsError);
+                    // Fallback to direct query
+                    const { data: fallbackLogs, error: fallbackError } = await supabase
+                        .from("activity_logs" as any)
+                        .select("*", { count: 'exact' })
+                        .order("created_at", { ascending: false })
+                        .range(from, to);
 
-                    const mergedLogs = logs.map((log: any) => ({
-                        ...log,
-                        profiles: profiles?.find((p: any) => p.user_id === log.user_id)
-                    }));
-
-                    return { logs: mergedLogs, total: count || 0 };
+                    if (fallbackError) throw fallbackError;
+                    logs = fallbackLogs || [];
+                } else {
+                    logs = logsData || [];
                 }
+            } else {
+                // For non-admin users, only get their own logs
+                const { data: { user } } = await supabase.auth.getUser();
+
+                // Get total count
+                const { count: ownCount } = await supabase
+                    .from("activity_logs" as any)
+                    .select("*", { count: 'exact', head: true })
+                    .eq("user_id", user?.id);
+                count = ownCount || 0;
+
+                const { data: ownLogs, error: ownError } = await supabase
+                    .from("activity_logs" as any)
+                    .select("*", { count: 'exact' })
+                    .eq("user_id", user?.id)
+                    .order("created_at", { ascending: false })
+                    .range(from, to);
+
+                if (ownError) throw ownError;
+                logs = ownLogs || [];
             }
 
-            return { logs: logs || [], total: count || 0 };
+            // Apply action filter if needed
+            if (actionFilter !== "all") {
+                logs = logs.filter((log: any) => log.action === actionFilter);
+            }
+
+            // Get user info for each log
+            const userIds = [...new Set(logs.map((log: any) => log.user_id).filter(Boolean))] as string[];
+            if (userIds.length > 0) {
+                const { data: profiles } = await supabase
+                    .from("profiles")
+                    .select("user_id, email, name")
+                    .in("user_id", userIds);
+
+                const mergedLogs = logs.map((log: any) => ({
+                    ...log,
+                    profiles: profiles?.find((p: any) => p.user_id === log.user_id)
+                }));
+
+                return { logs: mergedLogs, total: count };
+            }
+
+            return { logs, total: count };
         },
+        enabled: true,
     });
 
     const logs = data?.logs || [];

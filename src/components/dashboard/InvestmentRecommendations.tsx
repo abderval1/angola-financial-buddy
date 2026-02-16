@@ -4,18 +4,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  TrendingUp, 
-  Shield, 
-  Zap, 
-  Building, 
-  Coins, 
+import {
+  TrendingUp,
+  Shield,
+  Zap,
+  Building,
+  Coins,
   PiggyBank,
   ChevronRight,
   Star,
   AlertTriangle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 interface Recommendation {
   title: string;
@@ -29,6 +30,7 @@ interface Recommendation {
 
 export function InvestmentRecommendations() {
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   // Fetch user's financial profile
   const { data: profile } = useQuery({
@@ -39,7 +41,7 @@ export function InvestmentRecommendations() {
         .select("*")
         .eq("user_id", user?.id)
         .maybeSingle();
-      
+
       if (error) throw error;
       return data;
     },
@@ -55,7 +57,7 @@ export function InvestmentRecommendations() {
         .select("type, amount")
         .eq("user_id", user?.id)
         .eq("status", "active");
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -77,69 +79,69 @@ export function InvestmentRecommendations() {
     if (riskProfile === "conservative" || riskProfile === "moderate") {
       if (!hasFixedIncome) {
         recommendations.push({
-          title: "Obrigações do Tesouro",
-          description: "Títulos de dívida pública angolana com rendimento garantido",
+          title: t("Obrigações do Tesouro"),
+          description: t("Títulos de dívida pública angolana com rendimento garantido"),
           icon: Building,
           risk: "low",
           expectedReturn: "15-20% a.a.",
-          reason: "Segurança e rendimento previsível para seu perfil conservador",
+          reason: t("Segurança e rendimento previsível para seu perfil conservador"),
         });
       }
 
       recommendations.push({
-        title: "Depósito a Prazo",
-        description: "Aplicação em bancos angolanos com juros garantidos",
+        title: t("Depósito a Prazo"),
+        description: t("Aplicação em bancos angolanos com juros garantidos"),
         icon: PiggyBank,
         risk: "low",
         expectedReturn: "10-15% a.a.",
-        reason: "Ideal para reserva de emergência com rendimento",
+        reason: t("Ideal para reserva de emergência com rendimento"),
       });
     }
 
     if (riskProfile === "moderate" || riskProfile === "aggressive") {
       if (!hasStocks) {
         recommendations.push({
-          title: "Ações na BODIVA",
-          description: "Investimento em empresas listadas na bolsa de Angola",
+          title: t("Ações na BODIVA"),
+          description: t("Investimento em empresas listadas na bolsa de Angola"),
           icon: TrendingUp,
           risk: "high",
           expectedReturn: "20-40% a.a.",
-          reason: "Potencial de crescimento com empresas angolanas",
+          reason: t("Potencial de crescimento com empresas angolanas"),
         });
       }
 
       if (!hasRealEstate) {
         recommendations.push({
-          title: "Fundos Imobiliários",
-          description: "Investimento indireto em imóveis comerciais",
+          title: t("Fundos Imobiliários"),
+          description: t("Investimento indireto em imóveis comerciais"),
           icon: Building,
           risk: "medium",
           expectedReturn: "12-18% a.a.",
-          reason: "Diversificação com renda passiva de aluguéis",
+          reason: t("Diversificação com renda passiva de aluguéis"),
         });
       }
     }
 
     if (riskProfile === "aggressive") {
       recommendations.push({
-        title: "Startups & Venture Capital",
-        description: "Investimento em empresas emergentes angolanas",
+        title: t("Startups & Venture Capital"),
+        description: t("Investimento em empresas emergentes angolanas"),
         icon: Zap,
         risk: "high",
         expectedReturn: "50%+ a.a.",
-        reason: "Alto risco com potencial de retornos expressivos",
+        reason: t("Alto risco com potencial de retornos expressivos"),
       });
     }
 
     // Always recommend diversification
     if (investments.length < 3) {
       recommendations.push({
-        title: "Diversifique sua Carteira",
-        description: "Distribua investimentos em diferentes classes de ativos",
+        title: t("Diversifique sua Carteira"),
+        description: t("Distribua investimentos em diferentes classes de ativos"),
         icon: Shield,
         risk: "low",
-        expectedReturn: "Varia",
-        reason: "Reduz riscos e melhora retornos no longo prazo",
+        expectedReturn: t("Varia"),
+        reason: t("Reduz riscos e melhora retornos no longo prazo"),
         link: "/investments",
       });
     }
@@ -160,9 +162,9 @@ export function InvestmentRecommendations() {
 
   const getRiskLabel = (risk: string) => {
     switch (risk) {
-      case "low": return "Baixo Risco";
-      case "medium": return "Risco Moderado";
-      case "high": return "Alto Risco";
+      case "low": return t("Baixo Risco");
+      case "medium": return t("Risco Moderado");
+      case "high": return t("Alto Risco");
       default: return risk;
     }
   };
@@ -178,15 +180,15 @@ export function InvestmentRecommendations() {
               <Star className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg">Recomendações para Você</CardTitle>
+              <CardTitle className="text-lg">{t("Recomendações para Você")}</CardTitle>
               <CardDescription>
-                Baseadas no seu perfil de investidor
+                {t("Baseadas no seu perfil de investidor")}
               </CardDescription>
             </div>
           </div>
           <Link to="/investments">
             <Button variant="ghost" size="sm">
-              Ver Investimentos
+              {t("Ver Investimentos")}
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </Link>
@@ -223,7 +225,7 @@ export function InvestmentRecommendations() {
                     {rec.link && (
                       <Link to={rec.link}>
                         <Button variant="ghost" size="sm" className="h-7 text-xs">
-                          Ver Mais
+                          {t("Ver Mais")}
                           <ChevronRight className="h-3 w-3 ml-1" />
                         </Button>
                       </Link>

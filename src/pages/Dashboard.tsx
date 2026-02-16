@@ -6,6 +6,8 @@ import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 import { useReferralProcessor } from "@/hooks/useReferralProcessor";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { InvestmentRecommendations } from "@/components/dashboard/InvestmentRecommendations";
 import { MonetizationWidget } from "@/components/dashboard/MonetizationWidget";
 import { SubscriptionStatus } from "@/components/subscription/SubscriptionStatus";
@@ -47,21 +49,15 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format, subMonths, addMonths, startOfMonth, endOfMonth } from "date-fns";
-import { pt } from "date-fns/locale";
+import { pt, es, fr, arSA, zhCN } from "date-fns/locale";
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-AO", {
-    style: "currency",
-    currency: "AOA",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
 
 const COLORS = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#06b6d4"];
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+  const { formatPrice } = useCurrency();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'monthly' | 'yearly' | 'all'>('monthly');
 
@@ -228,8 +224,19 @@ export default function Dashboard() {
     const income = monthTransactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
     const expense = monthTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
 
+    const getLocale = () => {
+      switch (i18n.language) {
+        case 'en': return undefined;
+        case 'es': return es;
+        case 'fr': return fr;
+        case 'ar': return arSA;
+        case 'zh': return zhCN;
+        default: return pt;
+      }
+    };
+
     chartData.push({
-      month: format(date, "MMM", { locale: pt }),
+      month: format(date, "MMM", { locale: getLocale() }),
       receitas: income,
       despesas: expense,
       saldo: income - expense,
@@ -245,7 +252,7 @@ export default function Dashboard() {
         ? t.transaction_categories[0]
         : t.transaction_categories;
 
-      const categoryName = cat?.name || "Outros";
+      const categoryName = cat?.name || t("Outros");
       if (!acc[categoryName]) acc[categoryName] = 0;
       acc[categoryName] += t.amount;
       return acc;
@@ -259,20 +266,20 @@ export default function Dashboard() {
   const fireProgress = fireGoal ? ((fireGoal.current_amount || 0) / fireGoal.target_amount) * 100 : 0;
 
   return (
-    <AppLayout title="Dashboard" subtitle="Visão geral das suas finanças">
+    <AppLayout title={t("Dashboard")} subtitle={t("Visão geral das suas finanças", "Visão geral das suas finanças")}>
       <ModuleGuard
         moduleKey="basic"
-        title="Dashboard Financeiro"
-        description="Aceda ao seu panorama financeiro completo, incluindo gráficos de fluxo de caixa e património líquido."
+        title={t("Dashboard Financeiro", "Dashboard Financeiro")}
+        description={t("Aceda ao seu panorama financeiro completo, incluindo gráficos de fluxo de caixa e património líquido.", "Aceda ao seu panorama financeiro completo, incluindo gráficos de fluxo de caixa e património líquido.")}
       >
         <div className="space-y-6">
           {/* Period Selector */}
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
             <Tabs value={viewMode} onValueChange={(v: any) => setViewMode(v)} className="w-full md:w-auto">
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="monthly">Mensal</TabsTrigger>
-                <TabsTrigger value="yearly">Anual</TabsTrigger>
-                <TabsTrigger value="all">Total</TabsTrigger>
+                <TabsTrigger value="monthly">{t("Mensal")}</TabsTrigger>
+                <TabsTrigger value="yearly">{t("Anual")}</TabsTrigger>
+                <TabsTrigger value="all">{t("Total")}</TabsTrigger>
               </TabsList>
             </Tabs>
 
@@ -291,8 +298,8 @@ export default function Dashboard() {
                 <div className="text-center min-w-[120px]">
                   <h2 className="text-sm font-bold capitalize">
                     {viewMode === 'monthly'
-                      ? format(currentDate, 'MMMM yyyy', { locale: pt })
-                      : format(currentDate, 'yyyy', { locale: pt })
+                      ? format(currentDate, 'MMMM yyyy', { locale: i18n.language === 'en' ? undefined : i18n.language === 'es' ? es : i18n.language === 'fr' ? fr : i18n.language === 'ar' ? arSA : i18n.language === 'zh' ? zhCN : pt })
+                      : format(currentDate, 'yyyy', { locale: i18n.language === 'en' ? undefined : i18n.language === 'es' ? es : i18n.language === 'fr' ? fr : i18n.language === 'ar' ? arSA : i18n.language === 'zh' ? zhCN : pt })
                     }
                   </h2>
                 </div>
@@ -311,85 +318,85 @@ export default function Dashboard() {
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2">
             <Card className="stat-card-income">
-              <CardContent className="p-5">
+              <CardContent className="p-2 md:p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">
-                      Receitas {viewMode === 'monthly' ? 'do Mês' : viewMode === 'yearly' ? 'do Ano' : 'Totais'}
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      {t("Receitas")} {viewMode === 'monthly' ? t("do Mês") : viewMode === 'yearly' ? t("do Ano") : t("Totais")}
                     </p>
-                    <p className="text-2xl font-bold text-success">{formatCurrency(totalIncome)}</p>
+                    <p className="text-lg font-bold text-success">{formatPrice(totalIncome)}</p>
                   </div>
-                  <div className="h-12 w-12 rounded-xl bg-success/20 flex items-center justify-center">
-                    <TrendingUp className="h-6 w-6 text-success" />
+                  <div className="h-8 w-8 rounded-lg bg-success/20 flex items-center justify-center">
+                    <TrendingUp className="h-4 w-4 text-success" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="stat-card-expense">
-              <CardContent className="p-5">
+              <CardContent className="p-2 md:p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">
-                      Despesas {viewMode === 'monthly' ? 'do Mês' : viewMode === 'yearly' ? 'do Ano' : 'Totais'}
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      {t("Despesas")} {viewMode === 'monthly' ? t("do Mês") : viewMode === 'yearly' ? t("do Ano") : t("Totais")}
                     </p>
-                    <p className="text-2xl font-bold text-destructive">{formatCurrency(totalExpenses)}</p>
+                    <p className="text-lg font-bold text-destructive">{formatPrice(totalExpenses)}</p>
                   </div>
-                  <div className="h-12 w-12 rounded-xl bg-destructive/20 flex items-center justify-center">
-                    <TrendingDown className="h-6 w-6 text-destructive" />
+                  <div className="h-8 w-8 rounded-lg bg-destructive/20 flex items-center justify-center">
+                    <TrendingDown className="h-4 w-4 text-destructive" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className={balance >= 0 ? "stat-card-savings" : "stat-card-expense"}>
-              <CardContent className="p-5">
+              <CardContent className="p-2 md:p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">
-                      Saldo {viewMode === 'monthly' ? 'do Mês' : viewMode === 'yearly' ? 'do Ano' : 'Total'}
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      {t("Saldo")} {viewMode === 'monthly' ? t("do Mês") : viewMode === 'yearly' ? t("do Ano") : t("Total")}
                     </p>
-                    <p className={`text-2xl font-bold ${balance >= 0 ? "text-finance-savings" : "text-destructive"}`}>
-                      {formatCurrency(balance)}
+                    <p className={`text-lg font-bold ${balance >= 0 ? "text-finance-savings" : "text-destructive"}`}>
+                      {formatPrice(balance)}
                     </p>
                   </div>
-                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${balance >= 0 ? "bg-finance-savings/20" : "bg-destructive/20"
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${balance >= 0 ? "bg-finance-savings/20" : "bg-destructive/20"
                     }`}>
-                    <Wallet className={`h-6 w-6 ${balance >= 0 ? "text-finance-savings" : "text-destructive"}`} />
+                    <Wallet className={`h-4 w-4 ${balance >= 0 ? "text-finance-savings" : "text-destructive"}`} />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="stat-card-investment">
-              <CardContent className="p-5">
+              <CardContent className="p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">Renda Extra & Negócios</p>
-                    <p className="text-2xl font-bold text-finance-investment">
-                      {formatCurrency(totalExtraIncomeBalance)}
+                    <p className="text-xs text-muted-foreground mb-0.5">{t("Renda Extra & Negócios")}</p>
+                    <p className="text-lg font-bold text-finance-investment">
+                      {formatPrice(totalExtraIncomeBalance)}
                     </p>
                   </div>
-                  <div className="h-12 w-12 rounded-xl bg-finance-investment/20 flex items-center justify-center">
-                    <Building className="h-6 w-6 text-finance-investment" />
+                  <div className="h-8 w-8 rounded-lg bg-finance-investment/20 flex items-center justify-center">
+                    <Building className="h-4 w-4 text-finance-investment" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="stat-card-investment">
-              <CardContent className="p-5">
+              <CardContent className="p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">Patrimônio Líquido</p>
-                    <p className={`text-2xl font-bold ${netWorth >= 0 ? "text-finance-investment" : "text-destructive"}`}>
-                      {formatCurrency(netWorth)}
+                    <p className="text-xs text-muted-foreground mb-0.5">{t("Patrimônio Líquido")}</p>
+                    <p className={`text-lg font-bold ${netWorth >= 0 ? "text-finance-investment" : "text-destructive"}`}>
+                      {formatPrice(netWorth)}
                     </p>
                   </div>
-                  <div className="h-12 w-12 rounded-xl bg-finance-investment/20 flex items-center justify-center">
-                    <DollarSign className="h-6 w-6 text-finance-investment" />
+                  <div className="h-8 w-8 rounded-lg bg-finance-investment/20 flex items-center justify-center">
+                    <DollarSign className="h-4 w-4 text-finance-investment" />
                   </div>
                 </div>
               </CardContent>
@@ -405,13 +412,13 @@ export default function Dashboard() {
                     <Flame className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold">Metas & FIRE</p>
-                    <p className="text-xs text-muted-foreground">{hasMetasFire ? 'Acesso Ativo' : 'Bloqueado'}</p>
+                    <p className="text-sm font-bold">{t("Metas & FIRE")}</p>
+                    <p className="text-xs text-muted-foreground">{hasMetasFire ? t("Acesso Ativo") : t("Bloqueado")}</p>
                   </div>
                 </div>
                 {!hasMetasFire && (
                   <Link to="/plans">
-                    <Button size="sm" variant="outline" className="h-8 text-xs">Activar</Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs">{t("Activar")}</Button>
                   </Link>
                 )}
               </CardContent>
@@ -424,13 +431,13 @@ export default function Dashboard() {
                     <Award className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold">Educação & Calc</p>
-                    <p className="text-xs text-muted-foreground">{hasEducation ? 'Acesso Ativo' : 'Bloqueado'}</p>
+                    <p className="text-sm font-bold">{t("Educação & Calc")}</p>
+                    <p className="text-xs text-muted-foreground">{hasEducation ? t("Acesso Ativo") : t("Bloqueado")}</p>
                   </div>
                 </div>
                 {!hasEducation && (
                   <Link to="/plans">
-                    <Button size="sm" variant="outline" className="h-8 text-xs">Activar</Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs">{t("Activar")}</Button>
                   </Link>
                 )}
               </CardContent>
@@ -443,13 +450,13 @@ export default function Dashboard() {
                     <Newspaper className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold">Notícias & Mercado</p>
-                    <p className="text-xs text-muted-foreground">{hasNews ? 'Acesso Ativo' : 'Bloqueado'}</p>
+                    <p className="text-sm font-bold">{t("Notícias & Mercado")}</p>
+                    <p className="text-xs text-muted-foreground">{hasNews ? t("Acesso Ativo") : t("Bloqueado")}</p>
                   </div>
                 </div>
                 {!hasNews && (
                   <Link to="/plans">
-                    <Button size="sm" variant="outline" className="h-8 text-xs">Activar</Button>
+                    <Button size="sm" variant="outline" className="h-8 text-xs">{t("Activar")}</Button>
                   </Link>
                 )}
               </CardContent>
@@ -469,14 +476,14 @@ export default function Dashboard() {
                       <Flame className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg">Jornada FIRE</CardTitle>
+                      <CardTitle className="text-lg">{t("Jornada FIRE")}</CardTitle>
                       <CardDescription>Financial Independence, Retire Early</CardDescription>
                     </div>
                   </div>
                   {hasMetasFire ? (
                     <Link to="/goals">
                       <Button variant="ghost" size="sm">
-                        Ver Detalhes
+                        {t("Ver Detalhes")}
                         <ChevronRight className="h-4 w-4 ml-1" />
                       </Button>
                     </Link>
@@ -490,30 +497,30 @@ export default function Dashboard() {
                   fireGoal ? (
                     <div className="space-y-4">
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Progresso para FIRE</span>
+                        <span className="text-muted-foreground">{t("Progresso para FIRE")}</span>
                         <span className="font-medium">{fireProgress.toFixed(1)}%</span>
                       </div>
                       <Progress value={fireProgress} className="h-3" />
                       <div className="flex justify-between text-sm">
-                        <span>{formatCurrency(fireGoal.current_amount || 0)}</span>
-                        <span className="font-medium text-amber-600">{formatCurrency(fireGoal.target_amount)}</span>
+                        <span>{formatPrice(fireGoal.current_amount || 0)}</span>
+                        <span className="font-medium text-amber-600">{formatPrice(fireGoal.target_amount)}</span>
                       </div>
                     </div>
                   ) : (
                     <div className="text-center py-4">
-                      <p className="text-muted-foreground mb-3">Configure sua meta FIRE</p>
+                      <p className="text-muted-foreground mb-3">{t("Configure sua meta FIRE")}</p>
                       <Link to="/goals">
                         <Button size="sm" className="gradient-accent text-accent-foreground">
-                          Começar Agora
+                          {t("Começar Agora")}
                         </Button>
                       </Link>
                     </div>
                   )
                 ) : (
                   <div className="text-center py-4">
-                    <p className="text-sm text-muted-foreground mb-3">Desbloqueie o simulador FIRE e planeamento financeiro avançado.</p>
+                    <p className="text-sm text-muted-foreground mb-3">{t("Desbloqueie o simulador FIRE e planeamento financeiro avançado.")}</p>
                     <Link to="/plans">
-                      <Button size="sm" variant="outline">Ver Planos</Button>
+                      <Button size="sm" variant="outline">{t("Ver Planos")}</Button>
                     </Link>
                   </div>
                 )}
@@ -529,13 +536,13 @@ export default function Dashboard() {
                       <Award className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <CardTitle className="text-lg">Seu Progresso</CardTitle>
-                      <CardDescription>Nível {gamification?.current_level || 1} - {gamification?.level_name || "Iniciante"}</CardDescription>
+                      <CardTitle className="text-lg">{t("Seu Progresso")}</CardTitle>
+                      <CardDescription>{t("Nível")} {gamification?.current_level || 1} - {gamification?.level_name ? t(gamification.level_name) : t("Nível Iniciante")}</CardDescription>
                     </div>
                   </div>
                   <Link to="/community">
                     <Button variant="ghost" size="sm">
-                      Ver Ranking
+                      {t("Ver Ranking")}
                       <ChevronRight className="h-4 w-4 ml-1" />
                     </Button>
                   </Link>
@@ -546,17 +553,17 @@ export default function Dashboard() {
                   <div className="text-center p-3 bg-amber-500/10 rounded-lg">
                     <Star className="h-5 w-5 mx-auto mb-1 text-amber-500" />
                     <p className="text-lg font-bold">{gamification?.total_points || 0}</p>
-                    <p className="text-xs text-muted-foreground">Pontos</p>
+                    <p className="text-xs text-muted-foreground">{t("Pontos")}</p>
                   </div>
                   <div className="text-center p-3 bg-success/10 rounded-lg">
                     <Target className="h-5 w-5 mx-auto mb-1 text-success" />
                     <p className="text-lg font-bold">{gamification?.challenges_completed || 0}</p>
-                    <p className="text-xs text-muted-foreground">Desafios</p>
+                    <p className="text-xs text-muted-foreground">{t("Desafios")}</p>
                   </div>
                   <div className="text-center p-3 bg-primary/10 rounded-lg">
                     <Flame className="h-5 w-5 mx-auto mb-1 text-primary" />
                     <p className="text-lg font-bold">{gamification?.current_streak || 0}</p>
-                    <p className="text-xs text-muted-foreground">Dias Seguidos</p>
+                    <p className="text-xs text-muted-foreground">{t("Dias Seguidos")}</p>
                   </div>
                 </div>
               </CardContent>
@@ -568,8 +575,8 @@ export default function Dashboard() {
             {/* Cash Flow Chart */}
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="text-lg">Fluxo de Caixa</CardTitle>
-                <CardDescription>Últimos 6 meses</CardDescription>
+                <CardTitle className="text-lg">{t("Fluxo de Caixa")}</CardTitle>
+                <CardDescription>{t("Últimos 6 meses")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="h-[250px]">
@@ -579,15 +586,15 @@ export default function Dashboard() {
                       <XAxis dataKey="month" className="text-xs" />
                       <YAxis className="text-xs" tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
                       <Tooltip
-                        formatter={(value: number) => formatCurrency(value)}
+                        formatter={(value: number) => formatPrice(value)}
                         contentStyle={{
                           backgroundColor: "hsl(var(--card))",
                           border: "1px solid hsl(var(--border))",
                           borderRadius: "8px",
                         }}
                       />
-                      <Area type="monotone" dataKey="receitas" name="Receitas" stroke="hsl(var(--success))" fill="hsl(var(--success) / 0.2)" />
-                      <Area type="monotone" dataKey="despesas" name="Despesas" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive) / 0.2)" />
+                      <Area type="monotone" dataKey="receitas" name={t("Receitas")} stroke="hsl(var(--success))" fill="hsl(var(--success) / 0.2)" />
+                      <Area type="monotone" dataKey="despesas" name={t("Despesas")} stroke="hsl(var(--destructive))" fill="hsl(var(--destructive) / 0.2)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -597,9 +604,9 @@ export default function Dashboard() {
             {/* Expense Categories */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Despesas por Categoria</CardTitle>
+                <CardTitle className="text-lg">{t("Despesas por Categoria")}</CardTitle>
                 <CardDescription>
-                  {viewMode === 'monthly' ? 'Este mês' : viewMode === 'yearly' ? 'Este ano' : 'Todo o período'}
+                  {viewMode === 'monthly' ? t("Este mês") : viewMode === 'yearly' ? t("Este ano") : t("Todo o período")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -623,7 +630,7 @@ export default function Dashboard() {
                               ))}
                             </Pie>
                             <Tooltip
-                              formatter={(value: number) => formatCurrency(value)}
+                              formatter={(value: number) => formatPrice(value)}
                             />
                           </PieChart>
                         </ResponsiveContainer>
@@ -635,14 +642,14 @@ export default function Dashboard() {
                               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
                               <span className="text-muted-foreground truncate max-w-[120px]">{item.name}</span>
                             </div>
-                            <span className="font-medium">{formatCurrency(item.value)}</span>
+                            <span className="font-medium">{formatPrice(item.value)}</span>
                           </div>
                         ))}
                       </div>
                     </>
                   ) : (
                     <div className="h-full flex items-center justify-center text-muted-foreground">
-                      <p className="text-sm">Sem despesas registradas</p>
+                      <p className="text-sm">{t("Sem despesas registradas")}</p>
                     </div>
                   )}
                 </div>
@@ -658,16 +665,16 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <PiggyBank className="h-5 w-5 text-finance-savings" />
-                    Poupança
+                    {t("Poupança")}
                   </CardTitle>
                   <Link to="/savings">
-                    <Button variant="ghost" size="sm">Ver</Button>
+                    <Button variant="ghost" size="sm">{t("Ver")}</Button>
                   </Link>
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-finance-savings mb-2">{formatCurrency(totalSavings)}</p>
-                <p className="text-sm text-muted-foreground">{savingsGoals.length} metas ativas</p>
+                <p className="text-2xl font-bold text-finance-savings mb-2">{formatPrice(totalSavings)}</p>
+                <p className="text-sm text-muted-foreground">{savingsGoals.length} {t("metas ativas")}</p>
               </CardContent>
             </Card>
 
@@ -677,16 +684,16 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <CreditCard className="h-5 w-5 text-destructive" />
-                    Dívidas
+                    {t("Dívidas")}
                   </CardTitle>
                   <Link to="/debts">
-                    <Button variant="ghost" size="sm">Ver</Button>
+                    <Button variant="ghost" size="sm">{t("Ver")}</Button>
                   </Link>
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-destructive mb-2">{formatCurrency(totalDebt)}</p>
-                <p className="text-sm text-muted-foreground">{debts.length} dívidas pendentes</p>
+                <p className="text-2xl font-bold text-destructive mb-2">{formatPrice(totalDebt)}</p>
+                <p className="text-sm text-muted-foreground">{debts.length} {t("dívidas pendentes")}</p>
               </CardContent>
             </Card>
 
@@ -696,16 +703,16 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Building className="h-5 w-5 text-finance-investment" />
-                    Investimentos
+                    {t("Investimentos")}
                   </CardTitle>
                   <Link to="/investments">
-                    <Button variant="ghost" size="sm">Ver</Button>
+                    <Button variant="ghost" size="sm">{t("Ver")}</Button>
                   </Link>
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-finance-investment mb-2">{formatCurrency(totalInvestments)}</p>
-                <p className="text-sm text-muted-foreground">{investments.length} ativos</p>
+                <p className="text-2xl font-bold text-finance-investment mb-2">{formatPrice(totalInvestments)}</p>
+                <p className="text-sm text-muted-foreground">{investments.length} {t("ativos")}</p>
               </CardContent>
             </Card>
           </div>
@@ -717,7 +724,7 @@ export default function Dashboard() {
             </div>
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Sua Assinatura</CardTitle>
+                <CardTitle className="text-lg">{t("Sua Assinatura")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <SubscriptionStatus />
@@ -729,10 +736,10 @@ export default function Dashboard() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Transações Recentes</CardTitle>
+                <CardTitle className="text-lg">{t("Transações Recentes")}</CardTitle>
                 <Link to="/budget">
                   <Button variant="ghost" size="sm">
-                    Ver Todas
+                    {t("Ver Todas")}
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 </Link>
@@ -753,15 +760,15 @@ export default function Dashboard() {
                           )}
                         </div>
                         <div>
-                          <p className="font-medium">{transaction.description || transaction.transaction_categories?.name || "Transação"}</p>
+                          <p className="font-medium">{transaction.description || transaction.transaction_categories?.name || t("Transação")}</p>
                           <p className="text-sm text-muted-foreground">
-                            {format(new Date(transaction.date), "dd MMM", { locale: pt })}
+                            {format(new Date(transaction.date), "dd MMM", { locale: i18n.language === 'en' ? undefined : i18n.language === 'es' ? es : i18n.language === 'fr' ? fr : i18n.language === 'ar' ? arSA : i18n.language === 'zh' ? zhCN : pt })}
                           </p>
                         </div>
                       </div>
                       <span className={`font-semibold ${transaction.type === "income" ? "text-success" : "text-destructive"
                         }`}>
-                        {transaction.type === "income" ? "+" : "-"}{formatCurrency(transaction.amount)}
+                        {transaction.type === "income" ? "+" : "-"}{formatPrice(transaction.amount)}
                       </span>
                     </div>
                   ))}
@@ -769,9 +776,9 @@ export default function Dashboard() {
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Nenhuma transação registrada</p>
+                  <p>{t("Nenhuma transação registrada")}</p>
                   <Link to="/budget">
-                    <Button variant="link" className="mt-2">Adicionar transação</Button>
+                    <Button variant="link" className="mt-2">{t("Adicionar transação")}</Button>
                   </Link>
                 </div>
               )}

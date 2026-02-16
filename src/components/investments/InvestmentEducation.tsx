@@ -1,10 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  GraduationCap, 
-  Play, 
-  Clock, 
+import {
+  GraduationCap,
+  Play,
+  Clock,
   ChevronRight,
   BookOpen,
   Lightbulb,
@@ -12,6 +12,7 @@ import {
   Shield
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 interface EducationTopic {
   id: string;
@@ -66,6 +67,8 @@ const QUICK_LESSONS: EducationTopic[] = [
 ];
 
 export function InvestmentEducation() {
+  const { t } = useTranslation();
+
   return (
     <Card>
       <CardHeader className="pb-4">
@@ -75,13 +78,13 @@ export function InvestmentEducation() {
               <GraduationCap className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg">Aprenda em 3 minutos</CardTitle>
-              <p className="text-sm text-muted-foreground">Educação financeira simplificada</p>
+              <CardTitle className="text-lg">{t("Aprenda em 3 minutos")}</CardTitle>
+              <p className="text-sm text-muted-foreground">{t("Educação financeira simplificada")}</p>
             </div>
           </div>
           <Link to="/education">
             <Button variant="ghost" size="sm">
-              Ver Todos
+              {t("Ver Todos")}
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </Link>
@@ -90,8 +93,8 @@ export function InvestmentEducation() {
       <CardContent>
         <div className="grid gap-3">
           {QUICK_LESSONS.map((lesson) => (
-            <Link 
-              key={lesson.id} 
+            <Link
+              key={lesson.id}
               to={`/education?topic=${lesson.id}`}
               className="block"
             >
@@ -103,16 +106,16 @@ export function InvestmentEducation() {
                     lesson.icon
                   )}
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <h4 className="font-medium text-foreground group-hover:text-primary transition-colors">
-                    {lesson.title}
+                    {t(lesson.title)}
                   </h4>
                   <p className="text-sm text-muted-foreground line-clamp-1">
-                    {lesson.description}
+                    {t(lesson.description)}
                   </p>
                 </div>
-                
+
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Badge variant="secondary" className="text-xs">
                     <Clock className="h-3 w-3 mr-1" />

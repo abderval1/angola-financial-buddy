@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import {
   BarChart,
   Bar,
@@ -42,19 +43,12 @@ import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { pt } from "date-fns/locale";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-AO", {
-    style: "currency",
-    currency: "AOA",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
 
 const COLORS = ["#10b981", "#ef4444", "#3b82f6", "#8b5cf6", "#f59e0b", "#06b6d4"];
 
 export default function Reports() {
   const { user } = useAuth();
+  const { formatPrice } = useCurrency();
   const [selectedPeriod, setSelectedPeriod] = useState("6");
   const [selectedType, setSelectedType] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -334,7 +328,7 @@ export default function Reports() {
                   <TrendingUp className="h-4 w-4 text-success" />
                   <span className="text-sm text-muted-foreground">Receitas</span>
                 </div>
-                <p className="text-lg font-bold text-success">{formatCurrency(totalIncome)}</p>
+                <p className="text-lg font-bold text-success">{formatPrice(totalIncome)}</p>
               </CardContent>
             </Card>
 
@@ -344,7 +338,7 @@ export default function Reports() {
                   <TrendingDown className="h-4 w-4 text-destructive" />
                   <span className="text-sm text-muted-foreground">Despesas</span>
                 </div>
-                <p className="text-lg font-bold text-destructive">{formatCurrency(totalExpenses)}</p>
+                <p className="text-lg font-bold text-destructive">{formatPrice(totalExpenses)}</p>
               </CardContent>
             </Card>
 
@@ -355,7 +349,7 @@ export default function Reports() {
                   <span className="text-sm text-muted-foreground">Saldo</span>
                 </div>
                 <p className={`text-lg font-bold ${totalIncome - totalExpenses >= 0 ? "text-success" : "text-destructive"}`}>
-                  {formatCurrency(totalIncome - totalExpenses)}
+                  {formatPrice(totalIncome - totalExpenses)}
                 </p>
               </CardContent>
             </Card>
@@ -366,7 +360,7 @@ export default function Reports() {
                   <PiggyBank className="h-4 w-4 text-finance-savings" />
                   <span className="text-sm text-muted-foreground">Poupança</span>
                 </div>
-                <p className="text-lg font-bold text-finance-savings">{formatCurrency(totalSavings)}</p>
+                <p className="text-lg font-bold text-finance-savings">{formatPrice(totalSavings)}</p>
               </CardContent>
             </Card>
 
@@ -376,7 +370,7 @@ export default function Reports() {
                   <CreditCard className="h-4 w-4 text-destructive" />
                   <span className="text-sm text-muted-foreground">Dívidas</span>
                 </div>
-                <p className="text-lg font-bold text-destructive">{formatCurrency(totalDebt)}</p>
+                <p className="text-lg font-bold text-destructive">{formatPrice(totalDebt)}</p>
               </CardContent>
             </Card>
 
@@ -387,7 +381,7 @@ export default function Reports() {
                   <span className="text-sm text-muted-foreground">Patrimônio</span>
                 </div>
                 <p className={`text-lg font-bold ${netWorth >= 0 ? "text-primary" : "text-destructive"}`}>
-                  {formatCurrency(netWorth)}
+                  {formatPrice(netWorth)}
                 </p>
               </CardContent>
             </Card>
@@ -412,7 +406,7 @@ export default function Reports() {
                         tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
                       />
                       <Tooltip
-                        formatter={(value: number) => formatCurrency(value)}
+                        formatter={(value: number) => formatPrice(value)}
                         labelStyle={{ color: "hsl(var(--foreground))" }}
                         contentStyle={{
                           backgroundColor: "hsl(var(--card))",
@@ -454,7 +448,7 @@ export default function Reports() {
                           ))}
                         </Pie>
                         <Tooltip
-                          formatter={(value: number) => formatCurrency(value)}
+                          formatter={(value: number) => formatPrice(value)}
                           contentStyle={{
                             backgroundColor: "hsl(var(--card))",
                             border: "1px solid hsl(var(--border))",
@@ -490,7 +484,7 @@ export default function Reports() {
                         tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
                       />
                       <Tooltip
-                        formatter={(value: number) => formatCurrency(value)}
+                        formatter={(value: number) => formatPrice(value)}
                         contentStyle={{
                           backgroundColor: "hsl(var(--card))",
                           border: "1px solid hsl(var(--border))",

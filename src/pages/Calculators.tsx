@@ -43,6 +43,7 @@ import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 import { FireCalculator } from "@/components/goals/FireCalculator";
 import { InvestmentSimulator } from "@/components/investments/InvestmentSimulator";
 import { toast } from "sonner";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 // Angolan tax rates for investments
 const ANGOLA_TAXES = {
@@ -51,15 +52,9 @@ const ANGOLA_TAXES = {
   IRT_INTEREST: 0.15, // Imposto sobre Rendimento do Trabalho on interest - 15%
 };
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("pt-AO", {
-    style: "currency",
-    currency: "AOA",
-    minimumFractionDigits: 2,
-  }).format(value);
-}
 
 export default function Calculators() {
+  const { formatPrice } = useCurrency();
   const [activeTab, setActiveTab] = useState<string>("hub");
 
   // Compound Interest State
@@ -323,25 +318,25 @@ export default function Calculators() {
             <Card className="bg-primary/5 border-primary/20">
               <CardContent className="pt-6 text-center">
                 <p className="text-sm text-muted-foreground mb-1">Valor Final</p>
-                <p className="text-xl font-bold text-primary">{formatCurrency(results.finalBalance)}</p>
+                <p className="text-xl font-bold text-primary">{formatPrice(results.finalBalance)}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6 text-center">
                 <p className="text-sm text-muted-foreground mb-1">Investido</p>
-                <p className="text-xl font-bold">{formatCurrency(results.totalInvested)}</p>
+                <p className="text-xl font-bold">{formatPrice(results.totalInvested)}</p>
               </CardContent>
             </Card>
             <Card className="bg-success/5 border-success/20">
               <CardContent className="pt-6 text-center">
                 <p className="text-sm text-muted-foreground mb-1">Lucro Líquido</p>
-                <p className="text-xl font-bold text-success">{formatCurrency(results.netInterest)}</p>
+                <p className="text-xl font-bold text-success">{formatPrice(results.netInterest)}</p>
               </CardContent>
             </Card>
             <Card className="bg-amber-500/5 border-amber-500/20">
               <CardContent className="pt-6 text-center">
                 <p className="text-sm text-muted-foreground mb-1">Impostos</p>
-                <p className="text-xl font-bold text-amber-600">{formatCurrency(results.totalTaxes)}</p>
+                <p className="text-xl font-bold text-amber-600">{formatPrice(results.totalTaxes)}</p>
               </CardContent>
             </Card>
           </div>
@@ -355,7 +350,7 @@ export default function Calculators() {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="label" tick={{ fontSize: 10 }} />
                     <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10 }} />
-                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                    <Tooltip formatter={(value: number) => formatPrice(value)} />
                     <Area type="monotone" dataKey="invested" name="Investido" stackId="1" stroke="#888" fill="#eee" />
                     <Area type="monotone" dataKey="interest" name="Juros Líquidos" stackId="1" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.6} />
                   </AreaChart>
@@ -370,7 +365,7 @@ export default function Calculators() {
               <div className="max-h-[300px] overflow-y-auto">
                 <Table>
                   <TableHeader><TableRow><TableHead>Período</TableHead><TableHead className="text-right">Investido</TableHead><TableHead className="text-right">Juros Brutos</TableHead><TableHead className="text-right">Impostos</TableHead><TableHead className="text-right">Saldo</TableHead></TableRow></TableHeader>
-                  <TableBody>{results.monthlyData.map((row, idx) => (<TableRow key={idx}><TableCell className="font-medium">{row.label}</TableCell><TableCell className="text-right">{formatCurrency(row.invested)}</TableCell><TableCell className="text-right text-success">{formatCurrency(row.grossInterest)}</TableCell><TableCell className="text-right text-amber-600">{formatCurrency(row.taxes)}</TableCell><TableCell className="text-right font-bold">{formatCurrency(row.balance)}</TableCell></TableRow>))}</TableBody>
+                  <TableBody>{results.monthlyData.map((row, idx) => (<TableRow key={idx}><TableCell className="font-medium">{row.label}</TableCell><TableCell className="text-right">{formatPrice(row.invested)}</TableCell><TableCell className="text-right text-success">{formatPrice(row.grossInterest)}</TableCell><TableCell className="text-right text-amber-600">{formatPrice(row.taxes)}</TableCell><TableCell className="text-right font-bold">{formatPrice(row.balance)}</TableCell></TableRow>))}</TableBody>
                 </Table>
               </div>
             </CardContent>
@@ -481,7 +476,7 @@ export default function Calculators() {
             </div>
             <div className="p-4 bg-primary/5 rounded-lg">
               <p className="text-sm text-muted-foreground">Investimento mensal adicional:</p>
-              <p className="text-2xl font-bold text-primary">{formatCurrency(monthlyExtraInvested)}</p>
+              <p className="text-2xl font-bold text-primary">{formatPrice(monthlyExtraInvested)}</p>
             </div>
           </CardContent>
         </Card>
@@ -543,7 +538,7 @@ export default function Calculators() {
               </div>
               <div className="flex justify-between text-sm font-medium">
                 <span>Teu ganho real por hora:</span>
-                <span className="text-blue-600">{formatCurrency(hourlyWage)}/h</span>
+                <span className="text-blue-600">{formatPrice(hourlyWage)}/h</span>
               </div>
             </div>
           </CardContent>
@@ -608,11 +603,11 @@ export default function Calculators() {
             <div className="grid grid-cols-2 gap-8 text-center">
               <div>
                 <p className="text-muted-foreground text-sm">Banco A</p>
-                <p className={`text-2xl font-bold ${netA >= netB ? 'text-success' : ''}`}>{formatCurrency(netA)}</p>
+                <p className={`text-2xl font-bold ${netA >= netB ? 'text-success' : ''}`}>{formatPrice(netA)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground text-sm">Banco B</p>
-                <p className={`text-2xl font-bold ${netB >= netA ? 'text-success' : ''}`}>{formatCurrency(netB)}</p>
+                <p className={`text-2xl font-bold ${netB >= netA ? 'text-success' : ''}`}>{formatPrice(netB)}</p>
               </div>
             </div>
             <div className="mt-8 h-4 bg-muted rounded-full overflow-hidden flex">
@@ -659,7 +654,7 @@ export default function Calculators() {
             <div className="p-4 bg-purple-500/5 rounded-lg border border-purple-500/10">
               <p className="text-sm font-semibold mb-2">Análise Estatística:</p>
               <div className="space-y-1 text-sm">
-                <div className="flex justify-between"><span>Expectativa Matemática:</span> <span className={expectancy > 0 ? "text-success" : "text-destructive"}>{formatCurrency(expectancy)} / trade</span></div>
+                <div className="flex justify-between"><span>Expectativa Matemática:</span> <span className={expectancy > 0 ? "text-success" : "text-destructive"}>{formatPrice(expectancy)} / trade</span></div>
                 <div className="flex justify-between"><span>Probabilidade de Ruína:</span> <span className={probRuin < 0.05 ? "text-success" : "text-destructive"}>{(probRuin * 100).toFixed(1)}%</span></div>
               </div>
             </div>
@@ -723,7 +718,7 @@ export default function Calculators() {
 
         <Card className={`flex flex-col items-center justify-center p-8 text-center border-cyan-500/20 ${isBull ? 'bg-success/5' : 'bg-destructive/5'}`}>
           <p className="text-muted-foreground font-medium">Após um ciclo completo (4 anos):</p>
-          <p className={`text-4xl font-black my-4 ${isBull ? 'text-success' : 'text-destructive'}`}>{formatCurrency(finalVal)}</p>
+          <p className={`text-4xl font-black my-4 ${isBull ? 'text-success' : 'text-destructive'}`}>{formatPrice(finalVal)}</p>
           <Badge className={isBull ? 'bg-success' : 'bg-destructive'}>
             {isBull ? '+420% Profit' : '-85% Drawdown'}
           </Badge>

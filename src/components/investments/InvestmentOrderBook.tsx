@@ -1,12 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  TrendingUp,
+  TrendingDown,
   Minus,
   BarChart3
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface OrderBookItem {
   id: string;
@@ -63,6 +64,8 @@ const SAMPLE_ORDER_BOOK: OrderBookItem[] = [
 ];
 
 export function InvestmentOrderBook() {
+  const { t } = useTranslation();
+
   const getTrendIcon = (trend: "up" | "down" | "stable") => {
     switch (trend) {
       case "up":
@@ -77,11 +80,11 @@ export function InvestmentOrderBook() {
   const getTrendLabel = (trend: "up" | "down" | "stable") => {
     switch (trend) {
       case "up":
-        return "Subindo";
+        return t("Subindo");
       case "down":
-        return "Caindo";
+        return t("Caindo");
       case "stable":
-        return "Estável";
+        return t("Estável");
     }
   };
 
@@ -104,16 +107,16 @@ export function InvestmentOrderBook() {
             <BarChart3 className="h-5 w-5 text-accent" />
           </div>
           <div>
-            <CardTitle className="text-lg">Livro de Ordens</CardTitle>
-            <p className="text-sm text-muted-foreground">Tendências do mercado simplificadas</p>
+            <CardTitle className="text-lg">{t("Livro de Ordens")}</CardTitle>
+            <p className="text-sm text-muted-foreground">{t("Tendências do mercado simplificadas")}</p>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {SAMPLE_ORDER_BOOK.map((item) => (
-            <div 
-              key={item.id} 
+            <div
+              key={item.id}
               className="p-4 rounded-xl border border-border/50 hover:border-primary/30 transition-colors"
             >
               <div className="flex items-center justify-between mb-3">
@@ -127,15 +130,14 @@ export function InvestmentOrderBook() {
                 <div className="text-right">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-foreground">{item.currentPrice}</span>
-                    <Badge 
-                      variant="outline" 
-                      className={`${
-                        item.trend === "up" 
-                          ? "bg-success/10 text-success border-success/20" 
+                    <Badge
+                      variant="outline"
+                      className={`${item.trend === "up"
+                          ? "bg-success/10 text-success border-success/20"
                           : item.trend === "down"
-                          ? "bg-destructive/10 text-destructive border-destructive/20"
-                          : "bg-muted text-muted-foreground"
-                      }`}
+                            ? "bg-destructive/10 text-destructive border-destructive/20"
+                            : "bg-muted text-muted-foreground"
+                        }`}
                     >
                       {getTrendIcon(item.trend)}
                       <span className="ml-1">{getTrendLabel(item.trend)}</span>
@@ -146,21 +148,21 @@ export function InvestmentOrderBook() {
                   </span>
                 </div>
               </div>
-              
+
               {/* Demand vs Supply */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-16">Procura</span>
-                  <Progress 
-                    value={item.demand} 
+                  <span className="text-xs text-muted-foreground w-16">{t("Procura")}</span>
+                  <Progress
+                    value={item.demand}
                     className="flex-1 h-2 [&>div]:bg-primary"
                   />
                   <span className="text-xs font-medium w-10 text-right">{item.demand}%</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-16">Oferta</span>
-                  <Progress 
-                    value={item.supply} 
+                  <span className="text-xs text-muted-foreground w-16">{t("Oferta")}</span>
+                  <Progress
+                    value={item.supply}
                     className="flex-1 h-2 [&>div]:bg-destructive/60"
                   />
                   <span className="text-xs font-medium w-10 text-right">{item.supply}%</span>
@@ -169,9 +171,9 @@ export function InvestmentOrderBook() {
             </div>
           ))}
         </div>
-        
+
         <p className="text-xs text-muted-foreground text-center mt-4">
-          Dados ilustrativos. Consulte a BODIVA para informações oficiais.
+          {t("Dados ilustrativos. Consulte a BODIVA para informações oficiais.")}
         </p>
       </CardContent>
     </Card>

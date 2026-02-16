@@ -49,6 +49,8 @@ import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 
+import { useCurrency } from "@/contexts/CurrencyContext";
+
 const CATEGORIES = [
   { value: "all", label: "Todas", icon: Package },
   { value: "Alimentação", label: "Alimentação", icon: ShoppingCart },
@@ -59,14 +61,6 @@ const CATEGORIES = [
   { value: "Telecomunicações", label: "Telecom", icon: ShoppingCart },
 ];
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-AO", {
-    style: "currency",
-    currency: "AOA",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
 
 interface PriceEntry {
   id: string;
@@ -112,6 +106,7 @@ interface ProductFollow {
 
 export default function Prices() {
   const { user } = useAuth();
+  const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -282,7 +277,7 @@ export default function Prices() {
             await supabase.from("notifications").insert({
               user_id: follower.user_id,
               title: "Preço Baixou! 📉",
-              message: `O produto ${entry.product_name} agora custa ${formatCurrency(newPrice)} no ${entry.store_name}. Aproveite para poupar!`,
+              message: `O produto ${entry.product_name} agora custa ${formatPrice(newPrice)} no ${entry.store_name}. Aproveite para poupar!`,
               type: "price_drop",
               action_url: "/prices",
               metadata: {
@@ -323,7 +318,7 @@ export default function Prices() {
           toast("Bravo! 🏆 Registraste o preço mais baixo até agora para este produto.");
         } else {
           const savingsPossible = data.price - productStats.minPrice;
-          toast.info(`Dica do Coach: Já vimos este produto por ${formatCurrency(productStats.minPrice)} no ${productStats.bestStore}. Estás a pagar ${formatCurrency(savingsPossible)} a mais.`);
+          toast.info(`Dica do Coach: Já vimos este produto por ${formatPrice(productStats.minPrice)} no ${productStats.bestStore}. Estás a pagar ${formatPrice(savingsPossible)} a mais.`);
         }
       }
 
@@ -971,7 +966,7 @@ export default function Prices() {
                         <div className="space-y-1 text-xs">
                           <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Mais barato:</span>
-                            <span className="font-bold text-success">{formatCurrency(product.minPrice)}</span>
+                            <span className="font-bold text-success">{formatPrice(product.minPrice)}</span>
                           </div>
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <MapPin className="h-3 w-3" />
@@ -1023,7 +1018,7 @@ export default function Prices() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
               <TabsTrigger value="compare">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Comparar
@@ -1101,19 +1096,19 @@ export default function Prices() {
                                   <span className="text-muted-foreground">Menor preço:</span>
                                   <p className="font-bold text-success flex items-center gap-1">
                                     <ArrowDownIcon className="h-3 w-3" />
-                                    {formatCurrency(product.minPrice)}
+                                    {formatPrice(product.minPrice)}
                                   </p>
                                 </div>
                                 <div>
                                   <span className="text-muted-foreground">Maior preço:</span>
                                   <p className="font-bold text-destructive flex items-center gap-1">
                                     <ArrowUpIcon className="h-3 w-3" />
-                                    {formatCurrency(product.maxPrice)}
+                                    {formatPrice(product.maxPrice)}
                                   </p>
                                 </div>
                                 <div>
                                   <span className="text-muted-foreground">Média:</span>
-                                  <p className="font-medium">{formatCurrency(product.avgPrice)}</p>
+                                  <p className="font-medium">{formatPrice(product.avgPrice)}</p>
                                 </div>
                                 <div>
                                   <span className="text-muted-foreground">Economia:</span>
@@ -1190,7 +1185,7 @@ export default function Prices() {
                                   className={`text-xs ${entry.price === product.minPrice ? 'border-success text-success' : ''}`}
                                 >
                                   <Store className="h-3 w-3 mr-1" />
-                                  {entry.store_name}: {formatCurrency(entry.price)}
+                                  {entry.store_name}: {formatPrice(entry.price)}
                                 </Badge>
                               ))}
                               {product.entries.length > 5 && (
@@ -1277,7 +1272,7 @@ export default function Prices() {
                               <div className="text-right">
                                 {productData ? (
                                   <>
-                                    <p className="font-bold text-success">{formatCurrency(productData.minPrice)}</p>
+                                    <p className="font-bold text-success">{formatPrice(productData.minPrice)}</p>
                                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                                       <MapPin className="h-3 w-3" />
                                       {productData.bestStore}
@@ -1354,7 +1349,7 @@ export default function Prices() {
                                 <div className="text-right">
                                   {productData ? (
                                     <>
-                                      <p className="font-bold text-success">{formatCurrency(productData.minPrice)}</p>
+                                      <p className="font-bold text-success">{formatPrice(productData.minPrice)}</p>
                                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                                         <MapPin className="h-3 w-3" />
                                         {productData.bestStore}

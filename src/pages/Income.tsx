@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { IncomeAnalysisCard } from "@/components/income/IncomeAnalysisCard";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 const businessTypes = [
   { value: "bico", label: "Bico (Biscate)", icon: Wrench },
@@ -57,16 +58,10 @@ const categoryOptions = [
   { value: "other", label: "Outro" },
 ];
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-AO", {
-    style: "currency",
-    currency: "AOA",
-    minimumFractionDigits: 0,
-  }).format(value);
-};
 
 export default function Income() {
   const { user } = useAuth();
+  const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -327,7 +322,7 @@ export default function Income() {
       >
         <div className="space-y-6">
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <Card className="stat-card-income">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -335,7 +330,7 @@ export default function Income() {
                     <TrendingUp className="h-5 w-5 text-success" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-success">{formatCurrency(totalRevenue)}</p>
+                    <p className="text-2xl font-bold text-success">{formatPrice(totalRevenue)}</p>
                     <p className="text-sm text-muted-foreground">Receita Mensal</p>
                   </div>
                 </div>
@@ -349,7 +344,7 @@ export default function Income() {
                     <ArrowDownRight className="h-5 w-5 text-destructive" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-destructive">{formatCurrency(totalExpenses)}</p>
+                    <p className="text-2xl font-bold text-destructive">{formatPrice(totalExpenses)}</p>
                     <p className="text-sm text-muted-foreground">Despesas Mensais</p>
                   </div>
                 </div>
@@ -365,7 +360,7 @@ export default function Income() {
                   </div>
                   <div>
                     <p className={`text-2xl font-bold ${netIncome >= 0 ? "text-success" : "text-destructive"}`}>
-                      {formatCurrency(netIncome)}
+                      {formatPrice(netIncome)}
                     </p>
                     <p className="text-sm text-muted-foreground">Lucro Líquido</p>
                   </div>
@@ -380,7 +375,7 @@ export default function Income() {
                     <Wallet className="h-5 w-5 text-finance-investment" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-finance-investment">{formatCurrency(totalInvestment)}</p>
+                    <p className="text-2xl font-bold text-finance-investment">{formatPrice(totalInvestment)}</p>
                     <p className="text-sm text-muted-foreground">Total Investido</p>
                   </div>
                 </div>

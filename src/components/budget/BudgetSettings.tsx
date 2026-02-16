@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "react-i18next";
 
 interface BudgetConfig {
     savings_goal_pct: number;
@@ -22,6 +23,7 @@ interface BudgetSettingsProps {
 }
 
 export function BudgetSettings({ open, onOpenChange, onUpdate, currentConfig }: BudgetSettingsProps) {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [config, setConfig] = useState<BudgetConfig>({
@@ -51,11 +53,11 @@ export function BudgetSettings({ open, onOpenChange, onUpdate, currentConfig }: 
 
             if (error) throw error;
 
-            toast.success("Configurações salvas!");
+            toast.success(t("Configurações salvas!", { defaultValue: "Configurações salvas!" }));
             onUpdate();
             onOpenChange(false);
         } catch (error: any) {
-            toast.error("Erro ao salvar: " + error.message);
+            toast.error(t("Erro ao salvar", { defaultValue: "Erro ao salvar" }) + ": " + error.message);
         } finally {
             setLoading(false);
         }
@@ -65,15 +67,15 @@ export function BudgetSettings({ open, onOpenChange, onUpdate, currentConfig }: 
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Configurações do Orçamento</DialogTitle>
+                    <DialogTitle>{t("Configurações de Orçamento")}</DialogTitle>
                     <DialogDescription>
-                        Defina suas metas e limites pessoais.
+                        {t("Defina suas metas e limites pessoais.", { defaultValue: "Defina suas metas e limites pessoais." })}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="savings" className="text-right col-span-2">
-                            Meta de Poupança (%)
+                            {t("Meta de Poupança (%)", { defaultValue: "Meta de Poupança (%)" })}
                         </Label>
                         <Input
                             id="savings"
@@ -85,7 +87,7 @@ export function BudgetSettings({ open, onOpenChange, onUpdate, currentConfig }: 
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="needs" className="text-right col-span-2">
-                            Limite de Necessidades (%)
+                            {t("Limite de Necessidades (%)", { defaultValue: "Limite de Necessidades (%)" })}
                         </Label>
                         <Input
                             id="needs"
@@ -97,7 +99,7 @@ export function BudgetSettings({ open, onOpenChange, onUpdate, currentConfig }: 
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="wants" className="text-right col-span-2">
-                            Limite de Desejos (%)
+                            {t("Limite de Desejos (%)", { defaultValue: "Limite de Desejos (%)" })}
                         </Label>
                         <Input
                             id="wants"
@@ -110,7 +112,7 @@ export function BudgetSettings({ open, onOpenChange, onUpdate, currentConfig }: 
                 </div>
                 <DialogFooter>
                     <Button onClick={handleSave} disabled={loading}>
-                        Salvar Alterações
+                        {t("Save changes")}
                     </Button>
                 </DialogFooter>
             </DialogContent>

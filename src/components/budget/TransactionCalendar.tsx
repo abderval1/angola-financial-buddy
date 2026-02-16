@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { format, isSameDay } from "date-fns";
-import { pt } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import {
     Popover,
@@ -9,6 +8,16 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { useTranslation } from "react-i18next";
+import { enUS, fr, es, pt } from "date-fns/locale";
+
+const localeMap: Record<string, any> = {
+    en: enUS,
+    fr: fr,
+    es: es,
+    pt: pt,
+};
 
 interface Transaction {
     id: string;
@@ -31,16 +40,11 @@ interface TransactionCalendarProps {
     categories: Category[];
 }
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-AO", {
-        style: "currency",
-        currency: "AOA",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    }).format(value);
-};
 
 export function TransactionCalendar({ transactions, categories }: TransactionCalendarProps) {
+    const { t, i18n } = useTranslation();
+    const { formatPrice } = useCurrency();
+    const currentLocale = localeMap[i18n.language] || pt;
     const [date, setDate] = useState<Date | undefined>(new Date());
 
     const getDayTransactions = (day: Date) => {
@@ -48,9 +52,9 @@ export function TransactionCalendar({ transactions, categories }: TransactionCal
     };
 
     const getCategoryName = (categoryId: string | null) => {
-        if (!categoryId) return "Sem categoria";
+        if (!categoryId) return t("Sem categoria");
         const category = categories.find(c => c.id === categoryId);
-        return category ? category.name : "Desconhecido";
+        return category ? category.name : t("Desconhecido");
     };
 
     // Custom day renderer to show indicators
@@ -71,7 +75,7 @@ export function TransactionCalendar({ transactions, categories }: TransactionCal
                     mode="single"
                     selected={date}
                     onSelect={setDate}
-                    locale={pt}
+                    locale={currentLocale}
                     className="rounded-md border"
                     modifiers={modifiers}
                     modifiersStyles={modifiersStyles}
@@ -97,7 +101,7 @@ export function TransactionCalendar({ transactions, categories }: TransactionCal
 
             <div className="flex-1 bg-card rounded-md border p-4">
                 <h3 className="text-lg font-semibold mb-4">
-                    {date ? format(date, "d 'de' MMMM 'de' yyyy", { locale: pt }) : "Selecione uma data"}
+                    {date ? format(date, "d 'de' MMMM 'de' yyyy", { locale: currentLocale }) : t("Selecione uma data")}
                 </h3>
 
                 {date ? (
@@ -106,26 +110,26 @@ export function TransactionCalendar({ transactions, categories }: TransactionCal
                             getDayTransactions(date).map(transaction => (
                                 <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
                                     <div className="flex flex-col gap-1">
-                                        <span className="font-medium">{transaction.description || "Sem descrição"}</span>
+                                        <span className="font-medium">{transaction.description || t("Sem descrição")}</span>
                                         <Badge variant="secondary" className="w-fit text-xs">
                                             {getCategoryName(transaction.category_id)}
                                         </Badge>
                                     </div>
                                     <span className={`font-bold flex items-center gap-1 ${transaction.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
                                         {transaction.type === 'income' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                                        {formatCurrency(transaction.amount)}
+                                        {formatPrice(transaction.amount)}
                                     </span>
                                 </div>
                             ))
                         ) : (
                             <div className="text-center text-muted-foreground py-8">
-                                Nenhuma transação neste dia.
+                                {t("Nenhuma transação neste dia.")}
                             </div>
                         )}
                     </div>
                 ) : (
                     <div className="text-center text-muted-foreground py-8">
-                        Selecione um dia no calendário para ver as transações.
+                        {t("Selecione um dia no calendário para ver as transações.")}
                     </div>
                 )}
             </div>

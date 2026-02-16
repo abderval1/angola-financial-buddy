@@ -8,6 +8,9 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PresenceTracker } from "@/components/layout/PresenceTracker";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { I18nextProvider } from "react-i18next";
+import i18n from "./i18n";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -33,6 +36,7 @@ import Plans from "./pages/Plans";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import NotFound from "./pages/NotFound";
+import Blog from "./pages/Blog";
 
 const queryClient = new QueryClient();
 
@@ -41,40 +45,46 @@ const App = () => (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light" attribute="class">
         <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <PresenceTracker />
-              <Routes>
-                <Route path="/" element={<Landing />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                <Route path="/budget" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
-                <Route path="/savings" element={<ProtectedRoute><Savings /></ProtectedRoute>} />
-                <Route path="/debts" element={<ProtectedRoute><Debts /></ProtectedRoute>} />
-                <Route path="/investments" element={<ProtectedRoute><Investments /></ProtectedRoute>} />
-                <Route path="/goals" element={<ProtectedRoute><Goals /></ProtectedRoute>} />
-                <Route path="/education" element={<ProtectedRoute><Education /></ProtectedRoute>} />
-                <Route path="/income" element={<ProtectedRoute><Income /></ProtectedRoute>} />
-                <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-                <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
-                <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
-                <Route path="/news" element={<ProtectedRoute><News /></ProtectedRoute>} />
-                <Route path="/calculators" element={<ProtectedRoute><Calculators /></ProtectedRoute>} />
-                <Route path="/prices" element={<ProtectedRoute><Prices /></ProtectedRoute>} />
-                <Route path="/monetization" element={<ProtectedRoute><Monetization /></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-                <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
-                <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-                <Route path="/plans" element={<ProtectedRoute><Plans /></ProtectedRoute>} />
-                <Route path="/privacy" element={<PrivacyPolicy />} />
-                <Route path="/terms" element={<TermsOfService />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
+          <CurrencyProvider>
+            <I18nextProvider i18n={i18n}>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <PresenceTracker />
+                  <Routes>
+                    <Route path="/" element={<Landing />} />
+                    <Route path="/auth" element={<Auth />} />
+                    <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                    <Route path="/budget" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
+                    <Route path="/savings" element={<ProtectedRoute><Savings /></ProtectedRoute>} />
+                    <Route path="/debts" element={<ProtectedRoute><Debts /></ProtectedRoute>} />
+                    <Route path="/investments" element={<ProtectedRoute><Investments /></ProtectedRoute>} />
+                    <Route path="/goals" element={<ProtectedRoute><Goals /></ProtectedRoute>} />
+                    <Route path="/education" element={<ProtectedRoute><Education /></ProtectedRoute>} />
+                    <Route path="/income" element={<ProtectedRoute><Income /></ProtectedRoute>} />
+                    <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+                    <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
+                    <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
+                    <Route path="/blog" element={<ProtectedRoute><Blog /></ProtectedRoute>} />
+                    <Route path="/blog/comments" element={<ProtectedRoute><Blog /></ProtectedRoute>} />
+                    <Route path="/news" element={<ProtectedRoute><News /></ProtectedRoute>} />
+                    <Route path="/calculators" element={<ProtectedRoute><Calculators /></ProtectedRoute>} />
+                    <Route path="/prices" element={<ProtectedRoute><Prices /></ProtectedRoute>} />
+                    <Route path="/monetization" element={<ProtectedRoute><Monetization /></ProtectedRoute>} />
+                    <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                    <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+                    <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
+                    <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+                    <Route path="/plans" element={<ProtectedRoute><Plans /></ProtectedRoute>} />
+                    <Route path="/privacy" element={<PrivacyPolicy />} />
+                    <Route path="/terms" element={<TermsOfService />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </BrowserRouter>
+              </TooltipProvider>
+            </I18nextProvider>
+          </CurrencyProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

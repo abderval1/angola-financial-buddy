@@ -20,8 +20,10 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { CheckCircle, XCircle, Eye, FileText, ShoppingBag, Download, Search, ExternalLink, GraduationCap } from "lucide-react";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 export function AdminSalesManager() {
+    const { formatPrice } = useCurrency();
     const queryClient = useQueryClient();
     const [viewingReceipt, setViewingReceipt] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "completed" | "rejected">("pending");
@@ -197,12 +199,6 @@ export function AdminSalesManager() {
         },
     });
 
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat("pt-AO", {
-            style: "currency",
-            currency: "AOA",
-        }).format(value);
-    };
 
     const getPublicUrl = (path: string) => {
         // If already a full URL, return it directly
@@ -343,7 +339,7 @@ export function AdminSalesManager() {
                                         <span className="font-medium">{purchase.marketplace_products?.title || "N/A"}</span>
                                     </TableCell>
                                     <TableCell>
-                                        {formatCurrency(purchase.purchase_price)}
+                                        {formatPrice(purchase.purchase_price)}
                                     </TableCell>
                                     <TableCell>
                                         {getStatusBadge(purchase.status)}

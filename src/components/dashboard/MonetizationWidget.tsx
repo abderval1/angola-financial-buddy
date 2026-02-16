@@ -7,9 +7,11 @@ import { Progress } from "@/components/ui/progress";
 import { Wallet, Users, Gift, Copy, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export function MonetizationWidget() {
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   // Fetch referral code
   const { data: referralCode } = useQuery({
@@ -20,9 +22,9 @@ export function MonetizationWidget() {
         .select("*")
         .eq("user_id", user?.id)
         .maybeSingle();
-      
+
       if (error) throw error;
-      
+
       if (!data) {
         await supabase.rpc("ensure_user_referral_code", { p_user_id: user?.id });
         const { data: newCode } = await supabase
@@ -32,7 +34,7 @@ export function MonetizationWidget() {
           .single();
         return newCode;
       }
-      
+
       return data;
     },
     enabled: !!user?.id,
@@ -64,7 +66,7 @@ export function MonetizationWidget() {
   const copyCode = () => {
     if (referralCode?.code) {
       navigator.clipboard.writeText(`${window.location.origin}/auth?ref=${referralCode.code}`);
-      toast.success("Link copiado!");
+      toast.success(t("Link copiado!"));
     }
   };
 
@@ -81,13 +83,13 @@ export function MonetizationWidget() {
               <Gift className="h-5 w-5 text-accent" />
             </div>
             <div>
-              <CardTitle className="text-lg">Monetização</CardTitle>
-              <CardDescription>Ganhe indicando amigos</CardDescription>
+              <CardTitle className="text-lg">{t("Monetização")}</CardTitle>
+              <CardDescription>{t("Ganhe indicando amigos")}</CardDescription>
             </div>
           </div>
           <Link to="/monetization">
             <Button variant="ghost" size="sm">
-              Ver Tudo
+              {t("Ver Tudo")}
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </Link>
@@ -98,24 +100,24 @@ export function MonetizationWidget() {
           <div className="text-center p-3 bg-primary/10 rounded-lg">
             <Wallet className="h-5 w-5 mx-auto mb-1 text-primary" />
             <p className="text-lg font-bold">{availableBalance.toLocaleString()} Kz</p>
-            <p className="text-xs text-muted-foreground">Disponível</p>
+            <p className="text-xs text-muted-foreground">{t("Disponível")}</p>
           </div>
           <div className="text-center p-3 bg-success/10 rounded-lg">
             <Users className="h-5 w-5 mx-auto mb-1 text-success" />
             <p className="text-lg font-bold">{referralCode?.successful_referrals || 0}</p>
-            <p className="text-xs text-muted-foreground">Indicados Ativos</p>
+            <p className="text-xs text-muted-foreground">{t("Indicados Ativos")}</p>
           </div>
         </div>
 
         {availableBalance < minPayout && (
           <div>
             <div className="flex justify-between text-xs text-muted-foreground mb-1">
-              <span>Para levantamento</span>
+              <span>{t("Para levantamento")}</span>
               <span>{progress.toFixed(0)}%</span>
             </div>
             <Progress value={progress} className="h-2" />
             <p className="text-xs text-muted-foreground mt-1">
-              Faltam {(minPayout - availableBalance).toLocaleString()} Kz
+              {t("Faltam")} {(minPayout - availableBalance).toLocaleString()} Kz
             </p>
           </div>
         )}
@@ -123,7 +125,7 @@ export function MonetizationWidget() {
         {referralCode?.code && (
           <div className="flex items-center gap-2 p-2 bg-background rounded-lg border">
             <div className="flex-1 text-center">
-              <p className="text-xs text-muted-foreground">Seu código</p>
+              <p className="text-xs text-muted-foreground">{t("Seu código")}</p>
               <p className="font-mono font-bold text-primary">{referralCode.code}</p>
             </div>
             <Button variant="outline" size="icon" className="shrink-0" onClick={copyCode}>

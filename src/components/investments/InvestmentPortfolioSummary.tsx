@@ -1,13 +1,15 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Wallet, 
-  TrendingUp, 
-  TrendingDown, 
-  Shield, 
+import {
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  Shield,
   Calendar,
   Sparkles
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface PortfolioSummaryProps {
   totalInvested: number;
@@ -26,14 +28,17 @@ export function InvestmentPortfolioSummary({
   monthlyReturn,
   riskProfile,
 }: PortfolioSummaryProps) {
+  const { t } = useTranslation();
+  const { formatPrice } = useCurrency();
+
   const getRiskLabel = () => {
     switch (riskProfile) {
       case "conservative":
-        return { label: "Conservador", color: "bg-success/10 text-success border-success/20", icon: "🛡️" };
+        return { label: t("Conservador"), color: "bg-success/10 text-success border-success/20", icon: "🛡️" };
       case "moderate":
-        return { label: "Moderado", color: "bg-amber-500/10 text-amber-600 border-amber-500/20", icon: "⚖️" };
+        return { label: t("Moderado"), color: "bg-amber-500/10 text-amber-600 border-amber-500/20", icon: "⚖️" };
       case "aggressive":
-        return { label: "Arrojado", color: "bg-destructive/10 text-destructive border-destructive/20", icon: "🚀" };
+        return { label: t("Arrojado"), color: "bg-destructive/10 text-destructive border-destructive/20", icon: "🚀" };
     }
   };
 
@@ -49,8 +54,8 @@ export function InvestmentPortfolioSummary({
                 <Wallet className="h-6 w-6 text-primary-foreground" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-foreground">Minha Carteira</h2>
-                <p className="text-sm text-muted-foreground">Visão geral dos seus investimentos</p>
+                <h2 className="text-lg font-bold text-foreground">{t("Minha Carteira")}</h2>
+                <p className="text-sm text-muted-foreground">{t("Visão geral dos seus investimentos")}</p>
               </div>
             </div>
             <Badge variant="outline" className={`${risk.color} text-sm px-3 py-1`}>
@@ -67,10 +72,10 @@ export function InvestmentPortfolioSummary({
               <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Wallet className="h-4 w-4 text-primary" />
               </div>
-              <span className="text-xs text-muted-foreground font-medium">Total Investido</span>
+              <span className="text-xs text-muted-foreground font-medium">{t("Total Investido")}</span>
             </div>
             <p className="text-xl lg:text-2xl font-bold text-foreground">
-              {totalInvested.toLocaleString('pt-AO')} <span className="text-sm font-normal text-muted-foreground">Kz</span>
+              {formatPrice(totalInvested)}
             </p>
           </div>
 
@@ -84,11 +89,11 @@ export function InvestmentPortfolioSummary({
                   <TrendingDown className="h-4 w-4 text-destructive" />
                 )}
               </div>
-              <span className="text-xs text-muted-foreground font-medium">Rendimento Total</span>
+              <span className="text-xs text-muted-foreground font-medium">{t("Rendimento Total")}</span>
             </div>
             <div className="flex items-baseline gap-2">
               <p className={`text-xl lg:text-2xl font-bold ${totalReturn >= 0 ? 'text-success' : 'text-destructive'}`}>
-                {totalReturn >= 0 ? '+' : ''}{totalReturn.toLocaleString('pt-AO')} <span className="text-sm font-normal">Kz</span>
+                {totalReturn >= 0 ? '+' : ''}{formatPrice(totalReturn)}
               </p>
             </div>
             <p className={`text-sm ${totalReturn >= 0 ? 'text-success' : 'text-destructive'}`}>
@@ -102,10 +107,10 @@ export function InvestmentPortfolioSummary({
               <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${monthlyReturn >= 0 ? 'bg-success/10' : 'bg-destructive/10'}`}>
                 <Calendar className="h-4 w-4 text-primary" />
               </div>
-              <span className="text-xs text-muted-foreground font-medium">Este Mês</span>
+              <span className="text-xs text-muted-foreground font-medium">{t("Este Mês")}</span>
             </div>
             <p className={`text-xl lg:text-2xl font-bold ${monthlyReturn >= 0 ? 'text-success' : 'text-destructive'}`}>
-              {monthlyReturn >= 0 ? '+' : ''}{monthlyReturn.toLocaleString('pt-AO')} <span className="text-sm font-normal">Kz</span>
+              {monthlyReturn >= 0 ? '+' : ''}{formatPrice(monthlyReturn)}
             </p>
           </div>
 
@@ -115,10 +120,10 @@ export function InvestmentPortfolioSummary({
               <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center">
                 <Sparkles className="h-4 w-4 text-accent" />
               </div>
-              <span className="text-xs text-muted-foreground font-medium">Valor Atual</span>
+              <span className="text-xs text-muted-foreground font-medium">{t("Valor Atual")}</span>
             </div>
             <p className="text-xl lg:text-2xl font-bold text-foreground">
-              {totalCurrentValue.toLocaleString('pt-AO')} <span className="text-sm font-normal text-muted-foreground">Kz</span>
+              {formatPrice(totalCurrentValue)}
             </p>
           </div>
         </div>

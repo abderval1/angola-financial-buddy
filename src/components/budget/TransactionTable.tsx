@@ -1,5 +1,4 @@
 import { format } from "date-fns";
-import { pt } from "date-fns/locale";
 import { Edit2, Trash2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import {
     Table,
@@ -11,6 +10,16 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { enUS, fr, es, pt } from "date-fns/locale";
+
+const localeMap: Record<string, any> = {
+    en: enUS,
+    fr: fr,
+    es: es,
+    pt: pt,
+};
 
 interface Transaction {
     id: string;
@@ -35,20 +44,15 @@ interface TransactionTableProps {
     onDelete: (id: string) => void;
 }
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-AO", {
-        style: "currency",
-        currency: "AOA",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    }).format(value);
-};
 
 export function TransactionTable({ transactions, categories, onEdit, onDelete }: TransactionTableProps) {
+    const { t, i18n } = useTranslation();
+    const { formatPrice } = useCurrency();
+    const currentLocale = localeMap[i18n.language] || pt;
     const getCategoryName = (categoryId: string | null) => {
-        if (!categoryId) return "Sem categoria";
+        if (!categoryId) return t("Sem categoria");
         const category = categories.find(c => c.id === categoryId);
-        return category ? category.name : "Desconhecido";
+        return category ? category.name : t("Desconhecido");
     };
 
     return (
@@ -56,28 +60,28 @@ export function TransactionTable({ transactions, categories, onEdit, onDelete }:
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Descrição</TableHead>
-                        <TableHead>Categoria</TableHead>
-                        <TableHead className="text-right">Valor</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
+                        <TableHead>{t("Data")}</TableHead>
+                        <TableHead>{t("Descrição")}</TableHead>
+                        <TableHead>{t("Categoria")}</TableHead>
+                        <TableHead className="text-right">{t("Valor")}</TableHead>
+                        <TableHead className="text-right">{t("Ações")}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {transactions.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={5} className="h-24 text-center">
-                                Nenhuma transação encontrada.
+                                {t("Nenhuma transação encontrada")}
                             </TableCell>
                         </TableRow>
                     ) : (
                         transactions.map((transaction) => (
                             <TableRow key={transaction.id}>
                                 <TableCell>
-                                    {format(new Date(transaction.date), "dd/MM/yyyy", { locale: pt })}
+                                    {format(new Date(transaction.date), "dd/MM/yyyy", { locale: currentLocale })}
                                 </TableCell>
                                 <TableCell className="font-medium">
-                                    {transaction.description || "Sem descrição"}
+                                    {transaction.description || t("Sem descrição")}
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant="outline" className="font-normal">
@@ -87,7 +91,7 @@ export function TransactionTable({ transactions, categories, onEdit, onDelete }:
                                 <TableCell className="text-right">
                                     <span className={`font-bold flex items-center justify-end gap-1 ${transaction.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
                                         {transaction.type === 'income' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                                        {formatCurrency(transaction.amount)}
+                                        {formatPrice(transaction.amount)}
                                     </span>
                                 </TableCell>
                                 <TableCell className="text-right">

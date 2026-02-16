@@ -14,6 +14,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "react-i18next";
 
 // Duplicated maps for self-containment (consider moving to constants file)
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -48,6 +49,7 @@ interface CategoryManagerProps {
 }
 
 export function CategoryManager({ open, onOpenChange, categories, onUpdate }: CategoryManagerProps) {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState("expense");
     const [newCategoryName, setNewCategoryName] = useState("");
@@ -58,7 +60,7 @@ export function CategoryManager({ open, onOpenChange, categories, onUpdate }: Ca
 
     const handleAddCategory = async () => {
         if (!newCategoryName.trim()) {
-            toast.error("Nome da categoria é obrigatório");
+            toast.error(t("Nome da categoria é obrigatório"));
             return;
         }
 
@@ -77,12 +79,12 @@ export function CategoryManager({ open, onOpenChange, categories, onUpdate }: Ca
 
             if (error) throw error;
 
-            toast.success("Categoria adicionada!");
+            toast.success(t("Categoria adicionada!"));
             setNewCategoryName("");
             setNewCategoryColor("gray");
             onUpdate();
         } catch (error: any) {
-            toast.error("Erro ao adicionar categoria: " + error.message);
+            toast.error(t("Erro ao criar categoria") + ": " + error.message);
         } finally {
             setLoading(false);
         }
@@ -99,10 +101,10 @@ export function CategoryManager({ open, onOpenChange, categories, onUpdate }: Ca
 
             if (error) throw error;
 
-            toast.success("Categoria removida!");
+            toast.success(t("Categoria removida!", { defaultValue: "Categoria removida!" }));
             onUpdate();
         } catch (error: any) {
-            toast.error("Erro ao remover categoria: " + error.message);
+            toast.error(t("Erro ao excluir categoria") + ": " + error.message);
         } finally {
             setLoading(false);
         }
@@ -112,31 +114,31 @@ export function CategoryManager({ open, onOpenChange, categories, onUpdate }: Ca
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Gerir Categorias</DialogTitle>
+                    <DialogTitle>{t("Gerir Categorias")}</DialogTitle>
                     <DialogDescription>
-                        Adicione ou remova categorias para suas transações.
+                        {t("Adicione ou remova categorias para suas transações.")}
                     </DialogDescription>
                 </DialogHeader>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="income">Receitas</TabsTrigger>
-                        <TabsTrigger value="expense">Despesas</TabsTrigger>
+                        <TabsTrigger value="income">{t("Receitas")}</TabsTrigger>
+                        <TabsTrigger value="expense">{t("Despesas")}</TabsTrigger>
                     </TabsList>
 
                     <div className="py-4 space-y-4">
                         {/* Add New Form */}
                         <div className="flex gap-2 items-end">
                             <div className="flex-1 space-y-2">
-                                <Label>Nova Categoria</Label>
+                                <Label>{t("Nova Categoria")}</Label>
                                 <Input
-                                    placeholder="Nome..."
+                                    placeholder={t("Nome da categoria")}
                                     value={newCategoryName}
                                     onChange={(e) => setNewCategoryName(e.target.value)}
                                 />
                             </div>
                             <div className="w-[120px] space-y-2">
-                                <Label>Cor</Label>
+                                <Label>{t("Cor")}</Label>
                                 <Select value={newCategoryColor} onValueChange={setNewCategoryColor}>
                                     <SelectTrigger>
                                         <SelectValue />
@@ -160,11 +162,11 @@ export function CategoryManager({ open, onOpenChange, categories, onUpdate }: Ca
 
                         {/* List */}
                         <div className="space-y-2">
-                            <Label>Categorias Existentes</Label>
+                            <Label>{t("Categorias Existentes", { defaultValue: "Categorias Existentes" })}</Label>
                             <ScrollArea className="h-[200px] rounded-md border p-2">
                                 {filteredCategories.length === 0 ? (
                                     <div className="text-center text-muted-foreground py-8 text-sm">
-                                        Nenhuma categoria encontrada.
+                                        {t("Nenhuma categoria encontrada.")}
                                     </div>
                                 ) : (
                                     <div className="space-y-2">

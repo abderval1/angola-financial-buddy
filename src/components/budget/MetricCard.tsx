@@ -1,6 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface MetricCardProps {
     title: string;
@@ -21,8 +22,10 @@ export function MetricCard({
     type = "neutral",
     icon: Icon,
     valueClassName,
-    trendLabel = "vs mês anterior"
+    trendLabel
 }: MetricCardProps) {
+    const { t } = useTranslation();
+    const defaultTrendLabel = trendLabel || t("vs mês anterior");
     const hasPrevious = previousValue !== undefined && previousValue !== null;
     const diff = hasPrevious ? value - previousValue : 0;
 
@@ -34,17 +37,17 @@ export function MetricCard({
     if (hasPrevious) {
         if (previousValue === 0) {
             if (value > 0) {
-                smartLabel = "Novo crescimento";
+                smartLabel = t("Novo crescimento");
                 isSmartLabel = true;
             } else if (value < 0) {
-                smartLabel = "Novo registo (negativo)";
+                smartLabel = t("Novo registo (negativo)");
                 isSmartLabel = true;
             } else {
-                smartLabel = "Sem variação";
+                smartLabel = t("Sem variação");
                 isSmartLabel = true;
             }
         } else if ((previousValue < 0 && value > 0) || (previousValue > 0 && value < 0)) {
-            smartLabel = value > 0 ? "Recuperação" : "Reversão";
+            smartLabel = value > 0 ? t("Recuperação") : t("Reversão");
             isSmartLabel = true;
         } else {
             percentage = (diff / previousValue) * 100;
@@ -87,10 +90,10 @@ export function MetricCard({
                                 <span className={`font-medium ${trendColor}`}>
                                     {displayPercentage}
                                 </span>
-                                <span className="ml-1">{trendLabel}</span>
+                                <span className="ml-1">{defaultTrendLabel}</span>
                             </>
                         ) : (
-                            <span>Sem variação</span>
+                            <span>{t("Sem variação")}</span>
                         )
                     ) : (
                         <span>&nbsp;</span>

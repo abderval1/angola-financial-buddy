@@ -458,12 +458,12 @@ export default function Community() {
     <AppLayout title="Comunidade" subtitle="Conecte-se com outros angolanos na jornada financeira">
       <ModuleGuard
         moduleKey="basic"
-        title="Comunidade Kudila Finance"
+        title="Comunidade Angola Finance"
         description="Participe em discussões, entre em desafios exclusivos e aprenda com a experiência de outros investidores."
       >
         <div className="space-y-6">
           {/* User Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <Card className="bg-gradient-to-br from-amber-500/10 to-orange-500/5 border-amber-500/20">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">

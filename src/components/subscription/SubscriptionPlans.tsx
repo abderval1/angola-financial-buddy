@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Check, Crown, Upload, Loader2, BookOpen, Zap, Star } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface Plan {
   id: string;
@@ -27,6 +29,8 @@ interface SubscriptionPlansProps {
 
 export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
   const { user } = useAuth();
+  const { t } = useTranslation();
+  const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -232,7 +236,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground">
-                    Plano {currentSubscription.subscription_plans?.name || "Atual"}
+                    Plano {currentSubscription.subscription_plans?.name || t("Atual", "Atual")}
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     Status: {" "}
@@ -240,9 +244,9 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                       variant={currentSubscription.status === "active" ? "default" : "secondary"}
                       className={currentSubscription.status === "active" ? "bg-success" : ""}
                     >
-                      {currentSubscription.status === "active" ? ((currentSubscription as any).is_trial ? "Período de Teste" : "Ativo") :
-                        currentSubscription.status === "pending" ? "Pendente" :
-                          currentSubscription.status === "expired" ? "Expirado" : "Cancelado"}
+                      {currentSubscription.status === "active" ? ((currentSubscription as any).is_trial ? t("Período de Teste", "Período de Teste") : t("Ativo", "Ativo")) :
+                        currentSubscription.status === "pending" ? t("Pendente", "Pendente") :
+                          currentSubscription.status === "expired" ? t("Expirado", "Expirado") : t("Cancelado", "Cancelado")}
                     </Badge>
                   </p>
                 </div>
@@ -294,7 +298,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                 )}
                 <div>
                   <span className="text-4xl font-bold text-foreground">
-                    {new Intl.NumberFormat("pt-AO").format(plan.price)}
+                    {formatPrice(plan.price)}
                   </span>
                   <span className="text-muted-foreground ml-1">Kz/mês</span>
                 </div>
@@ -360,7 +364,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
               <div className="p-4 bg-muted rounded-lg text-center">
                 <p className="text-sm text-muted-foreground mb-1">Valor a pagar:</p>
                 <p className="text-2xl font-bold text-foreground">
-                  {selectedPlan && new Intl.NumberFormat("pt-AO", { style: "currency", currency: "AOA" }).format(selectedPlan.price)}
+                  {selectedPlan && formatPrice(selectedPlan.price)}
                 </p>
               </div>
             )}

@@ -212,10 +212,10 @@ export default function Monetization() {
 
   const shareReferralLink = () => {
     const link = `${window.location.origin}/auth?ref=${referralCode?.code}`;
-    const text = `Junte-se a mim no Kudila Finance e ganhe ${settings.referral_signup_bonus?.referred || 250} Kz de bónus! Use o meu código: ${referralCode?.code}`;
+    const text = `Junte-se a mim no Angola Finance e ganhe ${settings.referral_signup_bonus?.referred || 250} Kz de bónus! Use o meu código: ${referralCode?.code}`;
 
     if (navigator.share) {
-      navigator.share({ title: "Kudila Finance - Finanças Pessoais", text, url: link });
+      navigator.share({ title: "Angola Finance - Finanças Pessoais", text, url: link });
     } else {
       navigator.clipboard.writeText(`${text}\n${link}`);
       toast.success("Texto e link copiados!");
@@ -284,7 +284,7 @@ export default function Monetization() {
           </div>
 
           {/* Balance Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2">
             <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">

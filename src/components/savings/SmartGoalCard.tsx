@@ -6,7 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Edit2, Trash2, History, Pause, Play, AlertTriangle, TrendingUp, CheckCircle2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { differenceInMonths, addMonths, format } from "date-fns";
-import { pt } from "date-fns/locale";
+import { ptBR, enUS, fr, es } from "date-fns/locale";
+import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
+
+const localeMap: Record<string, any> = {
+    en: enUS,
+    fr: fr,
+    es: es,
+    pt: ptBR,
+};
 
 interface SavingsGoal {
     id: string;
@@ -42,6 +51,10 @@ export function SmartGoalCard({
     onHistory,
     onToggleStatus
 }: SmartGoalCardProps) {
+    const { t, i18n } = useTranslation();
+    const { formatPrice } = useCurrency();
+    const currentLocale = localeMap[i18n.language] || ptBR;
+
     // 1. Calculate Progress
     const saved = goal.saved_amount || 0;
     const target = goal.target_amount;
@@ -65,9 +78,14 @@ export function SmartGoalCard({
             const years = Math.floor(monthsToCompletion / 12);
             const months = monthsToCompletion % 12;
 
-            if (years > 0) timeRemaining = `${years} ano${years > 1 ? 's' : ''}`;
-            if (months > 0) timeRemaining += `${years > 0 ? ' e ' : ''}${months} m${months !== 1 ? 'eses' : 'ês'}`;
-            if (monthsToCompletion === 0) timeRemaining = "Este mês";
+            if (years > 0) {
+                timeRemaining = `${years} ${t('ano', { count: years })}`;
+            }
+            if (months > 0) {
+                const mesString = t('mes', { count: months });
+                timeRemaining += `${years > 0 ? ` ${t('e')} ` : ''}${months} ${mesString}`;
+            }
+            if (monthsToCompletion === 0) timeRemaining = t("Este mês");
         }
 
         // Probability Logic
@@ -142,18 +160,18 @@ export function SmartGoalCard({
                 {/* Progress & Projection */}
                 <div className="space-y-3">
                     <div className="flex justify-between text-xs mb-1">
-                        <span className="text-muted-foreground">Progresso</span>
+                        <span className="text-muted-foreground">{t("Progresso")}</span>
                         <span className="font-bold">{progress.toFixed(0)}%</span>
                     </div>
                     <Progress value={progress} className={cn("h-2", isCompleted && "bg-emerald-100 dark:bg-emerald-950/30")} />
 
                     <div className="flex justify-between items-end pt-1">
                         <div>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Acumulado</p>
-                            <p className="text-lg font-bold font-display">Kz {saved.toLocaleString()}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("Acumulado")}</p>
+                            <p className="text-lg font-bold font-display">{formatPrice(saved)}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] text-muted-foreground mb-0.5">Meta: Kz {target.toLocaleString()}</p>
+                            <p className="text-[10px] text-muted-foreground mb-0.5">{t("Meta Total")}: {formatPrice(target)}</p>
                             {!isCompleted && metrics.timeRemaining && (
                                 <div className="flex flex-col items-end">
                                     <div className="flex items-center text-xs text-primary font-medium">
@@ -162,7 +180,7 @@ export function SmartGoalCard({
                                     </div>
                                     {metrics.projectedDate && (
                                         <span className="text-[10px] text-muted-foreground">
-                                            Prev: {format(metrics.projectedDate, 'MMM yyyy', { locale: pt })}
+                                            {t("Previsão")}: {format(metrics.projectedDate, 'MMM yyyy', { locale: currentLocale })}
                                         </span>
                                     )}
                                 </div>
@@ -174,10 +192,10 @@ export function SmartGoalCard({
                 {/* Footer Actions - Compact */}
                 <div className="grid grid-cols-4 gap-2 mt-4">
                     <Button className="col-span-2 gradient-savings h-8 text-xs font-medium" onClick={() => onDeposit(goal)}>
-                        Poupar
+                        {t("Reforçar Poupança")}
                     </Button>
                     <Button variant="outline" className="col-span-1 h-8 text-xs border-destructive/20 text-destructive hover:bg-destructive/10 px-0" onClick={() => onWithdraw(goal)}>
-                        Retirar
+                        {t("Levantamento")}
                     </Button>
                     <Button variant="ghost" className="col-span-1 h-8 p-0" onClick={() => onHistory(goal)}>
                         <History className="h-4 w-4 text-muted-foreground" />

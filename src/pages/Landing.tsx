@@ -79,7 +79,7 @@ export default function Landing() {
                 <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">K</span>
               </div>
               <span className="font-display text-lg sm:text-xl font-bold">
-                <span className="text-primary">Kudila</span>
+                <span className="text-primary">Angola</span>
                 <span className="text-accent">Finance</span>
               </span>
             </Link>
@@ -209,7 +209,7 @@ export default function Landing() {
             <div className="order-2 lg:order-1">
               <h2 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-4 sm:mb-6">
                 Por que escolher o{" "}
-                <span className="text-primary">Kudila Finance</span>?
+                <span className="text-primary">Kudiza</span>?
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8">
                 Criado especialmente para a realidade financeira angolana, com ferramentas
@@ -492,7 +492,7 @@ export default function Landing() {
                 <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">K</span>
               </div>
               <span className="font-display text-lg sm:text-xl font-bold">
-                <span className="text-sidebar-primary">Kudila</span>
+                <span className="text-sidebar-primary">Angola</span>
                 <span className="text-sidebar-foreground">Finance</span>
               </span>
             </Link>
@@ -510,7 +510,7 @@ export default function Landing() {
             </div>
 
             <p className="text-xs sm:text-sm text-sidebar-foreground/50 text-center">
-              © 2024 Kudila Finance. Todos os direitos reservados.
+              © 2024 Kudiza. Todos os direitos reservados.
             </p>
           </div>
         </div>
