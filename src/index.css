@@ -4,6 +4,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global overflow fixes for large numbers */
+.truncate,
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Fix for large numbers in all cards - global */
+.stat-card .text-3xl,
+.stat-card .text-2xl,
+.card .text-3xl,
+.card .text-2xl,
+.stat-card .font-display,
+.card .font-display {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Fix for negative values - ensure proper spacing */
+.text-destructive {
+  padding-left: 1px;
+}
+
+/* Card overflow fix - global */
+.rounded-xl,
+.rounded-lg,
+.card-finance {
+  overflow: hidden;
+}
+
 /* Comprehensive Responsive Design for All Devices */
 
 /* Extra Small (Mobile < 640px) */
@@ -125,6 +157,45 @@
   [role="button"] {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* Fix for large numbers overflowing cards */
+  .text-3xl,
+  .text-2xl,
+  .text-xl,
+  .text-lg {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  /* Make number displays more flexible */
+  .font-display,
+  .font-bold,
+  .font-semibold {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  /* Fix for negative values - add proper spacing */
+  .text-destructive,
+  [class*="text-red"],
+  [class*="text-negative"] {
+    padding-left: 2px;
+  }
+
+  /* Card content overflow fix */
+  .card-content,
+  .card>div {
+    overflow: hidden;
+  }
+
+  /* Budget summary overflow */
+  .stat-card,
+  .summary-card {
+    overflow: hidden;
   }
 }
 
