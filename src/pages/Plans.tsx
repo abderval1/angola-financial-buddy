@@ -96,8 +96,20 @@ export default function Plans() {
     const purchaseMutation = useMutation({
         mutationFn: async ({ planId, proofUrl, isTrialAction }: { planId: string; proofUrl?: string, isTrialAction?: boolean }) => {
             const plan = plans.find((p: any) => p.id === planId);
-            const isFree = Number(plan?.price) === 0;
-            const isTrial = isTrialAction || isFree;
+
+            // If this is a trial action, verify user hasn't already used trial
+            if (isTrialAction) {
+                const { data: existingTrial } = await supabase
+                    .from("user_subscriptions")
+                    .select("id")
+                    .eq("user_id", user?.id)
+                    .eq("is_trial", true)
+                    .limit(1);
+
+                if (existingTrial && existingTrial.length > 0) {
+                    throw new Error("Você já utilizou o período de teste. Assine o plano para continuar.");
+                }
+            }
 
             const { error } = await supabase
                 .from("user_subscriptions")
@@ -105,23 +117,19 @@ export default function Plans() {
                     user_id: user?.id,
                     plan_id: planId,
                     payment_proof_url: proofUrl,
-                    status: isTrial ? "active" : "pending",
-                    is_trial: isTrial,
-                    expires_at: isTrial ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() : null
+                    status: isTrialAction ? "trial" : "pending",
+                    is_trial: isTrialAction ? true : false,
+                    expires_at: isTrialAction ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() : null
                 });
 
             if (error) throw error;
         },
         onSuccess: (_data, variables) => {
-            const plan = plans.find((p: any) => p.id === selectedPlan?.id);
-            const isFree = Number(plan?.price) === 0;
-            const isTrial = variables.isTrialAction || isFree;
-
             queryClient.invalidateQueries({ queryKey: ["my-subscriptions"] });
             queryClient.invalidateQueries({ queryKey: ["module-access"] });
+            queryClient.invalidateQueries({ queryKey: ["user-has-had-trial"] });
 
-
-            if (isTrial) {
+            if (variables.isTrialAction) {
                 toast.success("Módulo activado com sucesso! Aproveite o seu teste de 3 dias.");
             } else {
                 toast.success("Pedido de ativação enviado! Aguarde a aprovação do administrador.");
@@ -166,7 +174,7 @@ export default function Plans() {
 
     const hasActiveModule = (planName: string) => {
         return userSubscriptions.some(
-            (sub: any) => sub.subscription_plans?.name === planName && sub.status === "active"
+            (sub: any) => sub.subscription_plans?.name === planName && (sub.status === "active" || sub.status === "trial")
         );
     };
 
@@ -323,8 +331,8 @@ export default function Plans() {
                                             </p>
                                         </div>
                                     </div>
-                                    <Badge variant={sub.status === 'active' ? 'default' : sub.status === 'pending' ? 'secondary' : 'destructive'}>
-                                        {sub.status === 'active' ? 'Ativo' : sub.status === 'pending' ? 'Pendente' : 'Inativo'}
+                                    <Badge variant={sub.status === 'active' || sub.status === 'trial' ? 'default' : sub.status === 'pending' ? 'secondary' : 'destructive'}>
+                                        {sub.status === 'trial' ? 'Teste (3 dias)' : sub.status === 'active' ? 'Ativo' : sub.status === 'pending' ? 'Pendente' : 'Inativo'}
                                     </Badge>
                                 </div>
                             ))}
@@ -389,7 +397,7 @@ export default function Plans() {
                         <DialogFooter className="flex-col sm:flex-row gap-2">
                             <Button variant="outline" onClick={() => setPurchaseDialogOpen(false)}>Cancelar</Button>
 
-                            {Number(selectedPlan?.price) !== 0 && (selectedPlan?.name === 'Básico' || selectedPlan?.name === 'Gratuito') && (
+                            {!hasHadTrial && (selectedPlan?.name === 'Básico' || selectedPlan?.name === 'Gratuito') && (
                                 <Button
                                     variant="secondary"
                                     onClick={() => purchaseMutation.mutate({ planId: selectedPlan.id, isTrialAction: true })}

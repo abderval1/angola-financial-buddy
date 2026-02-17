@@ -298,7 +298,7 @@ export default function Landing() {
                   "Orçamento & Despesas",
                   "Poupança & Dívidas",
                   "Investimentos Básicos",
-                  "Comparador Kixikila",
+                  "Comparar Preços",
                   "Calculadoras & Renda Extra",
                   "Comunidade & Marketplace"
                 ].map((f, i) => (

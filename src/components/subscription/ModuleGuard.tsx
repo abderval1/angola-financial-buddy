@@ -59,14 +59,26 @@ export function ModuleGuard({ moduleKey, children, title, description }: ModuleG
         mutationFn: async () => {
             if (!user?.id || !basicPlan) throw new Error("Usuário ou plano não encontrado");
 
-            const trialDays = Number(basicPlan.trial_period_days) || 3;
+            // Double-check: verify user hasn't already used trial
+            const { data: existingTrial } = await supabase
+                .from("user_subscriptions")
+                .select("id")
+                .eq("user_id", user.id)
+                .eq("is_trial", true)
+                .limit(1);
+
+            if (existingTrial && existingTrial.length > 0) {
+                throw new Error("Você já utilizou o período de teste.");
+            }
+
+            const trialDays = Number((basicPlan as any).trial_period_days) || 3;
             const expirationDate = new Date();
             expirationDate.setDate(expirationDate.getDate() + trialDays);
 
             const { error } = await supabase.from("user_subscriptions").insert({
                 user_id: user.id,
                 plan_id: basicPlan.id,
-                status: "active",
+                status: "trial",
                 is_trial: true,
                 expires_at: expirationDate.toISOString(),
             });

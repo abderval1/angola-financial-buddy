@@ -52,7 +52,7 @@ export function useModuleAccess(moduleKey: ModuleKey) {
                     : sub.subscription_plans;
 
                 const userTier = plan?.tier_level ?? 0;
-                const isActive = sub.status === 'active' || sub.status === 'trialing';
+                const isActive = sub.status === 'active' || sub.status === 'trialing' || sub.status === 'trial';
 
                 if (isActive && userTier >= requiredTier) {
                     if (sub.expires_at) {

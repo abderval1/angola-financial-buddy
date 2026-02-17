@@ -551,7 +551,7 @@ export default function Prices() {
     >
       <ModuleGuard
         moduleKey="basic"
-        title="Comparador de Preços (Kixikila)"
+        title="Comparador de Preços"
         description="Economize nas suas compras do dia-a-dia comparando preços entre os principais supermercados e mercados de Luanda."
       >
         <div className="space-y-6">
