@@ -12,7 +12,7 @@ export default function TermsOfService() {
 
                 <div className="flex items-center gap-3 mb-8">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-accent">
-                        <span className="font-display text-xl font-bold text-accent-foreground">K</span>
+                        <span className="font-display text-xl font-bold text-accent-foreground">A</span>
                     </div>
                     <h1 className="text-3xl font-bold">Termos de Serviço</h1>
                 </div>

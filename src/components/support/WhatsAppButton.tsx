@@ -15,17 +15,22 @@ export function WhatsAppButton() {
                         href={whatsappUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="fixed bottom-6 right-6 z-50 transition-transform hover:scale-110 active:scale-95"
+                        className="fixed bottom-6 right-0 z-50 group"
                     >
-                        <Button
-                            size="icon"
-                            className="h-14 w-14 rounded-full bg-[#25D366] hover:bg-[#128C7E] shadow-lg border-2 border-white/20 animate-in fade-in zoom-in duration-300"
-                        >
-                            <MessageCircle className="h-8 w-8 text-white fill-white" />
-                            <span className="sr-only">Falar com Suporte no WhatsApp</span>
-                        </Button>
-                        {/* Pulsing effect ring */}
-                        <span className="absolute -inset-1 rounded-full bg-[#25D366] opacity-30 animate-ping pointer-events-none" />
+                        <div className="relative">
+                            {/* Hidden by default, peeks out on hover */}
+                            <div className="translate-x-[calc(100%-12px)] group-hover:translate-x-0 transition-transform duration-300 ease-out">
+                                <Button
+                                    size="icon"
+                                    className="h-14 w-14 rounded-full bg-[#25D366] hover:bg-[#128C7E] shadow-lg border-2 border-white/20"
+                                >
+                                    <MessageCircle className="h-8 w-8 text-white fill-white" />
+                                    <span className="sr-only">Falar com Suporte no WhatsApp</span>
+                                </Button>
+                                {/* Pulsing effect ring - only visible on hover */}
+                                <span className="absolute -inset-1 rounded-full bg-[#25D366] opacity-30 animate-ping pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                        </div>
                     </a>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="bg-[#25D366] text-white border-none mb-2">

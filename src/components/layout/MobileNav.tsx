@@ -142,7 +142,7 @@ export function MobileNav() {
           <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
             <Link to="/dashboard" className="flex items-center gap-3" onClick={() => setOpen(false)}>
               <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-accent">
-                <span className="font-display text-xl font-bold text-sidebar-primary-foreground">K</span>
+                <span className="font-display text-xl font-bold text-sidebar-primary-foreground">A</span>
               </div>
               <div className="flex flex-col">
                 <span className="font-display text-xl font-bold">
