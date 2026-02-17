@@ -70,14 +70,14 @@ export function MetricCard({
 
     return (
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+                <CardTitle className="text-xs sm:text-sm font-medium">
                     {title}
                 </CardTitle>
                 {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
             </CardHeader>
-            <CardContent>
-                <div className={`text-lg sm:text-2xl font-bold break-all ${valueClassName || ''}`}>{formatter(value)}</div>
+            <CardContent className="p-2 sm:p-4">
+                <div className={`text-xs sm:text-sm md:text-lg lg:text-2xl font-bold break-all ${valueClassName || ''}`}>{formatter(value)}</div>
                 <div className="flex items-center text-xs text-muted-foreground mt-1">
                     {hasPrevious ? (
                         isSmartLabel ? (

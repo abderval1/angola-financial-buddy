@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -131,6 +131,22 @@ export default function Budget() {
   });
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [showOnboardingGuide, setShowOnboardingGuide] = useState(false);
+
+  // Chart preferences - load from localStorage or use defaults
+  const [chartType, setChartType] = useState<'pie' | 'bar' | 'donut'>(
+    () => (localStorage.getItem('budget_chart_type') as 'pie' | 'bar' | 'donut') || 'pie'
+  );
+  const [chartValueMode, setChartValueMode] = useState<'value' | 'percentage'>(
+    () => (localStorage.getItem('budget_chart_value_mode') as 'value' | 'percentage') || 'value'
+  );
+
+  useEffect(() => {
+    localStorage.setItem('budget_chart_type', chartType);
+  }, [chartType]);
+
+  useEffect(() => {
+    localStorage.setItem('budget_chart_value_mode', chartValueMode);
+  }, [chartValueMode]);
 
   useEffect(() => {
     if (user) {
@@ -522,6 +538,24 @@ export default function Budget() {
 
   const expensesByCategory = filteredTransactionsByMode
     .filter(t => t.type === 'expense')
+    .reduce((acc, t) => {
+      const catInfo = getCategoryInfo(t.category_id);
+      const existing = acc.find(item => item.name === catInfo.name);
+      if (existing) {
+        existing.value += t.amount;
+      } else {
+        acc.push({
+          name: catInfo.name,
+          value: t.amount,
+          color: COLOR_MAP[catInfo.color] || COLOR_MAP.gray,
+        });
+      }
+      return acc;
+    }, [] as { name: string; value: number; color: string }[])
+    .sort((a, b) => b.value - a.value);
+
+  const incomeByCategory = filteredTransactionsByMode
+    .filter(t => t.type === 'income')
     .reduce((acc, t) => {
       const catInfo = getCategoryInfo(t.category_id);
       const existing = acc.find(item => item.name === catInfo.name);
@@ -936,6 +970,117 @@ export default function Budget() {
               </div>
             </div>
 
+            {/* Chart Type and Value Mode Selector */}
+            <div className="card-finance">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <h3 className="font-display text-lg font-semibold text-foreground">{t("Gráficos por Categoria")}</h3>
+                <div className="flex items-center gap-2">
+                  {/* Chart Type Selector */}
+                  <div className="flex items-center bg-secondary rounded-lg p-1">
+                    <button
+                      onClick={() => setChartType('pie')}
+                      className={`px-2 py-1 text-xs rounded-md transition-colors ${chartType === 'pie' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      title={t("Gráfico de Pizza")}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setChartType('donut')}
+                      className={`px-2 py-1 text-xs rounded-md transition-colors ${chartType === 'donut' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      title={t("Gráfico de Rosca")}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12a3 3 0 100-6 3 3 0 000 6z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setChartType('bar')}
+                      className={`px-2 py-1 text-xs rounded-md transition-colors ${chartType === 'bar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      title={t("Gráfico de Barras")}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </button>
+                  </div>
+                  {/* Value Mode Selector */}
+                  <div className="flex items-center bg-secondary rounded-lg p-1">
+                    <button
+                      onClick={() => setChartValueMode('value')}
+                      className={`px-2 py-1 text-xs rounded-md transition-colors ${chartValueMode === 'value' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      title={t("Valores")}
+                    >
+                      Kz
+                    </button>
+                    <button
+                      onClick={() => setChartValueMode('percentage')}
+                      className={`px-2 py-1 text-xs rounded-md transition-colors ${chartValueMode === 'percentage' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      title={t("Percentagem")}
+                    >
+                      %
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Income by Category */}
+            {incomeByCategory.length > 0 && (
+              <div className="card-finance">
+                <h3 className="font-display text-lg font-semibold text-foreground mb-4">{t("Receitas por Categoria")}</h3>
+                <div className="flex flex-col md:flex-row h-auto md:h-64 items-center gap-4">
+                  <div className="w-full md:w-1/2 h-64 md:h-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      {chartType === 'bar' ? (
+                        <BarChart data={incomeByCategory} layout="vertical">
+                          <XAxis type="number" axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => chartValueMode === 'percentage' ? `${v}%` : `${v / 1000}k`} />
+                          <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} className="text-xs" width={80} />
+                          <Tooltip formatter={(v: number) => chartValueMode === 'percentage' ? `${v.toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
+                          <Bar dataKey="value" fill="hsl(160 84% 39%)" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      ) : (
+                        <PieChart>
+                          <Pie
+                            data={incomeByCategory}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={chartType === 'donut' ? 60 : 0}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {incomeByCategory.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(v: number) => chartValueMode === 'percentage' ? `${((v / totalIncome) * 100).toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
+                        </PieChart>
+                      )}
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="w-full md:w-1/2 space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                    {incomeByCategory.map((cat, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                          <span className="text-muted-foreground truncate" title={cat.name}>{cat.name}</span>
+                        </div>
+                        <span className="font-semibold text-xs break-all">
+                          {chartValueMode === 'percentage'
+                            ? `${((cat.value / totalIncome) * 100).toFixed(1)}%`
+                            : `Kz ${cat.value.toLocaleString()}`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Expenses by Category */}
             <div className="card-finance">
               <h3 className="font-display text-lg font-semibold text-foreground mb-4">{t("Despesas por Categoria")}</h3>
@@ -943,22 +1088,31 @@ export default function Budget() {
                 <div className="flex flex-col md:flex-row h-auto md:h-64 items-center gap-4">
                   <div className="w-full md:w-1/2 h-64 md:h-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={expensesByCategory}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {expensesByCategory.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(v: number) => `Kz ${v.toLocaleString()}`} />
-                      </PieChart>
+                      {chartType === 'bar' ? (
+                        <BarChart data={expensesByCategory} layout="vertical">
+                          <XAxis type="number" axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => chartValueMode === 'percentage' ? `${v}%` : `${v / 1000}k`} />
+                          <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} className="text-xs" width={80} />
+                          <Tooltip formatter={(v: number) => chartValueMode === 'percentage' ? `${v.toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
+                          <Bar dataKey="value" fill="hsl(0 72% 51%)" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      ) : (
+                        <PieChart>
+                          <Pie
+                            data={expensesByCategory}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={chartType === 'donut' ? 60 : 0}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {expensesByCategory.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(v: number) => chartValueMode === 'percentage' ? `${((v / totalExpense) * 100).toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
+                        </PieChart>
+                      )}
                     </ResponsiveContainer>
                   </div>
                   <div className="w-full md:w-1/2 space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
@@ -968,7 +1122,11 @@ export default function Budget() {
                           <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                           <span className="text-muted-foreground truncate" title={cat.name}>{cat.name}</span>
                         </div>
-                        <span className="font-semibold text-xs break-all">Kz {cat.value.toLocaleString()}</span>
+                        <span className="font-semibold text-xs break-all">
+                          {chartValueMode === 'percentage'
+                            ? `${((cat.value / totalExpense) * 100).toFixed(1)}%`
+                            : `Kz ${cat.value.toLocaleString()}`}
+                        </span>
                       </div>
                     ))}
                   </div>

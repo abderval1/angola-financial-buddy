@@ -318,7 +318,7 @@ export default function Dashboard() {
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
             <Card className="stat-card-income">
               <CardContent className="p-2 md:p-3">
                 <div className="flex items-center justify-between">
