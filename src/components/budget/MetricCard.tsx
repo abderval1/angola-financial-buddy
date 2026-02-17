@@ -77,7 +77,7 @@ export function MetricCard({
                 {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
             </CardHeader>
             <CardContent>
-                <div className={`text-2xl font-bold break-all ${valueClassName || ''}`}>{formatter(value)}</div>
+                <div className={`text-lg sm:text-2xl font-bold break-all ${valueClassName || ''}`}>{formatter(value)}</div>
                 <div className="flex items-center text-xs text-muted-foreground mt-1">
                     {hasPrevious ? (
                         isSmartLabel ? (

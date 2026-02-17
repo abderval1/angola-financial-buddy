@@ -968,7 +968,7 @@ export default function Budget() {
                           <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                           <span className="text-muted-foreground truncate" title={cat.name}>{cat.name}</span>
                         </div>
-                        <span className="font-semibold whitespace-nowrap text-xs">Kz {cat.value.toLocaleString()}</span>
+                        <span className="font-semibold text-xs break-all">Kz {cat.value.toLocaleString()}</span>
                       </div>
                     ))}
                   </div>
@@ -1035,7 +1035,7 @@ export default function Budget() {
                                 {alert.period === 'monthly' ? t('Mensal') : t('Anual')}
                               </Badge>
                             </p>
-                            <p className="text-xs text-muted-foreground">Limite: Kz {alert.limit_amount.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground break-all">Limite: Kz {alert.limit_amount.toLocaleString()}</p>
                           </div>
                         </div>
                         <Button
@@ -1050,7 +1050,7 @@ export default function Budget() {
                       <div className="space-y-1.5">
                         <div className="flex justify-between text-xs">
                           <span className={isOverLimit ? "text-destructive font-bold" : isWarning ? "text-amber-600 font-bold" : "text-muted-foreground"}>
-                            {t("Gasto")}: {formatPrice(spent)}
+                            {t("Gasto")}: <span className="break-all">{formatPrice(spent)}</span>
                           </span>
                           <span className="font-medium">{progress.toFixed(0)}%</span>
                         </div>
@@ -1158,7 +1158,7 @@ export default function Budget() {
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-4">
-                                    <span className={`font-semibold ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
+                                    <span className={`font-semibold break-all ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
                                       {tx.type === 'income' ? '+' : '-'}Kz {tx.amount.toLocaleString('pt-AO')}
                                     </span>
                                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
