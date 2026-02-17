@@ -166,12 +166,12 @@ export function SmartGoalCard({
                     <Progress value={progress} className={cn("h-2", isCompleted && "bg-emerald-100 dark:bg-emerald-950/30")} />
 
                     <div className="flex justify-between items-end pt-1">
-                        <div>
+                        <div className="min-w-0">
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{t("Acumulado")}</p>
-                            <p className="text-lg font-bold font-display">{formatPrice(saved)}</p>
+                            <p className="text-xs sm:text-sm md:text-lg font-bold font-display break-all">{formatPrice(saved)}</p>
                         </div>
-                        <div className="text-right">
-                            <p className="text-[10px] text-muted-foreground mb-0.5">{t("Meta Total")}: {formatPrice(target)}</p>
+                        <div className="text-right min-w-0">
+                            <p className="text-[10px] text-muted-foreground mb-0.5 break-all">{t("Meta Total")}: {formatPrice(target)}</p>
                             {!isCompleted && metrics.timeRemaining && (
                                 <div className="flex flex-col items-end">
                                     <div className="flex items-center text-xs text-primary font-medium">

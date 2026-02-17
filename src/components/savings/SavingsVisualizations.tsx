@@ -151,8 +151,8 @@ export function SavingsTable({ goals, onEdit, onDelete }: SavingsTableProps) {
                                             </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="font-mono">{formatPrice(goal.saved_amount || 0)}</TableCell>
-                                    <TableCell className="font-mono text-muted-foreground">{formatPrice(goal.target_amount)}</TableCell>
+                                    <TableCell className="font-mono break-all">{formatPrice(goal.saved_amount || 0)}</TableCell>
+                                    <TableCell className="font-mono text-muted-foreground break-all">{formatPrice(goal.target_amount)}</TableCell>
                                     <TableCell>
                                         {goal.status === 'completed' ? (
                                             <Badge className="bg-emerald-500 hover:bg-emerald-600">{t("Concluída")}</Badge>
