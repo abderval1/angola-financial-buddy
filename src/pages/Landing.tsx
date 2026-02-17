@@ -109,7 +109,7 @@ export default function Landing() {
               <Link to="/auth?mode=register">
                 <Button variant="accent" size="sm" className="text-xs sm:text-sm px-3 sm:px-4">
                   <span className="hidden sm:inline">Criar Conta</span>
-                  <span className="sm:hidden">Começar</span>
+                  <span className="sm:hidden">Cria Conta</span>
                 </Button>
               </Link>
             </div>

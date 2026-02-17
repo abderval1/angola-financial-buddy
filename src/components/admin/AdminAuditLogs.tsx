@@ -33,7 +33,7 @@ export function AdminAuditLogs() {
     const [searchTerm, setSearchTerm] = useState("");
     const [actionFilter, setActionFilter] = useState("all");
     const [currentPage, setCurrentPage] = useState(1);
-    const [isAdmin, setIsAdmin] = useState(false);
+    const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
     const PAGE_SIZE = 20;
 
     // Check if user is admin
@@ -74,7 +74,7 @@ export function AdminAuditLogs() {
 
                 // Use the function for admin to get paginated logs
                 const { data: logsData, error: logsError } = await supabase
-                    .rpc('get_activity_logs', { p_is_admin: true })
+                    .rpc('get_activity_logs' as any, { p_is_admin: true })
                     .range(from, to);
 
                 if (logsError) {
@@ -89,7 +89,7 @@ export function AdminAuditLogs() {
                     if (fallbackError) throw fallbackError;
                     logs = fallbackLogs || [];
                 } else {
-                    logs = logsData || [];
+                    logs = logsData as any || [];
                 }
             } else {
                 // For non-admin users, only get their own logs
@@ -136,7 +136,7 @@ export function AdminAuditLogs() {
 
             return { logs, total: count };
         },
-        enabled: true,
+        enabled: isAdmin === true,
     });
 
     const logs = data?.logs || [];
@@ -216,7 +216,16 @@ export function AdminAuditLogs() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {isError ? (
+                                {isAdmin === null ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="h-24 text-center">
+                                            <div className="flex justify-center items-center">
+                                                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                                                Verificando permissões...
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : isError ? (
                                     <TableRow>
                                         <TableCell colSpan={5} className="h-24 text-center text-destructive">
                                             Erro ao carregar logs: {(error as any)?.message}
