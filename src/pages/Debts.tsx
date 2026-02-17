@@ -503,11 +503,11 @@ export default function Debts() {
           )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="debts" className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> {t('Dívidas')} ({debts.length})</TabsTrigger>
-              <TabsTrigger value="loans" className="flex items-center gap-2"><Users className="h-4 w-4" /> {t('Empréstimos')} ({loans.length})</TabsTrigger>
-              <TabsTrigger value="calendar" className="flex items-center gap-2"><Calendar className="h-4 w-4" /> {t('Calendário de Vencimentos')}</TabsTrigger>
-              <TabsTrigger value="progress" className="flex items-center gap-2"><TrendingUp className="h-4 w-4" /> {t('Progresso')}</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1">
+              <TabsTrigger value="debts" className="flex items-center gap-1 text-xs md:text-sm"><CreditCard className="h-3 w-3 md:h-4 md:w-4" /> <span className="hidden sm:inline">{t('Dívidas')}</span><span className="sm:hidden">{t('Dív')}</span> ({debts.length})</TabsTrigger>
+              <TabsTrigger value="loans" className="flex items-center gap-1 text-xs md:text-sm"><Users className="h-3 w-3 md:h-4 md:w-4" /> <span className="hidden sm:inline">{t('Empréstimos')}</span><span className="sm:hidden">{t('Emp')}</span> ({loans.length})</TabsTrigger>
+              <TabsTrigger value="calendar" className="flex items-center gap-1 text-xs md:text-sm"><Calendar className="h-3 w-3 md:h-4 md:w-4" /> <span className="hidden md:inline">{t('Calendário de Vencimentos')}</span><span className="md:hidden">{t('Calendário')}</span></TabsTrigger>
+              <TabsTrigger value="progress" className="flex items-center gap-1 text-xs md:text-sm"><TrendingUp className="h-3 w-3 md:h-4 md:w-4" /> {t('Progresso')}</TabsTrigger>
             </TabsList>
 
             {/* DEBTS TAB */}
