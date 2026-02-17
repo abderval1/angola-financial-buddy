@@ -471,13 +471,13 @@ export default function Savings() {
       >
         <div className="space-y-6 animate-fade-in">
           {/* Header Stats Logic same as before... */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <div className="card-finance p-3 sm:p-6 border-l-4 border-savings bg-savings/5">
               <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
                 <PiggyBank className="h-4 w-4 sm:h-5 sm:w-5 text-savings" />
                 <span className="text-xs sm:text-sm font-medium text-muted-foreground">{t("Total Poupado")}</span>
               </div>
-              <p className="text-sm sm:text-lg md:text-2xl font-bold break-all">{formatPrice(totalSaved)}</p>
+              <p className="text-sm sm:text-xl md:text-2xl font-bold break-all">{formatPrice(totalSaved)}</p>
             </div>
 
             <div className="card-finance p-3 sm:p-6 border-l-4 border-primary bg-primary/5">
@@ -485,7 +485,7 @@ export default function Savings() {
                 <Target className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                 <span className="text-xs sm:text-sm font-medium text-muted-foreground">{t("Meta Total")}</span>
               </div>
-              <p className="text-sm sm:text-lg md:text-2xl font-bold break-all">{formatPrice(totalTarget)}</p>
+              <p className="text-sm sm:text-xl md:text-2xl font-bold break-all">{formatPrice(totalTarget)}</p>
             </div>
 
             <div className="card-finance p-3 sm:p-6 border-l-4 border-success bg-success/5">
@@ -501,7 +501,7 @@ export default function Savings() {
                 <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
                 <span className="text-xs sm:text-sm font-medium text-muted-foreground">{t("Poupança Mensal")}</span>
               </div>
-              <p className="text-sm sm:text-lg md:text-2xl font-bold text-accent break-all">{formatPrice(totalMonthlyContribution)}</p>
+              <p className="text-sm sm:text-xl md:text-2xl font-bold text-accent break-all">{formatPrice(totalMonthlyContribution)}</p>
             </div>
           </div>
 

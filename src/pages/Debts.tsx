@@ -468,18 +468,18 @@ export default function Debts() {
       <ModuleGuard moduleKey="basic" title={t('Controle de Dívidas')} description={t('Gerencie o que você deve e o que os outros lhe devem')}>
         <div className="space-y-6 animate-fade-in">
           {/* Risk Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <Card className={netPosition < 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'}>
               <CardHeader className="pb-2"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2"><TrendingDown className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" /> {t('Dívida Total')}</CardTitle></CardHeader>
-              <CardContent><p className="text-sm sm:text-lg md:text-2xl font-bold break-all">Kz {totalDebt.toLocaleString('pt-AO')}</p></CardContent>
+              <CardContent><p className="text-sm sm:text-xl md:text-2xl font-bold break-all">Kz {totalDebt.toLocaleString('pt-AO')}</p></CardContent>
             </Card>
             <Card className="card-finance">
               <CardHeader className="pb-2"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2"><TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" /> {t('A Receber')}</CardTitle></CardHeader>
-              <CardContent><p className="text-sm sm:text-lg md:text-2xl font-bold break-all">Kz {totalLoansOutstanding.toLocaleString('pt-AO')}</p></CardContent>
+              <CardContent><p className="text-sm sm:text-xl md:text-2xl font-bold break-all">Kz {totalLoansOutstanding.toLocaleString('pt-AO')}</p></CardContent>
             </Card>
             <Card className={netPosition < 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'}>
               <CardHeader className="pb-2"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2"><Shield className="h-3 w-3 sm:h-4 sm:w-4" /> {t('Posição Líquida')}</CardTitle></CardHeader>
-              <CardContent><p className={`text-sm sm:text-lg md:text-2xl font-bold break-all ${netPosition < 0 ? 'text-red-500' : 'text-green-500'}`}>{netPosition >= 0 ? '+' : ''}Kz {netPosition.toLocaleString('pt-AO')}</p></CardContent>
+              <CardContent><p className={`text-sm sm:text-xl md:text-2xl font-bold break-all ${netPosition < 0 ? 'text-red-500' : 'text-green-500'}`}>{netPosition >= 0 ? '+' : ''}Kz {netPosition.toLocaleString('pt-AO')}</p></CardContent>
             </Card>
             <Card className={overdueLoansCount > 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'}>
               <CardHeader className="pb-2"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2"><AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500" /> {t('Atrasos')}</CardTitle></CardHeader>

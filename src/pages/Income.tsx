@@ -322,7 +322,7 @@ export default function Income() {
       >
         <div className="space-y-6">
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <Card className="stat-card-income">
               <CardContent className="p-2 sm:p-4">
                 <div className="flex items-center gap-2 sm:gap-3">
@@ -330,7 +330,7 @@ export default function Income() {
                     <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm sm:text-lg md:text-2xl font-bold text-success break-all">{formatPrice(totalRevenue)}</p>
+                    <p className="text-sm sm:text-xl md:text-2xl font-bold text-success break-all">{formatPrice(totalRevenue)}</p>
                     <p className="text-xs sm:text-sm text-muted-foreground">Receita Mensal</p>
                   </div>
                 </div>
@@ -344,7 +344,7 @@ export default function Income() {
                     <ArrowDownRight className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm sm:text-lg md:text-2xl font-bold text-destructive break-all">{formatPrice(totalExpenses)}</p>
+                    <p className="text-sm sm:text-xl md:text-2xl font-bold text-destructive break-all">{formatPrice(totalExpenses)}</p>
                     <p className="text-xs sm:text-sm text-muted-foreground">Despesas Mensais</p>
                   </div>
                 </div>
@@ -359,7 +359,7 @@ export default function Income() {
                     <DollarSign className={`h-4 w-4 sm:h-5 sm:w-5 ${netIncome >= 0 ? "text-success" : "text-destructive"}`} />
                   </div>
                   <div className="min-w-0">
-                    <p className={`text-sm sm:text-lg md:text-2xl font-bold break-all ${netIncome >= 0 ? "text-success" : "text-destructive"}`}>
+                    <p className={`text-sm sm:text-xl md:text-2xl font-bold break-all ${netIncome >= 0 ? "text-success" : "text-destructive"}`}>
                       {formatPrice(netIncome)}
                     </p>
                     <p className="text-xs sm:text-sm text-muted-foreground">Lucro Líquido</p>
@@ -375,7 +375,7 @@ export default function Income() {
                     <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-finance-investment" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm sm:text-lg md:text-2xl font-bold text-finance-investment break-all">{formatPrice(totalInvestment)}</p>
+                    <p className="text-sm sm:text-xl md:text-2xl font-bold text-finance-investment break-all">{formatPrice(totalInvestment)}</p>
                     <p className="text-xs sm:text-sm text-muted-foreground">Total Investido</p>
                   </div>
                 </div>
