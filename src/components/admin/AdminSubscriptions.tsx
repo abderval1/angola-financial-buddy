@@ -336,6 +336,7 @@ export function AdminSubscriptions() {
               )}
             </TabsTrigger>
             <TabsTrigger value="active">Ativos</TabsTrigger>
+            <TabsTrigger value="trial">Trial</TabsTrigger>
             <TabsTrigger value="expired">Expirados</TabsTrigger>
             <TabsTrigger value="all">Todos</TabsTrigger>
           </TabsList>
