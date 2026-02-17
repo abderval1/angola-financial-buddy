@@ -131,9 +131,9 @@ export default function Landing() {
               <span className="text-xs sm:text-sm font-medium">Seguro e adaptado para Angola</span>
             </div>
 
-            <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-foreground mb-4 sm:mb-6 leading-tight animate-slide-up">
+            <h1 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold text-foreground mb-4 sm:mb-6 leading-normal sm:leading-tight animate-slide-up break-words">
               Domine suas finanças,{" "}
-              <span className="text-primary">
+              <span className="text-primary block sm:inline">
                 construa seu futuro
               </span>
             </h1>
