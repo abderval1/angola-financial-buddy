@@ -470,20 +470,20 @@ export default function Debts() {
           {/* Risk Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <Card className={netPosition < 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'}>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center gap-2"><TrendingDown className="h-4 w-4 text-red-500" /> {t('Dívida Total')}</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold">Kz {totalDebt.toLocaleString('pt-AO')}</p></CardContent>
+              <CardHeader className="pb-2"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2"><TrendingDown className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" /> {t('Dívida Total')}</CardTitle></CardHeader>
+              <CardContent><p className="text-sm sm:text-lg md:text-2xl font-bold break-all">Kz {totalDebt.toLocaleString('pt-AO')}</p></CardContent>
             </Card>
             <Card className="card-finance">
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center gap-2"><TrendingUp className="h-4 w-4 text-green-500" /> {t('A Receber')}</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold">Kz {totalLoansOutstanding.toLocaleString('pt-AO')}</p></CardContent>
+              <CardHeader className="pb-2"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2"><TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" /> {t('A Receber')}</CardTitle></CardHeader>
+              <CardContent><p className="text-sm sm:text-lg md:text-2xl font-bold break-all">Kz {totalLoansOutstanding.toLocaleString('pt-AO')}</p></CardContent>
             </Card>
             <Card className={netPosition < 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'}>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center gap-2"><Shield className="h-4 w-4" /> {t('Posição Líquida')}</CardTitle></CardHeader>
-              <CardContent><p className={`text-2xl font-bold ${netPosition < 0 ? 'text-red-500' : 'text-green-500'}`}>{netPosition >= 0 ? '+' : ''}Kz {netPosition.toLocaleString('pt-AO')}</p></CardContent>
+              <CardHeader className="pb-2"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2"><Shield className="h-3 w-3 sm:h-4 sm:w-4" /> {t('Posição Líquida')}</CardTitle></CardHeader>
+              <CardContent><p className={`text-sm sm:text-lg md:text-2xl font-bold break-all ${netPosition < 0 ? 'text-red-500' : 'text-green-500'}`}>{netPosition >= 0 ? '+' : ''}Kz {netPosition.toLocaleString('pt-AO')}</p></CardContent>
             </Card>
             <Card className={overdueLoansCount > 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'}>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center gap-2"><AlertCircle className="h-4 w-4 text-orange-500" /> {t('Atrasos')}</CardTitle></CardHeader>
-              <CardContent><p className="text-2xl font-bold">{overdueLoansCount}</p></CardContent>
+              <CardHeader className="pb-2"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2"><AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500" /> {t('Atrasos')}</CardTitle></CardHeader>
+              <CardContent><p className="text-sm sm:text-lg md:text-2xl font-bold">{overdueLoansCount}</p></CardContent>
             </Card>
           </div>
 
@@ -512,10 +512,10 @@ export default function Debts() {
 
             {/* DEBTS TAB */}
             <TabsContent value="debts" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="stat-card-expense p-4"><p className="text-sm text-muted-foreground">{t('Total Pago')}</p><p className="text-xl font-bold text-green-500">Kz {totalPaid.toLocaleString('pt-AO')}</p></div>
-                <div className="card-finance p-4"><p className="text-sm text-muted-foreground">{t('Pagamento Mensal')}</p><p className="text-xl font-bold">Kz {totalMonthlyPayment.toLocaleString('pt-AO')}</p></div>
-                <div className="card-finance p-4"><p className="text-sm text-muted-foreground">{t('Quitadas')}</p><p className="text-xl font-bold">{paidDebts} {t('de')} {debts.length}</p></div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4">
+                <div className="stat-card-expense p-2 sm:p-4"><p className="text-xs sm:text-sm text-muted-foreground">{t('Total Pago')}</p><p className="text-sm sm:text-lg md:text-xl font-bold text-green-500 break-all">Kz {totalPaid.toLocaleString('pt-AO')}</p></div>
+                <div className="card-finance p-2 sm:p-4"><p className="text-xs sm:text-sm text-muted-foreground">{t('Pagamento Mensal')}</p><p className="text-sm sm:text-lg md:text-xl font-bold break-all">Kz {totalMonthlyPayment.toLocaleString('pt-AO')}</p></div>
+                <div className="card-finance p-2 sm:p-4"><p className="text-xs sm:text-sm text-muted-foreground">{t('Quitadas')}</p><p className="text-sm sm:text-lg md:text-xl font-bold">{paidDebts} {t('de')} {debts.length}</p></div>
               </div>
 
               <div className="flex gap-3">
@@ -586,10 +586,10 @@ export default function Debts() {
 
             {/* LOANS TAB */}
             <TabsContent value="loans" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="stat-card-income p-4"><p className="text-sm text-muted-foreground">{t('Total Recuperado')}</p><p className="text-xl font-bold text-green-500">Kz {totalCollected.toLocaleString('pt-AO')}</p></div>
-                <div className="card-finance p-4"><p className="text-sm text-muted-foreground">{t('Pendente')}</p><p className="text-xl font-bold">Kz {totalLoansOutstanding.toLocaleString('pt-AO')}</p></div>
-                <div className="card-finance p-4"><p className="text-sm text-muted-foreground">{t('Recuperados')}</p><p className="text-xl font-bold">{loans.filter(l => l.status === 'paid').length} {t('de')} {loans.length}</p></div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4">
+                <div className="stat-card-income p-2 sm:p-4"><p className="text-xs sm:text-sm text-muted-foreground">{t('Total Recuperado')}</p><p className="text-sm sm:text-lg md:text-xl font-bold text-green-500 break-all">Kz {totalCollected.toLocaleString('pt-AO')}</p></div>
+                <div className="card-finance p-2 sm:p-4"><p className="text-xs sm:text-sm text-muted-foreground">{t('Pendente')}</p><p className="text-sm sm:text-lg md:text-xl font-bold break-all">Kz {totalLoansOutstanding.toLocaleString('pt-AO')}</p></div>
+                <div className="card-finance p-2 sm:p-4"><p className="text-xs sm:text-sm text-muted-foreground">{t('Recuperados')}</p><p className="text-sm sm:text-lg md:text-xl font-bold">{loans.filter(l => l.status === 'paid').length} {t('de')} {loans.length}</p></div>
               </div>
 
               <div className="flex gap-3">

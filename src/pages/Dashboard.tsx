@@ -321,12 +321,12 @@ export default function Dashboard() {
           <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
             <Card className="stat-card-income">
               <CardContent className="p-2 md:p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">
+                <div className="flex items-center justify-between min-w-0">
+                  <div className="min-w-0">
+                    <p className="text-[10px] xs:text-xs text-muted-foreground mb-0.5">
                       {t("Receitas")} {viewMode === 'monthly' ? t("do Mês") : viewMode === 'yearly' ? t("do Ano") : t("Totais")}
                     </p>
-                    <p className="text-lg font-bold text-success">{formatPrice(totalIncome)}</p>
+                    <p className="text-xs sm:text-sm md:text-lg font-bold text-success break-all">{formatPrice(totalIncome)}</p>
                   </div>
                   <div className="h-8 w-8 rounded-lg bg-success/20 flex items-center justify-center">
                     <TrendingUp className="h-4 w-4 text-success" />
@@ -337,12 +337,12 @@ export default function Dashboard() {
 
             <Card className="stat-card-expense">
               <CardContent className="p-2 md:p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">
+                <div className="flex items-center justify-between min-w-0">
+                  <div className="min-w-0">
+                    <p className="text-[10px] xs:text-xs text-muted-foreground mb-0.5">
                       {t("Despesas")} {viewMode === 'monthly' ? t("do Mês") : viewMode === 'yearly' ? t("do Ano") : t("Totais")}
                     </p>
-                    <p className="text-lg font-bold text-destructive">{formatPrice(totalExpenses)}</p>
+                    <p className="text-xs sm:text-sm md:text-lg font-bold text-destructive break-all">{formatPrice(totalExpenses)}</p>
                   </div>
                   <div className="h-8 w-8 rounded-lg bg-destructive/20 flex items-center justify-center">
                     <TrendingDown className="h-4 w-4 text-destructive" />
@@ -353,12 +353,12 @@ export default function Dashboard() {
 
             <Card className={balance >= 0 ? "stat-card-savings" : "stat-card-expense"}>
               <CardContent className="p-2 md:p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">
+                <div className="flex items-center justify-between min-w-0">
+                  <div className="min-w-0">
+                    <p className="text-[10px] xs:text-xs text-muted-foreground mb-0.5">
                       {t("Saldo")} {viewMode === 'monthly' ? t("do Mês") : viewMode === 'yearly' ? t("do Ano") : t("Total")}
                     </p>
-                    <p className={`text-lg font-bold ${balance >= 0 ? "text-finance-savings" : "text-destructive"}`}>
+                    <p className={`text-xs sm:text-sm md:text-lg font-bold break-all ${balance >= 0 ? "text-finance-savings" : "text-destructive"}`}>
                       {formatPrice(balance)}
                     </p>
                   </div>
@@ -372,10 +372,10 @@ export default function Dashboard() {
 
             <Card className="stat-card-investment">
               <CardContent className="p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">{t("Renda Extra & Negócios")}</p>
-                    <p className="text-lg font-bold text-finance-investment">
+                <div className="flex items-center justify-between min-w-0">
+                  <div className="min-w-0">
+                    <p className="text-[10px] xs:text-xs text-muted-foreground mb-0.5">{t("Renda Extra & Negócios")}</p>
+                    <p className="text-xs sm:text-sm md:text-lg font-bold text-finance-investment break-all">
                       {formatPrice(totalExtraIncomeBalance)}
                     </p>
                   </div>
@@ -388,10 +388,10 @@ export default function Dashboard() {
 
             <Card className="stat-card-investment">
               <CardContent className="p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">{t("Patrimônio Líquido")}</p>
-                    <p className={`text-lg font-bold ${netWorth >= 0 ? "text-finance-investment" : "text-destructive"}`}>
+                <div className="flex items-center justify-between min-w-0">
+                  <div className="min-w-0">
+                    <p className="text-[10px] xs:text-xs text-muted-foreground mb-0.5">{t("Patrimônio Líquido")}</p>
+                    <p className={`text-xs sm:text-sm md:text-lg font-bold break-all ${netWorth >= 0 ? "text-finance-investment" : "text-destructive"}`}>
                       {formatPrice(netWorth)}
                     </p>
                   </div>

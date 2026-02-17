@@ -324,59 +324,59 @@ export default function Income() {
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <Card className="stat-card-income">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-success/20 flex items-center justify-center">
-                    <TrendingUp className="h-5 w-5 text-success" />
+              <CardContent className="p-2 sm:p-4">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-success/20 flex items-center justify-center">
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-success">{formatPrice(totalRevenue)}</p>
-                    <p className="text-sm text-muted-foreground">Receita Mensal</p>
+                  <div className="min-w-0">
+                    <p className="text-sm sm:text-lg md:text-2xl font-bold text-success break-all">{formatPrice(totalRevenue)}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Receita Mensal</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="stat-card-expense">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-destructive/20 flex items-center justify-center">
-                    <ArrowDownRight className="h-5 w-5 text-destructive" />
+              <CardContent className="p-2 sm:p-4">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-destructive/20 flex items-center justify-center">
+                    <ArrowDownRight className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-destructive">{formatPrice(totalExpenses)}</p>
-                    <p className="text-sm text-muted-foreground">Despesas Mensais</p>
+                  <div className="min-w-0">
+                    <p className="text-sm sm:text-lg md:text-2xl font-bold text-destructive break-all">{formatPrice(totalExpenses)}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Despesas Mensais</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className={netIncome >= 0 ? "stat-card-income" : "stat-card-expense"}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${netIncome >= 0 ? "bg-success/20" : "bg-destructive/20"
+              <CardContent className="p-2 sm:p-4">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center ${netIncome >= 0 ? "bg-success/20" : "bg-destructive/20"
                     }`}>
-                    <DollarSign className={`h-5 w-5 ${netIncome >= 0 ? "text-success" : "text-destructive"}`} />
+                    <DollarSign className={`h-4 w-4 sm:h-5 sm:w-5 ${netIncome >= 0 ? "text-success" : "text-destructive"}`} />
                   </div>
-                  <div>
-                    <p className={`text-2xl font-bold ${netIncome >= 0 ? "text-success" : "text-destructive"}`}>
+                  <div className="min-w-0">
+                    <p className={`text-sm sm:text-lg md:text-2xl font-bold break-all ${netIncome >= 0 ? "text-success" : "text-destructive"}`}>
                       {formatPrice(netIncome)}
                     </p>
-                    <p className="text-sm text-muted-foreground">Lucro Líquido</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Lucro Líquido</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="stat-card-investment">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-finance-investment/20 flex items-center justify-center">
-                    <Wallet className="h-5 w-5 text-finance-investment" />
+              <CardContent className="p-2 sm:p-4">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-finance-investment/20 flex items-center justify-center">
+                    <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-finance-investment" />
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-finance-investment">{formatPrice(totalInvestment)}</p>
-                    <p className="text-sm text-muted-foreground">Total Investido</p>
+                  <div className="min-w-0">
+                    <p className="text-sm sm:text-lg md:text-2xl font-bold text-finance-investment break-all">{formatPrice(totalInvestment)}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Total Investido</p>
                   </div>
                 </div>
               </CardContent>

@@ -472,36 +472,36 @@ export default function Savings() {
         <div className="space-y-6 animate-fade-in">
           {/* Header Stats Logic same as before... */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div className="card-finance p-6 border-l-4 border-savings bg-savings/5">
-              <div className="flex items-center gap-3 mb-2">
-                <PiggyBank className="h-5 w-5 text-savings" />
-                <span className="text-sm font-medium text-muted-foreground">{t("Total Poupado")}</span>
+            <div className="card-finance p-3 sm:p-6 border-l-4 border-savings bg-savings/5">
+              <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                <PiggyBank className="h-4 w-4 sm:h-5 sm:w-5 text-savings" />
+                <span className="text-xs sm:text-sm font-medium text-muted-foreground">{t("Total Poupado")}</span>
               </div>
-              <p className="text-2xl font-bold">{formatPrice(totalSaved)}</p>
+              <p className="text-sm sm:text-lg md:text-2xl font-bold break-all">{formatPrice(totalSaved)}</p>
             </div>
 
-            <div className="card-finance p-6 border-l-4 border-primary bg-primary/5">
-              <div className="flex items-center gap-3 mb-2">
-                <Target className="h-5 w-5 text-primary" />
-                <span className="text-sm font-medium text-muted-foreground">{t("Meta Total")}</span>
+            <div className="card-finance p-3 sm:p-6 border-l-4 border-primary bg-primary/5">
+              <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                <Target className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                <span className="text-xs sm:text-sm font-medium text-muted-foreground">{t("Meta Total")}</span>
               </div>
-              <p className="text-2xl font-bold">{formatPrice(totalTarget)}</p>
+              <p className="text-sm sm:text-lg md:text-2xl font-bold break-all">{formatPrice(totalTarget)}</p>
             </div>
 
-            <div className="card-finance p-6 border-l-4 border-success bg-success/5">
-              <div className="flex items-center gap-3 mb-2">
-                <Trophy className="h-5 w-5 text-success" />
-                <span className="text-sm font-medium text-muted-foreground">{t("Conclúidas")}</span>
+            <div className="card-finance p-3 sm:p-6 border-l-4 border-success bg-success/5">
+              <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
+                <span className="text-xs sm:text-sm font-medium text-muted-foreground">{t("Conclúidas")}</span>
               </div>
-              <p className="text-2xl font-bold">{completedGoals}</p>
+              <p className="text-sm sm:text-lg md:text-2xl font-bold">{completedGoals}</p>
             </div>
 
-            <div className="card-finance p-6 border-l-4 border-accent bg-accent/5">
-              <div className="flex items-center gap-3 mb-2">
-                <Calendar className="h-5 w-5 text-accent" />
-                <span className="text-sm font-medium text-muted-foreground">{t("Poupança Mensal")}</span>
+            <div className="card-finance p-3 sm:p-6 border-l-4 border-accent bg-accent/5">
+              <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
+                <span className="text-xs sm:text-sm font-medium text-muted-foreground">{t("Poupança Mensal")}</span>
               </div>
-              <p className="text-2xl font-bold text-accent">{formatPrice(totalMonthlyContribution)}</p>
+              <p className="text-sm sm:text-lg md:text-2xl font-bold text-accent break-all">{formatPrice(totalMonthlyContribution)}</p>
             </div>
           </div>
 
