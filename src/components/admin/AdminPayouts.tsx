@@ -47,7 +47,7 @@ export function AdminPayouts() {
           profiles:user_id (name, email, phone)
         `)
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
       return data || [];
     },
@@ -60,7 +60,7 @@ export function AdminPayouts() {
       const { data, error } = await supabase
         .from("payout_requests")
         .select("status, amount");
-      
+
       if (error) throw error;
 
       const pending = data?.filter(p => p.status === "pending") || [];
@@ -98,7 +98,7 @@ export function AdminPayouts() {
           .update({ status: "paid", paid_at: new Date().toISOString() })
           .eq("user_id", selectedPayout.user_id)
           .eq("status", "approved");
-        
+
         if (earningsError) console.error("Error updating earnings:", earningsError);
       }
     },
@@ -116,7 +116,7 @@ export function AdminPayouts() {
   });
 
   const filteredPayouts = payouts.filter((payout: any) => {
-    const matchesSearch = 
+    const matchesSearch =
       payout.profiles?.name?.toLowerCase().includes(search.toLowerCase()) ||
       payout.profiles?.email?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || payout.status === statusFilter;
@@ -178,7 +178,7 @@ export function AdminPayouts() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Pendentes</p>
-                <p className="text-2xl font-bold text-amber-500">{stats?.pendingCount || 0}</p>
+                <p className="text-xl sm:text-2xl font-bold text-amber-500 break-all">{stats?.pendingCount || 0}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
                 <Clock className="h-5 w-5 text-amber-500" />
@@ -192,7 +192,7 @@ export function AdminPayouts() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Valor Pendente</p>
-                <p className="text-2xl font-bold text-foreground">{(stats?.totalPending || 0).toLocaleString()} Kz</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground break-all">{(stats?.totalPending || 0).toLocaleString()} Kz</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <ArrowUpRight className="h-5 w-5 text-primary" />
@@ -206,7 +206,7 @@ export function AdminPayouts() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Concluídos</p>
-                <p className="text-2xl font-bold text-success">{stats?.completedCount || 0}</p>
+                <p className="text-xl sm:text-2xl font-bold text-success break-all">{stats?.completedCount || 0}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
                 <CheckCircle2 className="h-5 w-5 text-success" />
@@ -220,7 +220,7 @@ export function AdminPayouts() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Pago</p>
-                <p className="text-2xl font-bold text-foreground">{(stats?.totalPaid || 0).toLocaleString()} Kz</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground break-all">{(stats?.totalPaid || 0).toLocaleString()} Kz</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
                 <TrendingUp className="h-5 w-5 text-muted-foreground" />
@@ -325,7 +325,7 @@ export function AdminPayouts() {
               Revise e processe o pedido de levantamento
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedPayout && (
             <div className="space-y-6">
               {/* User Info */}
@@ -344,7 +344,7 @@ export function AdminPayouts() {
               {/* Amount */}
               <div className="text-center p-6 bg-primary/5 rounded-lg border border-primary/20">
                 <p className="text-sm text-muted-foreground">Valor Solicitado</p>
-                <p className="text-4xl font-bold text-primary">{selectedPayout.amount.toLocaleString()} Kz</p>
+                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary break-all">{selectedPayout.amount.toLocaleString()} Kz</p>
               </div>
 
               {/* Payment Details */}
@@ -406,10 +406,10 @@ export function AdminPayouts() {
               <>
                 <Button
                   variant="destructive"
-                  onClick={() => updatePayoutMutation.mutate({ 
-                    id: selectedPayout.id, 
-                    status: "rejected", 
-                    notes: adminNotes 
+                  onClick={() => updatePayoutMutation.mutate({
+                    id: selectedPayout.id,
+                    status: "rejected",
+                    notes: adminNotes
                   })}
                   disabled={updatePayoutMutation.isPending}
                 >
@@ -418,10 +418,10 @@ export function AdminPayouts() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => updatePayoutMutation.mutate({ 
-                    id: selectedPayout.id, 
-                    status: "processing", 
-                    notes: adminNotes 
+                  onClick={() => updatePayoutMutation.mutate({
+                    id: selectedPayout.id,
+                    status: "processing",
+                    notes: adminNotes
                   })}
                   disabled={updatePayoutMutation.isPending}
                 >
@@ -429,10 +429,10 @@ export function AdminPayouts() {
                   Marcar Processando
                 </Button>
                 <Button
-                  onClick={() => updatePayoutMutation.mutate({ 
-                    id: selectedPayout.id, 
-                    status: "completed", 
-                    notes: adminNotes 
+                  onClick={() => updatePayoutMutation.mutate({
+                    id: selectedPayout.id,
+                    status: "completed",
+                    notes: adminNotes
                   })}
                   disabled={updatePayoutMutation.isPending}
                 >
@@ -445,10 +445,10 @@ export function AdminPayouts() {
               <>
                 <Button
                   variant="destructive"
-                  onClick={() => updatePayoutMutation.mutate({ 
-                    id: selectedPayout.id, 
-                    status: "rejected", 
-                    notes: adminNotes 
+                  onClick={() => updatePayoutMutation.mutate({
+                    id: selectedPayout.id,
+                    status: "rejected",
+                    notes: adminNotes
                   })}
                   disabled={updatePayoutMutation.isPending}
                 >
@@ -456,10 +456,10 @@ export function AdminPayouts() {
                   Rejeitar
                 </Button>
                 <Button
-                  onClick={() => updatePayoutMutation.mutate({ 
-                    id: selectedPayout.id, 
-                    status: "completed", 
-                    notes: adminNotes 
+                  onClick={() => updatePayoutMutation.mutate({
+                    id: selectedPayout.id,
+                    status: "completed",
+                    notes: adminNotes
                   })}
                   disabled={updatePayoutMutation.isPending}
                 >

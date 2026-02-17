@@ -297,7 +297,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
                   </Badge>
                 )}
                 <div>
-                  <span className="text-4xl font-bold text-foreground">
+                  <span className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground break-all">
                     {formatPrice(plan.price)}
                   </span>
                   <span className="text-muted-foreground ml-1">Kz/mês</span>
@@ -363,7 +363,7 @@ export function SubscriptionPlans({ onSuccess }: SubscriptionPlansProps) {
             {Number(selectedPlan?.price) !== 0 && (
               <div className="p-4 bg-muted rounded-lg text-center">
                 <p className="text-sm text-muted-foreground mb-1">Valor a pagar:</p>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-xl sm:text-2xl font-bold text-foreground break-all">
                   {selectedPlan && formatPrice(selectedPlan.price)}
                 </p>
               </div>

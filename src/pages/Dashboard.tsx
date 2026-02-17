@@ -673,7 +673,7 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-finance-savings mb-2">{formatPrice(totalSavings)}</p>
+                <p className="text-xl sm:text-2xl font-bold text-finance-savings mb-2 break-all">{formatPrice(totalSavings)}</p>
                 <p className="text-sm text-muted-foreground">{savingsGoals.length} {t("metas ativas")}</p>
               </CardContent>
             </Card>
@@ -692,7 +692,7 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-destructive mb-2">{formatPrice(totalDebt)}</p>
+                <p className="text-xl sm:text-2xl font-bold text-destructive mb-2 break-all">{formatPrice(totalDebt)}</p>
                 <p className="text-sm text-muted-foreground">{debts.length} {t("dívidas pendentes")}</p>
               </CardContent>
             </Card>
@@ -711,7 +711,7 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-finance-investment mb-2">{formatPrice(totalInvestments)}</p>
+                <p className="text-xl sm:text-2xl font-bold text-finance-investment mb-2 break-all">{formatPrice(totalInvestments)}</p>
                 <p className="text-sm text-muted-foreground">{investments.length} {t("ativos")}</p>
               </CardContent>
             </Card>

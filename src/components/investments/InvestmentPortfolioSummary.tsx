@@ -74,7 +74,7 @@ export function InvestmentPortfolioSummary({
               </div>
               <span className="text-xs text-muted-foreground font-medium">{t("Total Investido")}</span>
             </div>
-            <p className="text-xl lg:text-2xl font-bold text-foreground">
+            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground break-all">
               {formatPrice(totalInvested)}
             </p>
           </div>
@@ -92,7 +92,7 @@ export function InvestmentPortfolioSummary({
               <span className="text-xs text-muted-foreground font-medium">{t("Rendimento Total")}</span>
             </div>
             <div className="flex items-baseline gap-2">
-              <p className={`text-xl lg:text-2xl font-bold ${totalReturn >= 0 ? 'text-success' : 'text-destructive'}`}>
+              <p className={`text-lg sm:text-xl lg:text-2xl font-bold ${totalReturn >= 0 ? 'text-success' : 'text-destructive'} break-all`}>
                 {totalReturn >= 0 ? '+' : ''}{formatPrice(totalReturn)}
               </p>
             </div>
@@ -109,7 +109,7 @@ export function InvestmentPortfolioSummary({
               </div>
               <span className="text-xs text-muted-foreground font-medium">{t("Este Mês")}</span>
             </div>
-            <p className={`text-xl lg:text-2xl font-bold ${monthlyReturn >= 0 ? 'text-success' : 'text-destructive'}`}>
+            <p className={`text-lg sm:text-xl lg:text-2xl font-bold ${monthlyReturn >= 0 ? 'text-success' : 'text-destructive'} break-all`}>
               {monthlyReturn >= 0 ? '+' : ''}{formatPrice(monthlyReturn)}
             </p>
           </div>
@@ -122,7 +122,7 @@ export function InvestmentPortfolioSummary({
               </div>
               <span className="text-xs text-muted-foreground font-medium">{t("Valor Atual")}</span>
             </div>
-            <p className="text-xl lg:text-2xl font-bold text-foreground">
+            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground break-all">
               {formatPrice(totalCurrentValue)}
             </p>
           </div>
