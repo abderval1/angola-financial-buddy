@@ -54,16 +54,15 @@ const features = [
 
 const stats = [
   { value: "50K+", label: "Usuários Activos" },
-  { value: "Kz 2B+", label: "Poupança Total" },
+  { value: "Kz 100M+", label: "Poupança Total" },
   { value: "95%", label: "Satisfação" },
   { value: "100+", label: "Cursos Disponíveis" },
 ];
 
 const benefits = [
   "Totalmente adaptado à realidade financeira angolana",
-  "Suporte a Kwanza e taxas locais",
-  "Integração com bancos angolanos",
-  "Conteúdo educativo em português",
+  "Suporte a taxas locais",
+  "Conteúdo sobre educação financeira",
   "Comunidade activa de apoio",
   "Segurança e privacidade garantidas",
 ];
@@ -78,7 +77,7 @@ export default function Landing() {
           <div className="flex h-14 sm:h-16 items-center justify-between">
             <Link to="/" className="flex items-center gap-2 sm:gap-3">
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl gradient-accent">
-                <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">K</span>
+                <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">A</span>
               </div>
               <span className="font-display text-lg sm:text-xl font-bold">
                 <span className="text-primary">Angola</span>
@@ -140,8 +139,8 @@ export default function Landing() {
             </h1>
 
             <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 sm:mb-10 animate-slide-up px-2" style={{ animationDelay: "0.1s" }}>
-              A plataforma completa para orçamento, poupança, investimentos e educação financeira.
-              Feita para angolanos, com funcionalidades que entendem sua realidade.
+              A maior plataforma sobre Gestão e Educação Financeira de Angola Integrada com Inteligência Artificial: Orçamento, poupança, investimentos e educação financeira.
+              Com funcionalidades que entendem sua realidade.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 animate-slide-up" style={{ animationDelay: "0.2s" }}>
@@ -210,8 +209,8 @@ export default function Landing() {
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div className="order-2 lg:order-1">
               <h2 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-4 sm:mb-6">
-                Por que escolher o{" "}
-                <span className="text-primary">Kudiza</span>?
+                Por que escolher o Angola{" "}
+                <span className="text-primary">Finance</span>?
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8">
                 Criado especialmente para a realidade financeira angolana, com ferramentas
@@ -297,10 +296,11 @@ export default function Landing() {
                 {[
                   "Orçamento & Despesas",
                   "Poupança & Dívidas",
-                  "Investimentos Básicos",
+                  "Investimentos na BODIVA e em Bancos",
                   "Comparar Preços",
                   "Calculadoras & Renda Extra",
-                  "Comunidade & Marketplace"
+                  "Comunidade & Marketplace",
+                  "Blog com conteúdos valiosos"
                 ].map((f, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm text-neutral-600 dark:text-neutral-300">
                     <CheckCircle2 className="h-4 w-4 text-success shrink-0 mt-0.5" />
@@ -359,7 +359,7 @@ export default function Landing() {
                 {[
                   "Tudo do Plano Essencial",
                   "Módulo de Educação",
-                  "Cursos & Certificados",
+                  "Cursos e Quiz",
                   "Calculadoras Premium",
                   "Recursos Exclusivos"
                 ].map((f, i) => (
@@ -390,7 +390,9 @@ export default function Landing() {
                   "Módulo Notícias & Mercado",
                   "Indicadores Económicos",
                   "Relatórios Semanais",
-                  "Análise de Tendências"
+                  "Análise de Tendências com IA",
+                  "Previsão de preços do mercado com Machine Learning",
+
                 ].map((f, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm text-neutral-600 dark:text-neutral-300">
                     <CheckCircle2 className="h-4 w-4 text-success shrink-0 mt-0.5" />
@@ -491,7 +493,7 @@ export default function Landing() {
           <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
             <Link to="/" className="flex items-center gap-2 sm:gap-3">
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl gradient-accent">
-                <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">K</span>
+                <span className="font-display text-lg sm:text-xl font-bold text-accent-foreground">A</span>
               </div>
               <span className="font-display text-lg sm:text-xl font-bold">
                 <span className="text-sidebar-primary">Angola</span>
@@ -512,7 +514,7 @@ export default function Landing() {
             </div>
 
             <p className="text-xs sm:text-sm text-sidebar-foreground/50 text-center">
-              © 2024 Kudiza. Todos os direitos reservados.
+              © 2026 Angola Finance. Todos os direitos reservados.
             </p>
           </div>
         </div>

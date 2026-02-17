@@ -154,7 +154,7 @@ export function UserProfileDropdown() {
             </Avatar>
             <div className="hidden md:flex flex-col items-start text-left">
               <span className="text-sm font-medium line-clamp-1">
-                {profile?.name || user?.email?.split("@")[0]}
+                {(profile?.name || user?.user_metadata?.name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "").split(" ")[0]}
               </span>
               <span className="text-xs text-muted-foreground">
                 {profile?.email || user?.email}

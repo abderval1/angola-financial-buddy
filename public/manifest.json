@@ -4,8 +4,8 @@
     "description": "A sua plataforma de finanças inteligentes em Angola",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#0f766e",
-    "theme_color": "#0f766e",
+    "background_color": "#7c3aed",
+    "theme_color": "#7c3aed",
     "orientation": "portrait-primary",
     "scope": "/",
     "icons": [

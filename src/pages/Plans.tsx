@@ -359,6 +359,7 @@ export default function Plans() {
                                     <div className="space-y-1">
                                         <p className="text-xs text-muted-foreground font-mono text-wrap">IBAN: AO06.0040.0000.5481.7076.1016.6</p>
                                         <p className="text-xs text-muted-foreground">Titular: Agostinho Francisco Paixão do Rosário</p>
+                                        <p className="text-xs text-muted-foreground">Tempo de activação: até 3 dias úteis</p>
                                     </div>
                                     <div className="pt-2 border-t border-border/50 text-center">
                                         <p className="text-sm">Valor: <span className="font-bold">{new Intl.NumberFormat("pt-AO").format(selectedPlan?.price)} Kz</span></p>

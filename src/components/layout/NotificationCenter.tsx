@@ -99,11 +99,11 @@ export function NotificationCenter() {
     return (
         <Popover>
             <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative h-9 w-9 sm:h-10 sm:w-10">
+                <Button variant="ghost" size="icon" className="relative h-9 w-9 sm:h-10 sm:w-10 overflow-visible">
                     <Bell className="h-5 w-5" />
                     {unreadCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground animate-pulse">
-                            {unreadCount}
+                        <span className="absolute -top-1 -right-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground animate-pulse">
+                            {unreadCount > 99 ? "99+" : unreadCount}
                         </span>
                     )}
                 </Button>

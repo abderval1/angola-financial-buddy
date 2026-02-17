@@ -61,7 +61,7 @@ VALUES
         'basic', 
         1, 
         true, 
-        '["Orçamento & Despesas", "Poupança & Dívidas", "Investimentos Básicos", "Comparador Kixikila", "Calculadoras & Renda Extra", "Comunidade & Marketplace"]'::jsonb,
+        '["Orçamento & Despesas", "Poupança & Dívidas", "Investimentos Básicos", "Comparador de preços", "Calculadoras & Renda Extra", "Comunidade & Marketplace"]'::jsonb,
         7 -- 7 Days Trial
     ),
     -- 2. Essencial (4.000 Kz)

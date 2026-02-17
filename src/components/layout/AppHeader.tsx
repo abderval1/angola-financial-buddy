@@ -31,7 +31,7 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 overflow-visible">
         {/* Search - Hidden on mobile */}
         <div className="relative hidden md:block">
           <GlobalSearch />
