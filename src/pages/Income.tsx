@@ -324,7 +324,7 @@ export default function Income() {
           {/* Summary Cards */}
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <Card className="stat-card-income">
-              <CardContent className="p-2 sm:p-4">
+              <CardContent className="p-1 sm:p-2">
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-success/20 flex items-center justify-center">
                     <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
@@ -338,7 +338,7 @@ export default function Income() {
             </Card>
 
             <Card className="stat-card-expense">
-              <CardContent className="p-2 sm:p-4">
+              <CardContent className="p-1 sm:p-2">
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-destructive/20 flex items-center justify-center">
                     <ArrowDownRight className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
@@ -352,7 +352,7 @@ export default function Income() {
             </Card>
 
             <Card className={netIncome >= 0 ? "stat-card-income" : "stat-card-expense"}>
-              <CardContent className="p-2 sm:p-4">
+              <CardContent className="p-1 sm:p-2">
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center ${netIncome >= 0 ? "bg-success/20" : "bg-destructive/20"
                     }`}>
@@ -369,7 +369,7 @@ export default function Income() {
             </Card>
 
             <Card className="stat-card-investment">
-              <CardContent className="p-2 sm:p-4">
+              <CardContent className="p-1 sm:p-2">
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-finance-investment/20 flex items-center justify-center">
                     <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-finance-investment" />
