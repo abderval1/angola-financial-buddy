@@ -78,9 +78,17 @@ export default function Auth() {
   }, [user]);
 
   useEffect(() => {
-    // Only navigate if user exists, MFA check is done, and 2FA is not required
+    // Only navigate if user exists, MFA check is done, and 2FA is not required, AND email is confirmed
     if (user && mfaData.checked && !mfaData.required) {
-      console.log("🚀 Authenticated and 2FA verified (or not required). Navigating to dashboard...");
+      // Check if email is confirmed
+      if (!user.email_confirmed_at) {
+        console.log("📧 Email not confirmed - showing confirmation message");
+        toast.info("Por favor, confirme o seu email para aceder ao sistema. Verifique a caixa de entrada ou spam.");
+        // Sign out the user since they haven't confirmed email
+        supabase.auth.signOut();
+        return;
+      }
+      console.log("🚀 Authenticated and 2FA verified (or not required) and email confirmed. Navigating to dashboard...");
       navigate("/dashboard");
     }
   }, [user, mfaData.checked, mfaData.required, navigate]);

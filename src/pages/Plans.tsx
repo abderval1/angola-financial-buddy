@@ -174,7 +174,23 @@ export default function Plans() {
 
     const hasActiveModule = (planName: string) => {
         return userSubscriptions.some(
-            (sub: any) => sub.subscription_plans?.name === planName && (sub.status === "active" || sub.status === "trial")
+            (sub: any) => {
+                const isActiveOrTrial = sub.status === "active" || sub.status === "trial";
+                // Check if subscription has expired
+                const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
+                return sub.subscription_plans?.name === planName && isActiveOrTrial && !isExpired;
+            }
+        );
+    };
+
+    const hasExpiredModule = (planName: string) => {
+        return userSubscriptions.some(
+            (sub: any) => {
+                const isActiveOrTrial = sub.status === "active" || sub.status === "trial";
+                // Check if subscription has expired
+                const isExpired = sub.expires_at && new Date(sub.expires_at) < new Date();
+                return sub.subscription_plans?.name === planName && isActiveOrTrial && isExpired;
+            }
         );
     };
 
@@ -239,6 +255,7 @@ export default function Plans() {
                         plans.map((plan: any) => {
                             const active = hasActiveModule(plan.name);
                             const pending = hasPendingModule(plan.name);
+                            const expired = hasExpiredModule(plan.name);
 
                             return (
                                 <Card key={plan.id} className={`flex flex-col overflow-hidden border-2 transition-all hover:shadow-lg ${active ? 'border-success/30 bg-success/5 shadow-none hover:shadow-none' : 'border-primary/10'}`}>
@@ -285,6 +302,17 @@ export default function Plans() {
                                             <Button disabled className="w-full bg-success/10 text-success hover:bg-success/10">
                                                 <Check className="mr-2 h-4 w-4" />
                                                 Módulo Ativo
+                                            </Button>
+                                        ) : expired ? (
+                                            <Button
+                                                className="w-full h-11 gradient-accent text-accent-foreground"
+                                                onClick={() => {
+                                                    setSelectedPlan(plan);
+                                                    setPurchaseDialogOpen(true);
+                                                }}
+                                            >
+                                                Renovar
+                                                <ArrowRight className="ml-2 h-4 w-4" />
                                             </Button>
                                         ) : pending ? (
                                             <Button disabled variant="secondary" className="w-full">
