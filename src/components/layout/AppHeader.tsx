@@ -1,9 +1,10 @@
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserProfileDropdown } from "@/components/profile/UserProfileDropdown";
 import { MobileNav } from "./MobileNav";
 import { NotificationCenter } from "./NotificationCenter";
+import { ChatLink } from "./ChatLink";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { useTranslation } from "react-i18next";
 
@@ -36,6 +37,9 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
         <div className="relative hidden md:block">
           <GlobalSearch />
         </div>
+
+        {/* Chat Link */}
+        <ChatLink />
 
         {/* Notifications */}
         <NotificationCenter />
