@@ -63,7 +63,13 @@ export function ReservesEvolutionChart({ data }: { data: ChartData[] }) {
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                             <XAxis
                                 dataKey="date"
-                                tickFormatter={(str) => format(parseISO(str), 'MMM', { locale: currentLocale })}
+                                tickFormatter={(str) => {
+                                    try {
+                                        return str ? format(parseISO(str), 'MMM', { locale: currentLocale }) : '';
+                                    } catch (e) {
+                                        return '';
+                                    }
+                                }}
                                 stroke="#9ca3af"
                                 fontSize={12}
                                 tickLine={false}
@@ -79,7 +85,13 @@ export function ReservesEvolutionChart({ data }: { data: ChartData[] }) {
                             <Tooltip
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                 formatter={(value: number) => [formatPrice(value), t("Saldo Total")]}
-                                labelFormatter={(label) => format(parseISO(label), 'dd MMM yyyy', { locale: currentLocale })}
+                                labelFormatter={(label) => {
+                                    try {
+                                        return label ? format(parseISO(label), 'dd MMM yyyy', { locale: currentLocale }) : '';
+                                    } catch (e) {
+                                        return label || '';
+                                    }
+                                }}
                             />
                             <Area
                                 type="monotone"

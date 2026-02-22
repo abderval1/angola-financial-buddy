@@ -41,6 +41,7 @@ import {
 import { format, formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
+import BodivaMarketData from "@/components/investments/BodivaMarketData";
 
 import {
   ResponsiveContainer,
@@ -543,6 +544,9 @@ export default function News() {
             </TabsTrigger>
             <TabsTrigger value="orderbook" className="gap-2">
               <FileSpreadsheet className="h-4 w-4" /> Livro de Ordens
+            </TabsTrigger>
+            <TabsTrigger value="bodiva" className="gap-2">
+              <BarChart3 className="h-4 w-4" /> Dados Mercado
             </TabsTrigger>
           </TabsList>
 
@@ -1169,6 +1173,10 @@ export default function News() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="bodiva" className="space-y-6">
+            <BodivaMarketData />
           </TabsContent>
         </Tabs>
 

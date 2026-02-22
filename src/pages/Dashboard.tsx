@@ -54,6 +54,19 @@ import { pt, es, fr, arSA, zhCN } from "date-fns/locale";
 
 const COLORS = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#06b6d4"];
 
+const BUCKET_CATEGORIES = [
+  'Poupança', 'Levantamento',
+  'Investimento', 'Resgate de Investimento',
+  'Dívida (Pagamento)', 'Dívida (Recebimento)',
+  'Empréstimo (Cedido)', 'Empréstimo (Recebido)',
+  'Transferência', 'Ajuste de Saldo'
+];
+
+const isInternal = (tx: any) => {
+  const catName = tx.transaction_categories?.name;
+  return BUCKET_CATEGORIES.includes(catName || '') || tx.category_id === 'internal-transfer' || tx.savings_goal_id;
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { t, i18n } = useTranslation();
@@ -72,12 +85,10 @@ export default function Dashboard() {
   const { data: transactions = [] } = useQuery({
     queryKey: ["dashboard-transactions"],
     queryFn: async () => {
-      const sixMonthsAgo = format(subMonths(new Date(), 6), "yyyy-MM-dd");
       const { data, error } = await supabase
         .from("transactions")
         .select("*, transaction_categories(name, icon, color)")
         .eq("user_id", user?.id)
-        .gte("date", sixMonthsAgo)
         .order("date", { ascending: false });
 
       if (error) throw error;
@@ -189,40 +200,50 @@ export default function Dashboard() {
   const monthStr = format(currentDate, 'yyyy-MM');
   const yearStr = format(currentDate, 'yyyy');
 
-  const filteredTransactions = transactions.filter(t => {
-    if (viewMode === 'monthly') return t.date.startsWith(monthStr);
-    if (viewMode === 'yearly') return t.date.startsWith(yearStr);
+  const filteredTransactions = transactions.filter(tx => {
+    if (viewMode === 'monthly') return tx.date.startsWith(monthStr);
+    if (viewMode === 'yearly') return tx.date.startsWith(yearStr);
     return true; // Mode 'all'
   });
 
   const totalIncome = filteredTransactions
-    .filter(t => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
+    .filter(tx => tx.type === "income" && !isInternal(tx))
+    .reduce((sum, tx) => sum + tx.amount, 0);
 
   const totalExpenses = filteredTransactions
-    .filter(t => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0);
+    .filter(tx => tx.type === "expense" && !isInternal(tx))
+    .reduce((sum, tx) => sum + tx.amount, 0);
 
   const balance = totalIncome - totalExpenses;
+
+  // All-time balance (Net cash flow from external transactions)
+  const allTimeExternalBalance = transactions
+    .filter(tx => !isInternal(tx))
+    .reduce((sum, tx) => sum + (tx.type === 'income' ? tx.amount : -tx.amount), 0);
 
   const totalSavings = savingsGoals.reduce((sum, g) => sum + (g.saved_amount || 0), 0);
   const totalDebt = debts.reduce((sum, d) => sum + (d.current_amount || 0), 0);
   const totalInvestments = investments.reduce((sum, i) => sum + (i.current_value || i.amount), 0);
   const totalExtraIncomeBalance = incomeSources.reduce((sum, s) => sum + (s.monthly_revenue || 0), 0);
-  const netWorth = totalSavings + totalInvestments + totalExtraIncomeBalance - totalDebt;
+
+  // Net Worth = Liquid Balance (cash) + Investments + Business Revenue - Debt
+  // Note: savings are already part of the cash flow, but they are tracked separately in the UI.
+  // The allTimeExternalBalance already accounts for all cash that hasn't left the system.
+  const netWorth = allTimeExternalBalance + totalInvestments + totalExtraIncomeBalance - totalDebt;
 
   // Chart data - last 6 months
   const chartData = [];
+  const sixMonthsAgo = subMonths(new Date(), 5); // To match the loop below (5 to 0)
   for (let i = 5; i >= 0; i--) {
     const date = subMonths(new Date(), i);
     const targetMonthStr = format(date, "yyyy-MM");
 
-    const monthTransactions = transactions.filter(t => {
-      return t.date.startsWith(targetMonthStr);
+    const monthTransactions = transactions.filter(tx => {
+      return tx.date.startsWith(targetMonthStr);
     });
 
-    const income = monthTransactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
-    const expense = monthTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+    const income = monthTransactions.filter(tx => tx.type === "income" && !isInternal(tx)).reduce((sum, tx) => sum + tx.amount, 0);
+    const expense = monthTransactions.filter(tx => tx.type === "expense" && !isInternal(tx)).reduce((sum, tx) => sum + tx.amount, 0);
 
     const getLocale = () => {
       switch (i18n.language) {
@@ -245,16 +266,16 @@ export default function Dashboard() {
 
   // Category breakdown for expenses
   const categoryData = filteredTransactions
-    .filter(t => t.type === "expense")
-    .reduce((acc, t) => {
+    .filter(tx => tx.type === "expense" && !isInternal(tx))
+    .reduce((acc, tx) => {
       // Handle potential array or object structure from Supabase join
-      const cat = Array.isArray(t.transaction_categories)
-        ? t.transaction_categories[0]
-        : t.transaction_categories;
+      const cat = Array.isArray(tx.transaction_categories)
+        ? tx.transaction_categories[0]
+        : tx.transaction_categories;
 
       const categoryName = cat?.name || t("Outros");
       if (!acc[categoryName]) acc[categoryName] = 0;
-      acc[categoryName] += t.amount;
+      acc[categoryName] += tx.amount;
       return acc;
     }, {} as Record<string, number>);
 
@@ -370,21 +391,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card className="stat-card-investment">
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between min-w-0">
-                  <div className="min-w-0">
-                    <p className="text-[10px] xs:text-xs text-muted-foreground mb-0.5">{t("Renda Extra & Negócios")}</p>
-                    <p className="text-xs sm:text-sm md:text-xl lg:text-2xl font-bold text-finance-investment break-all">
-                      {formatPrice(totalExtraIncomeBalance)}
-                    </p>
-                  </div>
-                  <div className="h-8 w-8 rounded-lg bg-finance-investment/20 flex items-center justify-center">
-                    <Building className="h-4 w-4 text-finance-investment" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
             <Card className="stat-card-investment">
               <CardContent className="p-3">

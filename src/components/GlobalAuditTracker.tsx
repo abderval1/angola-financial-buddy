@@ -11,13 +11,11 @@ export function GlobalAuditTracker() {
 
     // Track page views
     useEffect(() => {
-        if (user) {
-            logAction('PAGE_VIEW', {
-                path: location.pathname,
-                search: location.search,
-            });
-        }
-    }, [location.pathname, user]);
+        logAction('PAGE_VIEW', {
+            path: location.pathname,
+            search: location.search,
+        }, 'navigation');
+    }, [location.pathname]);
 
     // Track auth events
     useEffect(() => {
@@ -25,14 +23,10 @@ export function GlobalAuditTracker() {
             if (event === 'SIGNED_IN' && session?.user) {
                 logAction('USER_LOGIN', {
                     email: session.user.email,
-                    method: 'password'
-                });
+                    method: session.provider_token ? 'social' : 'password'
+                }, 'auth');
             } else if (event === 'SIGNED_OUT') {
-                logAction('USER_LOGOUT', {});
-            } else if (event === 'SIGNED_UP' && session?.user) {
-                logAction('USER_SIGNUP', {
-                    email: session.user.email
-                });
+                logAction('USER_LOGOUT', {}, 'auth');
             }
         });
 

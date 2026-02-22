@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
     Select,
     SelectContent,
@@ -27,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
-import { Search, Filter, RefreshCw, Loader2 } from "lucide-react";
+import { Search, Filter, RefreshCw, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 
 export function AdminAuditLogs() {
     const [searchTerm, setSearchTerm] = useState("");
@@ -39,17 +40,31 @@ export function AdminAuditLogs() {
     // Check if user is admin
     useEffect(() => {
         const checkAdminRole = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user) {
+                setIsAdmin(false);
+                return;
+            }
 
-            const { data: roleData } = await supabase
+            // Try the new secure rpc first
+            try {
+                const { data: hasPerm, error: rpcError } = await supabase.rpc('has_permission', { p_permission: 'read:audit' });
+                if (!rpcError && hasPerm !== null) {
+                    setIsAdmin(hasPerm);
+                    return;
+                }
+            } catch (e) {
+                console.warn('has_permission RPC not found, falling back to direct query');
+            }
+
+            // Fallback for older schema
+            const { data: roles } = await supabase
                 .from("user_roles")
                 .select("role")
-                .eq("user_id", user.id)
-                .eq("role", "admin")
-                .maybeSingle();
+                .eq("user_id", session.user.id);
 
-            setIsAdmin(!!roleData);
+            const isUserAdmin = roles?.some(r => r.role === 'admin') || false;
+            setIsAdmin(isUserAdmin);
         };
 
         checkAdminRole();
@@ -61,64 +76,35 @@ export function AdminAuditLogs() {
             const from = (currentPage - 1) * PAGE_SIZE;
             const to = from + PAGE_SIZE - 1;
 
-            // Use RPC function for admin users to bypass RLS issues
-            let logs: any[] = [];
-            let count = 0;
+            // Use the new secure RPC functions to bypass RLS for admins
+            // 1. Get total count via RPC
+            const { data: countData, error: countError } = await supabase
+                .rpc('get_audit_logs_count' as any, {
+                    p_is_admin: isAdmin,
+                    p_action_filter: actionFilter
+                });
 
-            if (isAdmin) {
-                // Get total count first
-                const { count: totalCount } = await supabase
-                    .from("activity_logs" as any)
-                    .select("*", { count: 'exact', head: true });
-                count = totalCount || 0;
+            if (countError) {
+                console.error('Error fetching logs count:', countError);
+            }
+            const count = Number(countData) || 0;
 
-                // Use the function for admin to get paginated logs
-                const { data: logsData, error: logsError } = await supabase
-                    .rpc('get_activity_logs' as any, { p_is_admin: true })
-                    .range(from, to);
+            // 2. Get paginated logs via RPC
+            const { data: logsData, error: logsError } = await supabase
+                .rpc('get_audit_logs' as any, {
+                    p_is_admin: isAdmin,
+                    p_action_filter: actionFilter
+                })
+                .range(from, to);
 
-                if (logsError) {
-                    console.error('Error fetching all logs via RPC:', logsError);
-                    // Fallback to direct query
-                    const { data: fallbackLogs, error: fallbackError } = await supabase
-                        .from("activity_logs" as any)
-                        .select("*", { count: 'exact' })
-                        .order("created_at", { ascending: false })
-                        .range(from, to);
-
-                    if (fallbackError) throw fallbackError;
-                    logs = fallbackLogs || [];
-                } else {
-                    logs = logsData as any || [];
-                }
-            } else {
-                // For non-admin users, only get their own logs
-                const { data: { user } } = await supabase.auth.getUser();
-
-                // Get total count
-                const { count: ownCount } = await supabase
-                    .from("activity_logs" as any)
-                    .select("*", { count: 'exact', head: true })
-                    .eq("user_id", user?.id);
-                count = ownCount || 0;
-
-                const { data: ownLogs, error: ownError } = await supabase
-                    .from("activity_logs" as any)
-                    .select("*", { count: 'exact' })
-                    .eq("user_id", user?.id)
-                    .order("created_at", { ascending: false })
-                    .range(from, to);
-
-                if (ownError) throw ownError;
-                logs = ownLogs || [];
+            if (logsError) {
+                console.error('Error fetching logs via RPC:', logsError);
+                throw logsError;
             }
 
-            // Apply action filter if needed
-            if (actionFilter !== "all") {
-                logs = logs.filter((log: any) => log.action === actionFilter);
-            }
+            const logs = logsData as any || [];
 
-            // Get user info for each log
+            // 3. Get user info for each log (Profiles RLS allows public read for authenticated)
             const userIds = [...new Set(logs.map((log: any) => log.user_id).filter(Boolean))] as string[];
             if (userIds.length > 0) {
                 const { data: profiles } = await supabase
@@ -136,7 +122,7 @@ export function AdminAuditLogs() {
 
             return { logs, total: count };
         },
-        enabled: isAdmin === true,
+        enabled: isAdmin !== null,
     });
 
     const logs = data?.logs || [];
@@ -204,21 +190,24 @@ export function AdminAuditLogs() {
                         </Select>
                     </div>
 
-                    <div className="rounded-md border overflow-auto max-h-[600px] scrollbar-custom">
-                        <Table>
+                    <div className="rounded-md border overflow-x-auto max-h-[600px] scrollbar-custom w-full">
+                        <Table className="min-w-[1000px]">
                             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
                                 <TableRow>
                                     <TableHead className="whitespace-nowrap">Data/Hora</TableHead>
                                     <TableHead className="whitespace-nowrap">Usuário</TableHead>
+                                    <TableHead className="whitespace-nowrap">Role</TableHead>
                                     <TableHead className="whitespace-nowrap">Acção</TableHead>
-                                    <TableHead className="whitespace-nowrap min-w-[300px]">Detalhes</TableHead>
+                                    <TableHead className="whitespace-nowrap">Recurso</TableHead>
+                                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                                    <TableHead className="whitespace-nowrap min-w-[200px]">Detalhes</TableHead>
                                     <TableHead className="whitespace-nowrap">IP/Agent</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {isAdmin === null ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
+                                        <TableCell colSpan={8} className="h-24 text-center">
                                             <div className="flex justify-center items-center">
                                                 <Loader2 className="h-6 w-6 animate-spin mr-2" />
                                                 Verificando permissões...
@@ -233,7 +222,7 @@ export function AdminAuditLogs() {
                                     </TableRow>
                                 ) : isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
+                                        <TableCell colSpan={8} className="h-24 text-center">
                                             <div className="flex justify-center items-center">
                                                 <Loader2 className="h-6 w-6 animate-spin mr-2" />
                                                 Carregando logs...
@@ -242,7 +231,7 @@ export function AdminAuditLogs() {
                                     </TableRow>
                                 ) : filteredLogs.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                                             Nenhum registo encontrado.
                                         </TableCell>
                                     </TableRow>
@@ -266,13 +255,32 @@ export function AdminAuditLogs() {
                                                     </span>
                                                 </div>
                                             </TableCell>
+                                            <TableCell className="whitespace-nowrap">
+                                                <Badge
+                                                    variant={log.role === 'admin' ? "default" : log.role === 'moderator' ? "secondary" : "outline"}
+                                                    className="capitalize text-[10px]"
+                                                >
+                                                    {log.role || 'user'}
+                                                </Badge>
+                                            </TableCell>
                                             <TableCell>
                                                 <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors bg-secondary text-secondary-foreground whitespace-nowrap">
                                                     {log.action}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="min-w-[400px]">
-                                                <pre className="text-xs bg-muted/50 p-2 rounded overflow-x-auto max-h-[150px] scrollbar-custom">
+                                            <TableCell className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+                                                {log.resource || 'system'}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    variant="outline"
+                                                    className={`text-[10px] ${log.status === 'success' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}
+                                                >
+                                                    {log.status || 'success'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="min-w-[200px]">
+                                                <pre className="text-xs bg-muted/50 p-2 rounded overflow-x-auto max-h-[100px] scrollbar-custom">
                                                     {JSON.stringify(log.details, null, 2)}
                                                 </pre>
                                             </TableCell>
@@ -286,29 +294,71 @@ export function AdminAuditLogs() {
                         </Table>
                     </div>
 
-                    <div className="flex items-center justify-between mt-6 px-2">
-                        <div className="text-xs text-muted-foreground">
+                    <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4 px-2">
+                        <div className="text-xs text-muted-foreground order-2 sm:order-1">
                             Mostrando {logs.length} de {totalCount} registos
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-center gap-2 order-1 sm:order-2">
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1 || isLoading}
+                                className="h-8 w-8 p-0"
                             >
-                                Anterior
+                                <ChevronLeft className="h-4 w-4" />
                             </Button>
-                            <div className="text-xs font-bold">
-                                Página {currentPage} de {totalPages || 1}
+
+                            {/* Smart Pagination Numbers */}
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => {
+                                    let pageNum: number;
+                                    if (totalPages <= 5) {
+                                        pageNum = i + 1;
+                                    } else if (currentPage <= 3) {
+                                        pageNum = i + 1;
+                                    } else if (currentPage >= totalPages - 2) {
+                                        pageNum = totalPages - 4 + i;
+                                    } else {
+                                        pageNum = currentPage - 2 + i;
+                                    }
+
+                                    return (
+                                        <Button
+                                            key={pageNum}
+                                            variant={currentPage === pageNum ? "default" : "outline"}
+                                            size="sm"
+                                            className="h-8 w-8 p-0"
+                                            onClick={() => setCurrentPage(pageNum)}
+                                        >
+                                            {pageNum}
+                                        </Button>
+                                    );
+                                })}
+
+                                {totalPages > 5 && currentPage < totalPages - 2 && (
+                                    <>
+                                        <span className="text-muted-foreground text-xs px-1">...</span>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 w-8 p-0"
+                                            onClick={() => setCurrentPage(totalPages)}
+                                        >
+                                            {totalPages}
+                                        </Button>
+                                    </>
+                                )}
                             </div>
+
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                 disabled={currentPage === totalPages || isLoading}
+                                className="h-8 w-8 p-0"
                             >
-                                Próximo
+                                <ChevronRight className="h-4 w-4" />
                             </Button>
                         </div>
                     </div>

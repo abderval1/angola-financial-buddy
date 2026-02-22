@@ -7,10 +7,11 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Pencil, Trash2 } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useTranslation } from "react-i18next";
 import { enUS, fr, es, pt } from "date-fns/locale";
+import { Button } from "@/components/ui/button";
 
 const localeMap: Record<string, any> = {
     en: enUS,
@@ -38,10 +39,12 @@ interface Category {
 interface TransactionCalendarProps {
     transactions: Transaction[];
     categories: Category[];
+    onEdit?: (transaction: Transaction) => void;
+    onDelete?: (id: string) => void;
 }
 
 
-export function TransactionCalendar({ transactions, categories }: TransactionCalendarProps) {
+export function TransactionCalendar({ transactions, categories, onEdit, onDelete }: TransactionCalendarProps) {
     const { t, i18n } = useTranslation();
     const { formatPrice } = useCurrency();
     const currentLocale = localeMap[i18n.language] || pt;
@@ -108,17 +111,41 @@ export function TransactionCalendar({ transactions, categories }: TransactionCal
                     <div className="space-y-3">
                         {getDayTransactions(date).length > 0 ? (
                             getDayTransactions(date).map(transaction => (
-                                <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="font-medium">{transaction.description || t("Sem descrição")}</span>
-                                        <Badge variant="secondary" className="w-fit text-xs">
-                                            {getCategoryName(transaction.category_id)}
-                                        </Badge>
+                                <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 group hover:bg-muted/50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="font-medium">{transaction.description || t("Sem descrição")}</span>
+                                            <Badge variant="secondary" className="w-fit text-xs">
+                                                {getCategoryName(transaction.category_id)}
+                                            </Badge>
+                                        </div>
                                     </div>
-                                    <span className={`font-bold flex items-center gap-1 ${transaction.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
-                                        {transaction.type === 'income' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                                        {formatPrice(transaction.amount)}
-                                    </span>
+
+                                    <div className="flex items-center gap-3">
+                                        <span className={`font-bold flex items-center gap-1 ${transaction.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
+                                            {transaction.type === 'income' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                                            {formatPrice(transaction.amount)}
+                                        </span>
+
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                                onClick={() => onEdit?.(transaction)}
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-red-50"
+                                                onClick={() => onDelete?.(transaction.id)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
                             ))
                         ) : (

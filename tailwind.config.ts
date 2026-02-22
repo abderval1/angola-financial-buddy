@@ -84,6 +84,12 @@ export default {
           debt: "hsl(var(--debt))",
           fire: "hsl(var(--fire))",
         },
+        azul_bodiva: {
+          1: "#004b8d",
+        },
+        verde_bodiva: {
+          1: "#8ec63f",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   Plus, TrendingUp, TrendingDown, Trash2, Edit2, AlertTriangle,
   Briefcase, Car, Home, Heart, GraduationCap, Gamepad2, Shirt, FileText, UtensilsCrossed, Laptop,
-  ChevronLeft, ChevronRight, Calendar as CalendarIcon, Layers, List, Table as TableIcon
+  ChevronLeft, ChevronRight, Calendar as CalendarIcon, Layers, List, Table as TableIcon, History as HistoryIcon,
+  Settings, Wallet, PiggyBank, Activity
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,13 +23,6 @@ import { format, startOfMonth, endOfMonth, parseISO, subMonths, addMonths, start
 import { pt, enUS, fr, es } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
 import { useCurrency } from "@/contexts/CurrencyContext";
-
-const localeMap: Record<string, any> = {
-  en: enUS,
-  fr: fr,
-  es: es,
-  pt: pt,
-};
 import { useQueryClient } from "@tanstack/react-query";
 import { useAchievements } from "@/hooks/useAchievements";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
@@ -38,7 +33,15 @@ import { TransactionCalendar } from "@/components/budget/TransactionCalendar";
 import { CategoryManager } from "@/components/budget/CategoryManager";
 import { MetricCard } from "@/components/budget/MetricCard";
 import { BudgetSettings } from "@/components/budget/BudgetSettings";
-import { Settings, Wallet, PiggyBank, Activity } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { useAICoach } from "@/hooks/useAICoach";
+
+const localeMap: Record<string, any> = {
+  en: enUS,
+  fr: fr,
+  es: es,
+  pt: pt,
+};
 
 interface Transaction {
   id: string;
@@ -67,6 +70,28 @@ interface BudgetAlert {
   category_name?: string;
   spent?: number;
 }
+
+const BUCKET_CATEGORIES = [
+  'Poupança', 'Levantamento',
+  'Investimento', 'Resgate de Investimento',
+  'Dívida (Pagamento)', 'Dívida (Recebimento)',
+  'Empréstimo (Pagamento)', 'Empréstimo (Recebimento)',
+  'Transferência para Poupança', 'Transferência da Poupança'
+];
+
+const isInternal = (t: any) => {
+  const catName = t.transaction_categories?.name;
+  return BUCKET_CATEGORIES.includes(catName || '') || t.category_id === 'internal-transfer' || t.savings_goal_id;
+};
+
+const isOnlyBucket = (t: any) => {
+  const catName = t.transaction_categories?.name;
+  const bucketOnly = BUCKET_CATEGORIES.filter(c =>
+    !c.toLowerCase().includes('poupança') &&
+    !c.toLowerCase().includes('savings')
+  );
+  return bucketOnly.includes(catName || '') || t.category_id === 'internal-transfer';
+};
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Briefcase, Car, Home, Heart, GraduationCap, Gamepad2, Shirt, FileText, UtensilsCrossed, Laptop, TrendingUp, Plus
@@ -175,11 +200,11 @@ export default function Budget() {
   };
 
   const fetchBudgetConfig = async () => {
-    const { data, error } = await supabase
-      .from('financial_profiles')
-      .select('budget_config')
+    const { data, error } = (await supabase
+      .from('financial_profiles' as any)
+      .select('budget_config' as any)
       .eq('user_id', user?.id)
-      .single();
+      .single()) as any;
 
     if (data?.budget_config) {
       setBudgetConfig(data.budget_config as any);
@@ -204,21 +229,18 @@ export default function Budget() {
 
     const { data } = await supabase
       .from('transactions')
-      .select('*')
+      .select('*, transaction_categories(name, type)')
       .gte('date', start)
       .lte('date', end);
 
-    setPreviousMonthTransactions(data || []);
+    setPreviousMonthTransactions(data as any || []);
   };
 
   const fetchTransactions = async () => {
-    let query = supabase.from('transactions').select('*');
+    let query = supabase.from('transactions').select('*, transaction_categories(name, type)');
 
-    if (viewMode !== 'all') {
-      const yearStart = `${currentDate.getFullYear()}-01-01`;
-      const yearEnd = `${currentDate.getFullYear()}-12-31`;
-      query = query.gte('date', yearStart).lte('date', yearEnd);
-    }
+    // No longer filtering by date here to allow calculating carriedOverBalance from all history.
+    // The period filtering is done client-side via filteredTransactionsByMode.
 
     const { data, error } = await query.order('date', { ascending: false });
 
@@ -227,7 +249,7 @@ export default function Budget() {
       return;
     }
 
-    setTransactions(data || []);
+    setTransactions(data as any || []);
   };
 
   const fetchCategories = async () => {
@@ -526,17 +548,46 @@ export default function Budget() {
   const monthPrefix = format(currentDate, 'yyyy-MM');
   const yearPrefix = format(currentDate, 'yyyy');
 
+  let periodStart: Date | null = null;
+  if (viewMode === 'monthly') periodStart = startOfMonth(currentDate);
+  if (viewMode === 'yearly') periodStart = startOfYear(currentDate);
+
   const filteredTransactionsByMode = transactions.filter(t => {
     if (viewMode === 'monthly') return t.date.startsWith(monthPrefix);
     if (viewMode === 'yearly') return t.date.startsWith(yearPrefix);
     return true; // mode 'all'
   });
 
-  const totalIncome = filteredTransactionsByMode.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-  const totalExpense = filteredTransactionsByMode.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-  const balance = totalIncome - totalExpense;
+  const displayTransactions = filteredTransactionsByMode.filter(t => !isInternal(t));
 
-  const expensesByCategory = filteredTransactionsByMode
+  const totalIncome = filteredTransactionsByMode.filter(t => t.type === 'income' && !isInternal(t)).reduce((sum, t) => sum + t.amount, 0);
+  const totalExpense = filteredTransactionsByMode.filter(t => t.type === 'expense' && !isInternal(t)).reduce((sum, t) => sum + t.amount, 0);
+
+  // Balance includes savings transfers to effectively "subtract" them from available money
+  const balance = filteredTransactionsByMode
+    .filter(t => !isOnlyBucket(t))
+    .reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
+
+  const carriedOverBalance = transactions
+    .filter(t => {
+      if (!periodStart) return false;
+      const txDate = new Date(t.date);
+      return txDate < periodStart && !isOnlyBucket(t);
+    })
+    .reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
+
+  // Net savings = deposits into goals minus withdrawals from goals
+  const totalDepositedToGoals = filteredTransactionsByMode
+    .filter(t => t.type === 'expense' && t.savings_goal_id)
+    .reduce((sum, t) => sum + t.amount, 0);
+  const totalWithdrawnFromGoals = filteredTransactionsByMode
+    .filter(t => t.type === 'income' && t.savings_goal_id)
+    .reduce((sum, t) => sum + t.amount, 0);
+  const totalTransferredToGoalStorage = totalDepositedToGoals - totalWithdrawnFromGoals;
+
+  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
+
+  const expensesByCategory = displayTransactions
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
       const catInfo = getCategoryInfo(t.category_id);
@@ -554,7 +605,7 @@ export default function Budget() {
     }, [] as { name: string; value: number; color: string }[])
     .sort((a, b) => b.value - a.value);
 
-  const incomeByCategory = filteredTransactionsByMode
+  const incomeByCategory = displayTransactions
     .filter(t => t.type === 'income')
     .reduce((acc, t) => {
       const catInfo = getCategoryInfo(t.category_id);
@@ -577,7 +628,7 @@ export default function Budget() {
     const date = new Date();
     date.setDate(date.getDate() - 29 + i);
     const dateStr = format(date, 'yyyy-MM-dd');
-    const dayTransactions = transactions.filter(t => t.date === dateStr);
+    const dayTransactions = transactions.filter(t => t.date === dateStr && !isInternal(t));
     return {
       date: format(date, 'dd/MM'),
       receita: dayTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
@@ -597,19 +648,29 @@ export default function Budget() {
     );
   }
 
-  const prevIncome = viewMode === 'all' ? undefined : previousMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-  const prevExpense = viewMode === 'all' ? undefined : previousMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  const prevIncome = viewMode === 'all' ? undefined : previousMonthTransactions.filter(t => t.type === 'income' && !isInternal(t)).reduce((sum, t) => sum + t.amount, 0);
+  const prevExpense = viewMode === 'all' ? undefined : previousMonthTransactions.filter(t => t.type === 'expense' && !isInternal(t)).reduce((sum, t) => sum + t.amount, 0);
   const prevBalance = (prevIncome !== undefined && prevExpense !== undefined) ? prevIncome - prevExpense : undefined;
 
   const trendLabel = viewMode === 'yearly' ? 'vs ano anterior' : 'vs mês anterior';
 
   // Financial Health Calculation
-  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
-  const savingsScore = Math.min((savingsRate / budgetConfig.savings_goal_pct) * 4, 4); // Max 4 points
-  const budgetAdherence = totalExpense > 0 ? 1 : 1; // Placeholder for now, simple logic
-  const budgetScore = budgetAdherence * 3; // Max 3 points (simplified)
-  const balanceScore = balance >= 0 ? 3 : 0; // Max 3 points
-  const healthScore = Math.min(savingsScore + budgetScore + balanceScore, 10);
+  const healthScore = Math.max(0, Math.min(((totalIncome > 0 ? (savingsRate / budgetConfig.savings_goal_pct) * 4 : 2) + 3 + (balance + carriedOverBalance >= 0 ? 3 : 0)), 10));
+
+  const coachInsights: string[] = [];
+  const firstName = user?.user_metadata?.full_name?.split(' ')[0] || "Utilizador";
+  if (totalIncome === 0) {
+    coachInsights.push(t("Olá {{name}}, registe receitas para eu analisar!", { name: firstName }));
+  } else {
+    if (balance < 0) coachInsights.push(t("⚠️ {{name}}, os gastos superaram as receitas.", { name: firstName }));
+    if (balance >= 0 && savingsRate >= budgetConfig.savings_goal_pct) coachInsights.push(t("✅ Excelente! Poupança acima da meta ({{rate}}%).", { rate: savingsRate.toFixed(1) }));
+    if (totalTransferredToGoalStorage > 0) coachInsights.push(t("🏦 Poupança líquida: {{amount}}.", { amount: formatPrice(totalTransferredToGoalStorage) }));
+    if (savingsRate < budgetConfig.savings_goal_pct && totalIncome > 0) coachInsights.push(t("📉 Taxa de poupança {{rate}}%, abaixo da meta de {{goal}}%.", { rate: savingsRate.toFixed(1), goal: budgetConfig.savings_goal_pct }));
+    if (totalExpense > 0 && expensesByCategory.length > 0) coachInsights.push(t("🏷️ Maior gasto: {{cat}} ({{amount}}).", { cat: expensesByCategory[0].name, amount: formatPrice(expensesByCategory[0].value) }));
+    if (totalIncome > 0 && totalExpense / totalIncome > 0.8) coachInsights.push(t("🔴 Gastou mais de 80% da receita. Reduza despesas."));
+    if (totalIncome > 0 && totalExpense / totalIncome < 0.5) coachInsights.push(t("🟢 Bom controlo! Menos de 50% da receita em despesas."));
+    if (carriedOverBalance < 0) coachInsights.push(t("📌 Saldo anterior negativo. Priorize equilibrar as contas."));
+  }
 
   return (
     <AppLayout title={t("Orçamento")} subtitle={t("Gerencie suas receitas e despesas")}>
@@ -664,6 +725,15 @@ export default function Budget() {
             )}
           </div>
 
+          {/* Coach Strip + AI Sheet */}
+          {coachInsights.length > 0 && (
+            <CoachStrip
+              insights={coachInsights}
+              context={`Receitas: ${formatPrice(totalIncome)}, Despesas: ${formatPrice(totalExpense)}, Saldo: ${formatPrice(balance)}, Taxa de poupança: ${savingsRate.toFixed(1)}%, Maior categoria de despesa: ${expensesByCategory[0]?.name || 'N/A'}`}
+              t={t}
+            />
+          )}
+
           {/* Health Score Banner */}
           <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20 flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -687,7 +757,15 @@ export default function Budget() {
           </div>
 
           {/* Metrics Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <MetricCard
+              title={viewMode === 'all' ? t("Saldo Acumulado") : t("Saldo Anterior")}
+              value={carriedOverBalance}
+              icon={HistoryIcon}
+              type="neutral"
+              valueClassName={carriedOverBalance >= 0 ? "text-success" : "text-destructive"}
+              formatter={(v) => formatPrice(v)}
+            />
             <MetricCard
               title={t("Receitas")}
               value={totalIncome}
@@ -710,12 +788,12 @@ export default function Budget() {
             />
             <MetricCard
               title={t("Saldo")}
-              value={balance}
-              previousValue={prevBalance}
+              value={balance + carriedOverBalance}
+              previousValue={viewMode === 'monthly' ? carriedOverBalance : undefined}
               trendLabel={trendLabel}
               icon={Wallet}
               type="neutral"
-              valueClassName={balance >= 0 ? "text-success" : "text-destructive"}
+              valueClassName={(balance + carriedOverBalance) >= 0 ? "text-success" : "text-destructive"}
               formatter={(v) => formatPrice(v)}
             />
           </div>
@@ -1040,7 +1118,11 @@ export default function Budget() {
                           <XAxis type="number" axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => chartValueMode === 'percentage' ? `${v}%` : `${v / 1000}k`} />
                           <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} className="text-xs" width={80} />
                           <Tooltip formatter={(v: number) => chartValueMode === 'percentage' ? `${v.toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
-                          <Bar dataKey="value" fill="hsl(160 84% 39%)" radius={[0, 4, 4, 0]} />
+                          <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                            {incomeByCategory.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Bar>
                         </BarChart>
                       ) : (
                         <PieChart>
@@ -1093,7 +1175,11 @@ export default function Budget() {
                           <XAxis type="number" axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => chartValueMode === 'percentage' ? `${v}%` : `${v / 1000}k`} />
                           <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} className="text-xs" width={80} />
                           <Tooltip formatter={(v: number) => chartValueMode === 'percentage' ? `${v.toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
-                          <Bar dataKey="value" fill="hsl(0 72% 51%)" radius={[0, 4, 4, 0]} />
+                          <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                            {expensesByCategory.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Bar>
                         </BarChart>
                       ) : (
                         <PieChart>
@@ -1279,7 +1365,7 @@ export default function Budget() {
                   {viewType === 'list' && (
                     <div className="h-[500px] overflow-y-auto pr-2 space-y-6">
                       {Object.entries(
-                        filteredTransactionsByMode.reduce((groups, tx) => {
+                        displayTransactions.reduce((groups, tx) => {
                           const date = format(parseISO(tx.date), 'yyyy-MM-dd');
                           if (!groups[date]) groups[date] = [];
                           groups[date].push(tx);
@@ -1359,7 +1445,7 @@ export default function Budget() {
 
                   {viewType === 'table' && (
                     <TransactionTable
-                      transactions={filteredTransactionsByMode}
+                      transactions={displayTransactions}
                       categories={categories}
                       onEdit={(tx) => {
                         setEditingTransactionId(tx.id);
@@ -1378,7 +1464,7 @@ export default function Budget() {
 
                   {viewType === 'calendar' && (
                     <TransactionCalendar
-                      transactions={filteredTransactionsByMode}
+                      transactions={displayTransactions}
                       categories={categories}
                     />
                   )}
@@ -1389,5 +1475,125 @@ export default function Budget() {
         </div>
       </ModuleGuard>
     </AppLayout>
+  );
+}
+
+// ─── CoachStrip Component ──────────────────────────────────────────────────────
+
+interface CoachStripProps {
+  insights: string[];
+  context: string;
+  t: (key: string, opts?: any) => string;
+}
+
+function CoachStrip({ insights, context, t }: CoachStripProps) {
+  const [open, setOpen] = useState(false);
+  const [selectedTip, setSelectedTip] = useState<string | null>(null);
+  const { advice, loading, error, quota, isQuotaExceeded, getAdvice, clear } = useAICoach();
+
+  const handlePillClick = (tip: string) => {
+    setSelectedTip(tip);
+    setOpen(true);
+    clear();
+    getAdvice(tip, context);
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-base">👨‍🏫</span>
+          <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">{t("Prof")}:</span>
+        </div>
+        {insights.map((insight, idx) => (
+          <button
+            key={idx}
+            onClick={() => handlePillClick(insight)}
+            className="shrink-0 text-xs bg-primary/10 border border-primary/20 text-foreground px-2.5 py-1 rounded-full whitespace-nowrap hover:bg-primary/20 hover:border-primary/40 transition-colors cursor-pointer flex items-center gap-1 group"
+            title="Clique para obter conselho da IA"
+          >
+            {insight}
+            <span className="opacity-0 group-hover:opacity-60 transition-opacity text-[9px] ml-0.5">✨</span>
+          </button>
+        ))}
+      </div>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="bottom" className="max-h-[85vh] rounded-t-2xl overflow-y-auto">
+          <SheetHeader className="pb-4 border-b">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">👨‍🏫</span>
+              <div>
+                <SheetTitle className="text-sm font-bold">{t("Conselho do Professor")}</SheetTitle>
+                <SheetDescription className="text-xs">{t("Análise personalizada com IA")}</SheetDescription>
+              </div>
+            </div>
+            {selectedTip && (
+              <div className="mt-2 text-xs bg-primary/10 border border-primary/20 px-3 py-2 rounded-lg text-foreground">
+                {selectedTip}
+              </div>
+            )}
+          </SheetHeader>
+
+          <div className="pt-4">
+            {loading && (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <div className="h-8 w-8 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
+                <p className="text-sm text-muted-foreground animate-pulse">{t("A pensar...")}</p>
+              </div>
+            )}
+
+            {error && (
+              <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 p-3 rounded-lg">
+                ⚠️ {error}
+              </div>
+            )}
+
+            {isQuotaExceeded && (
+              <div className="text-center py-8 space-y-4">
+                <div className="text-4xl">🚫</div>
+                <div>
+                  <h3 className="font-bold text-lg text-foreground">{t("Limite diário excedido")}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {t("Já usaste as tuas {{limit}} dicas de IA hoje.", { limit: quota?.limit || 50 })}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    ⏰ {t("O quota renova à meia-noite (hora de Angola).")}
+                  </p>
+                </div>
+                <div className="bg-muted/50 p-3 rounded-lg text-xs text-muted-foreground">
+                  💡 {t("Dica: Podes usar o Coach (passo a passo) quantas vezes quiseres!")}
+                </div>
+              </div>
+            )}
+
+            {advice && !loading && (
+              <div className="prose prose-sm max-w-none space-y-3">
+                {advice.split(/\n+/).filter(Boolean).map((paragraph, i) => (
+                  <p
+                    key={i}
+                    className={`text-sm leading-relaxed ${paragraph.startsWith('**') || /^\d\./.test(paragraph)
+                      ? 'font-semibold text-foreground'
+                      : 'text-muted-foreground'
+                      }`}
+                  >
+                    {paragraph.replace(/\*\*/g, '')}
+                  </p>
+                ))}
+                <div className="pt-4 border-t flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>✨</span>
+                  <span>{t("Gerado por IA — use como orientação, não como conselho financeiro profissional.")}</span>
+                  {quota && (
+                    <span className="ml-auto bg-primary/10 px-2 py-1 rounded-full">
+                      {quota.remaining}/{quota.limit} quota
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }

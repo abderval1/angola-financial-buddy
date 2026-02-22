@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PresenceTracker } from "@/components/layout/PresenceTracker";
+import { GlobalAuditTracker } from "@/components/GlobalAuditTracker";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { I18nextProvider } from "react-i18next";
 import i18n from "./i18n";
@@ -52,6 +53,7 @@ const App = () => (
                 <Sonner />
                 <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                   <PresenceTracker />
+                  <GlobalAuditTracker />
                   <Routes>
                     <Route path="/" element={<Landing />} />
                     <Route path="/auth" element={<Auth />} />
@@ -66,8 +68,9 @@ const App = () => (
                     <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
                     <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
                     <Route path="/marketplace" element={<ProtectedRoute><Marketplace /></ProtectedRoute>} />
-                    <Route path="/blog" element={<ProtectedRoute><Blog /></ProtectedRoute>} />
-                    <Route path="/blog/comments" element={<ProtectedRoute><Blog /></ProtectedRoute>} />
+                    <Route path="/blog" element={<Blog />} />
+                    <Route path="/blog/:postId" element={<Blog />} />
+                    <Route path="/blog/comments" element={<Blog />} />
                     <Route path="/news" element={<ProtectedRoute><News /></ProtectedRoute>} />
                     <Route path="/calculators" element={<ProtectedRoute><Calculators /></ProtectedRoute>} />
                     <Route path="/prices" element={<ProtectedRoute><Prices /></ProtectedRoute>} />

@@ -51,32 +51,52 @@ function parseBodivaData(markdown: string): any {
         const bodiva20 = markdown.match(/BODIVA\s*20[^\d]*(\d+[.,]\d+)/i);
         const bodivaPME = markdown.match(/BODIVA\s*PME[^\d]*(\d+[.,]\d+)/i);
 
-        result.data.indices = {
-            "All Share Index": { value: allShare ? parseFloat(allShare[1].replace(',', '.')) : 1850, change: 0, changePercent: 0 },
-            "BODIVA 20": { value: bodiva20 ? parseFloat(bodiva20[1].replace(',', '.')) : 2450, change: 0, changePercent: 0 },
-            "BODIVA PME": { value: bodivaPME ? parseFloat(bodivaPME[1].replace(',', '.')) : 890, change: 0, changePercent: 0 }
-        };
+        result.data.indices = {};
+        if (allShare) {
+            result.data.indices["All Share Index"] = {
+                value: parseFloat(allShare[1].replace(',', '.')),
+                change: 0,
+                changePercent: 0
+            };
+        }
+        if (bodiva20) {
+            result.data.indices["BODIVA 20"] = {
+                value: parseFloat(bodiva20[1].replace(',', '.')),
+                change: 0,
+                changePercent: 0
+            };
+        }
+        if (bodivaPME) {
+            result.data.indices["BODIVA PME"] = {
+                value: parseFloat(bodivaPME[1].replace(',', '.')),
+                change: 0,
+                changePercent: 0
+            };
+        }
 
-        // Default values for other data
-        result.data.volumes = {
-            daily: { volume: 1250000000, transactions: 342 },
-            monthly: { volume: 28500000000, transactions: 7850 },
-            yearly: { volume: 342000000000, transactions: 94200 }
-        };
+        // Only include volumes if we actually extracted real data
+        // Don't provide fake fallback data
 
-        result.data.topSecurities = [
-            { symbol: "BAY", name: "Banco Atlântico", volume: 450000000, change: 2.5 },
-            { symbol: "SGC", name: "SG Coloid", volume: 320000000, change: -1.2 },
-            { symbol: "FIP", name: "FIP - Imobiliário", volume: 280000000, change: 0.8 },
-            { symbol: "ENL", name: "Endiama", volume: 180000000, change: 3.1 },
-            { symbol: "AFA", name: "Afrigroup", volume: 150000000, change: -0.5 }
-        ];
+        // Only include topSecurities if we actually extracted real data  
+        // Don't provide fake fallback data
 
-        result.data.livroOrdens = [
-            { symbol: "BAY", compra: 150000000, venda: 180000000, ultimo: 165000000 },
-            { symbol: "SGC", compra: 80000000, venda: 95000000, ultimo: 87500000 },
-            { symbol: "ENL", compra: 45000000, venda: 52000000, ultimo: 48500000 }
-        ];
+        // Only include livroOrdens if we actually extracted real data
+        // Don't provide fake fallback data
+
+        // Check if we got any real data
+        const hasRealData = Object.keys(result.data.indices || {}).length > 0 ||
+            result.data.taxas && Object.values(result.data.taxas).some(v => v !== null);
+
+        if (!hasRealData) {
+            // No real data extracted - return failure
+            return {
+                success: false,
+                error: "REAL_BODIVA_DATA_UNAVAILABLE",
+                source: "BODIVA",
+                scraped_at: new Date().toISOString(),
+                note: "Não foi possível extrair dados reais do site da BODIVA"
+            };
+        }
 
         return result;
     } catch (error) {
@@ -128,48 +148,15 @@ async function scrapeWithFirecrawl(): Promise<any> {
     return parseBodivaData(data.data.markdown || "");
 }
 
-// Fallback data when scraping fails
-function getFallbackData(isError: boolean = false, errorMessage: string = ""): any {
+// Fallback data when scraping fails - RETURNS ERROR ONLY
+function getErrorResponse(errorMessage: string): any {
     return {
-        success: true,
-        dataSource: "fallback",
-        isFallback: true,
-        timestamp: new Date().toISOString(),
-        scrapeError: errorMessage,
-        data: {
-            taxas: {
-                taxaBasicaBNA: 17.5,
-                taxaLUIBOROvernight: 18.79,
-                inflacaoHomologa: 15.7,
-                bt91Dias: 17.5,
-                bt182Dias: 9.48,
-                bt364Dias: 16.0,
-                otnr2Anos: 15.0,
-                otnr3Anos: 15.0,
-                otnr4Anos: 16.75,
-                otnr5Anos: 17.25
-            },
-            indices: {
-                "All Share Index": { value: 1850.42, change: 1.25, changePercent: 0.07 },
-                "BODIVA 20": { value: 2450.85, change: -15.30, changePercent: -0.62 },
-                "BODIVA PME": { value: 890.12, change: 5.45, changePercent: 0.62 }
-            },
-            volumes: {
-                daily: { volume: 1250000000, transactions: 342 },
-                monthly: { volume: 28500000000, transactions: 7850 },
-                yearly: { volume: 342000000000, transactions: 94200 }
-            },
-            topSecurities: [
-                { symbol: "BAY", name: "Banco Atlântico", volume: 450000000, change: 2.5 },
-                { symbol: "SGC", name: "SG Coloid", volume: 320000000, change: -1.2 },
-                { symbol: "FIP", name: "FIP - Imobiliário", volume: 280000000, change: 0.8 },
-                { symbol: "ENL", name: "Endiama", volume: 180000000, change: 3.1 },
-                { symbol: "AFA", name: "Afrigroup", volume: 150000000, change: -0.5 }
-            ]
-        },
-        note: isError
-            ? `Dados de fallback devido a erro no scraping: ${errorMessage}`
-            : "Dados de exemplo - configure a API key do Firecrawl para obter dados reais"
+        success: false,
+        error: "REAL_BODIVA_DATA_UNAVAILABLE",
+        errorDetails: errorMessage,
+        source: "BODIVA",
+        scraped_at: new Date().toISOString(),
+        note: "Não foi possível obter dados reais da BODIVA. Por favor, tente novamente mais tarde."
     };
 }
 
@@ -195,11 +182,11 @@ Deno.serve(async (req) => {
             } catch (scrapeError) {
                 const errorMsg = scrapeError instanceof Error ? scrapeError.message : "Unknown error";
                 console.error("Firecrawl error:", errorMsg);
-                result = getFallbackData(true, errorMsg);
+                result = getErrorResponse(errorMsg);
             }
         } else {
             console.log("No Firecrawl API key available, using fallback data");
-            result = getFallbackData(true, "API key não disponível");
+            result = getErrorResponse("API key não disponível");
         }
 
         return new Response(JSON.stringify(result), {

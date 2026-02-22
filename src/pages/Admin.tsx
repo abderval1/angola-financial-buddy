@@ -92,11 +92,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AdminLiveMonitor } from "@/components/admin/AdminLiveMonitor";
 import { AdminAuditLogs } from "@/components/admin/AdminAuditLogs";
+import AdminBodivaData from "@/components/admin/AdminBodivaData";
 import { NotificationCenter } from "@/components/layout/NotificationCenter";
 import { useOnlinePresence } from "@/hooks/useOnlinePresence";
+import { useAudit } from "@/hooks/useAudit";
 
 export default function Admin() {
   const { user, signOut } = useAuth();
+  const { logAction } = useAudit();
   const { onlineUsers } = useOnlinePresence();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "overview";
@@ -192,6 +195,7 @@ export default function Admin() {
     { id: "content", label: "Conteúdo Educativo", icon: GraduationCap },
     { id: "courses", label: "Gestão de Cursos", icon: BookOpen },
     { id: "news", label: "Notícias", icon: FileText },
+    { id: "bodiva", label: "Dados Mercado BODIVA", icon: TrendingUp },
     { id: "blog", label: "Blog", icon: BookText, hasChildren: true },
     { id: "blog_articles", label: "Artigos", icon: FileText, parent: "blog" },
     { id: "blog_comments", label: "Comentários", icon: MessageCircle, parent: "blog" },
@@ -221,7 +225,7 @@ export default function Admin() {
               <span className="font-display font-bold text-lg">Admin Angola Finance</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 overflow-visible">
             <NotificationCenter />
             <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
               Administrador
@@ -328,6 +332,7 @@ export default function Admin() {
           {activeTab === "content" && <AdminContent />}
           {activeTab === "courses" && <AdminCourses />}
           {activeTab === "news" && <AdminNews />}
+          {activeTab === "bodiva" && <AdminBodivaData />}
           {activeTab === "blog" && <AdminBlogManager />}
           {activeTab === "blog_articles" && <AdminBlogManager />}
           {activeTab === "blog_comments" && <AdminBlogComments />}
@@ -486,6 +491,8 @@ function AdminUsers() {
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
       const { error } = await supabase.rpc("set_user_role", { target_user_id: userId, new_role: role });
       if (error) throw error;
+
+      await logAction('USER_ROLE_UPDATE', { target_user_id: userId, new_role: role }, 'user_roles');
     },
     onSuccess: () => {
       toast.success("Função do usuário atualizada!");
@@ -498,6 +505,8 @@ function AdminUsers() {
     mutationFn: async (userId: string) => {
       const { data, error } = await supabase.rpc("toggle_user_status", { target_user_id: userId });
       if (error) throw error;
+
+      await logAction('USER_STATUS_TOGGLE', { target_user_id: userId, new_status: data }, 'profiles');
       return data;
     },
     onSuccess: (data) => {
@@ -576,6 +585,8 @@ function AdminUsers() {
     mutationFn: async (userId: string) => {
       const { error } = await supabase.rpc("admin_delete_user", { target_user_id: userId });
       if (error) throw error;
+
+      await logAction('USER_DELETE', { target_user_id: userId }, 'profiles');
     },
     onSuccess: () => {
       toast.success("Usuário excluído do sistema!");

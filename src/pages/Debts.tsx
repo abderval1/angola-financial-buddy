@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +28,7 @@ import { pt } from "date-fns/locale";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 import { DebtCalendar } from "@/components/debts/DebtCalendar";
 import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface Debt {
   id: string;
@@ -79,6 +81,7 @@ interface LoanCollection {
 export default function Debts() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { formatPrice } = useCurrency();
   const [activeTab, setActiveTab] = useState("debts");
   const [debts, setDebts] = useState<Debt[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -105,6 +108,11 @@ export default function Debts() {
   // Form values
   const [paymentAmount, setPaymentAmount] = useState('');
   const [collectionAmount, setCollectionAmount] = useState('');
+  const [paymentSource, setPaymentSource] = useState<'budget' | 'savings' | 'investment'>('budget');
+  const [collectionDestination, setCollectionDestination] = useState<'budget' | 'savings' | 'new_money'>('budget');
+  const [loanSource, setLoanSource] = useState<'budget' | 'savings'>('savings');
+  const [savingsBalance, setSavingsBalance] = useState<number>(0);
+  const [budgetBalance, setBudgetBalance] = useState<number>(0);
 
   const [newDebt, setNewDebt] = useState({
     creditor: '',
@@ -132,11 +140,58 @@ export default function Debts() {
     if (user) fetchData();
   }, [user]);
 
+  // Fetch savings balance
+  const fetchSavingsBalance = async () => {
+    if (!user?.id) return;
+    const { data: goals } = await supabase
+      .from('savings_goals')
+      .select('saved_amount')
+      .eq('user_id', user.id);
+    if (goals) {
+      const total = goals.reduce((sum, g) => sum + (g.saved_amount || 0), 0);
+      setSavingsBalance(total);
+    }
+  };
+
+  // Fetch budget balance
+  const fetchBudgetBalance = async () => {
+    if (!user?.id) return;
+    const { data: transactions } = await supabase
+      .from('transactions')
+      .select('type, amount, date')
+      .eq('user_id', user.id);
+
+    if (transactions) {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const periodStart = new Date(currentYear, currentMonth, 1);
+
+      const currentMonthStr = now.toISOString().slice(0, 7);
+      const monthTransactions = transactions.filter(t => t.date && t.date.startsWith(currentMonthStr));
+      const monthIncome = monthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+      const monthExpense = monthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+      const monthBalance = monthIncome - monthExpense;
+
+      const carriedOverBalance = transactions
+        .filter(t => {
+          if (!t.date) return false;
+          const txDate = new Date(t.date);
+          return txDate < periodStart;
+        })
+        .reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
+
+      setBudgetBalance(monthBalance + carriedOverBalance);
+    }
+  };
+
   const fetchData = async () => {
     setLoading(true);
     const [debtsRes, loansRes] = await Promise.all([
       supabase.from('debts').select('*').order('created_at', { ascending: false }),
-      (supabase as any).from('loans').select('*').order('created_at', { ascending: false })
+      (supabase as any).from('loans').select('*').order('created_at', { ascending: false }),
+      fetchSavingsBalance(),
+      fetchBudgetBalance()
     ]);
     console.log('Debts query result:', debtsRes);
     console.log('Loans query result:', loansRes);
@@ -195,6 +250,144 @@ export default function Debts() {
       amount: payment,
       payment_date: new Date().toISOString(),
     });
+
+    // Handle payment source - create transaction in Budget
+    const today = format(new Date(), 'yyyy-MM-dd');
+
+    // Get or create debt payment category
+    let { data: debtCatData } = await supabase
+      .from('transaction_categories')
+      .select('id')
+      .eq('name', t("Pagamento de Dívida"))
+      .eq('type', 'expense')
+      .maybeSingle();
+
+    if (!debtCatData) {
+      const { data: newCat } = await supabase
+        .from('transaction_categories')
+        .insert({
+          user_id: user?.id,
+          name: t("Pagamento de Dívida"),
+          type: 'expense',
+          icon: 'CreditCard',
+          color: 'red'
+        })
+        .select()
+        .single();
+      debtCatData = newCat;
+    }
+
+    // Get savings category for deduction
+    let { data: savingsCatData } = await supabase
+      .from('transaction_categories')
+      .select('id')
+      .eq('name', t("Pagamento de Dívida"))
+      .eq('type', 'expense')
+      .maybeSingle();
+
+    if (!savingsCatData && debtCatData) {
+      savingsCatData = debtCatData;
+    }
+
+    if (paymentSource === 'budget' && debtCatData) {
+      // Create expense transaction in Budget
+      await supabase.from('transactions').insert({
+        user_id: user?.id,
+        type: 'expense',
+        amount: payment,
+        description: `${t("Pagamento de dívida")}: ${selectedDebt.creditor}`,
+        category_id: debtCatData.id,
+        date: today,
+      });
+    } else if (paymentSource === 'savings') {
+      // Find first savings goal with balance
+      const { data: savingsGoals } = await supabase
+        .from('savings_goals')
+        .select('id, saved_amount')
+        .gt('saved_amount', 0)
+        .limit(1);
+
+      if (savingsGoals && savingsGoals.length > 0) {
+        const goal = savingsGoals[0];
+        // Update savings goal balance
+        await supabase
+          .from('savings_goals')
+          .update({
+            saved_amount: Math.max(0, (goal.saved_amount || 0) - payment),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', goal.id);
+
+        // Create expense in Savings
+        await supabase.from('transactions').insert({
+          user_id: user?.id,
+          type: 'expense',
+          amount: payment,
+          description: `${t("Pagamento de dívida")}: ${selectedDebt.creditor}`,
+          category_id: savingsCatData?.id || null,
+          savings_goal_id: goal.id,
+          date: today,
+        });
+      } else {
+        // If no savings, fallback to budget
+        await supabase.from('transactions').insert({
+          user_id: user?.id,
+          type: 'expense',
+          amount: payment,
+          description: `${t("Pagamento de dívida")}: ${selectedDebt.creditor}`,
+          category_id: debtCatData?.id || null,
+          date: today,
+        });
+      }
+    } else if (paymentSource === 'investment') {
+      // Find first investment with balance
+      const { data: investments } = await supabase
+        .from('investments')
+        .select('id, current_value, amount')
+        .gt('current_value', 0)
+        .eq('status', 'active')
+        .limit(1);
+
+      if (investments && investments.length > 0) {
+        const inv = investments[0];
+        const newValue = Math.max(0, (inv.current_value || inv.amount) - payment);
+        // Update investment value
+        await supabase
+          .from('investments')
+          .update({
+            current_value: newValue,
+          })
+          .eq('id', inv.id);
+
+        // Get investment expense category
+        let { data: invCatData } = await supabase
+          .from('transaction_categories')
+          .select('id')
+          .eq('name', t("Pagamento de Dívida"))
+          .eq('type', 'expense')
+          .maybeSingle();
+
+        // Create expense for investment liquidation
+        await supabase.from('transactions').insert({
+          user_id: user?.id,
+          type: 'expense',
+          amount: payment,
+          description: `${t("Liquidação para pagamento de dívida")}: ${selectedDebt.creditor}`,
+          category_id: invCatData?.id || debtCatData?.id || null,
+          date: today,
+        });
+      } else {
+        // If no investments, fallback to budget
+        await supabase.from('transactions').insert({
+          user_id: user?.id,
+          type: 'expense',
+          amount: payment,
+          description: `${t("Pagamento de dívida")}: ${selectedDebt.creditor}`,
+          category_id: debtCatData?.id || null,
+          date: today,
+        });
+      }
+    }
 
     if (newAmount === 0) toast.success("🎉 " + t('Dívida quitada!'));
     else toast.success(t('Pagamento registrado!'));
@@ -257,27 +450,105 @@ export default function Debts() {
       toast.error(t('Preencha o nome e valor'));
       return;
     }
+
+    const loanAmount = parseFloat(newLoan.original_amount);
+
+    // If giving loan from savings, check balance
+    if (loanSource === 'savings' && savingsBalance < loanAmount) {
+      toast.error(t('Saldo insuficiente na poupança. Saldo atual: {{balance}}', { balance: formatPrice(savingsBalance) }));
+      return;
+    }
+
+    // If giving loan from budget, check balance
+    if (loanSource === 'budget' && budgetBalance < loanAmount) {
+      toast.error(t('Saldo insuficiente no orçamento. Saldo atual: {{balance}}', { balance: formatPrice(budgetBalance) }));
+      return;
+    }
+
     const loanData = {
       user_id: user?.id,
       borrower_name: newLoan.borrower_name,
       borrower_contact: newLoan.borrower_contact || null,
-      original_amount: parseFloat(newLoan.original_amount),
-      current_amount: parseFloat(newLoan.current_amount) || parseFloat(newLoan.original_amount),
+      original_amount: loanAmount,
+      current_amount: parseFloat(newLoan.current_amount) || loanAmount,
       interest_rate: parseFloat(newLoan.interest_rate) || 0,
       loan_date: newLoan.loan_date || null,
       expected_return_date: newLoan.expected_return_date || null,
       notes: newLoan.notes || null,
       status: 'pending',
     };
+
     if (editingLoan) {
       await (supabase as any).from('loans').update(loanData).eq('id', editingLoan.id);
       toast.success(t('Empréstimo atualizado!'));
     } else {
+      // If source is savings, deduct from savings goal
+      if (loanSource === 'savings' && loanAmount > 0) {
+        // Find first savings goal with balance
+        const { data: goals } = await supabase
+          .from('savings_goals')
+          .select('id, saved_amount')
+          .eq('user_id', user?.id)
+          .gt('saved_amount', 0)
+          .limit(1);
+
+        if (goals && goals.length > 0) {
+          const goal = goals[0];
+          const newSavedAmount = Math.max(0, (goal.saved_amount || 0) - loanAmount);
+          await supabase
+            .from('savings_goals')
+            .update({
+              saved_amount: newSavedAmount,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', goal.id);
+        }
+      } else if (loanSource === 'budget' && loanAmount > 0) {
+        // Create expense transaction in Budget
+        const today = format(new Date(), 'yyyy-MM-dd');
+
+        // Get or create loan category
+        let { data: loanCatData } = await supabase
+          .from('transaction_categories')
+          .select('id')
+          .eq('name', t("Empréstimo Concedido"))
+          .eq('type', 'expense')
+          .maybeSingle();
+
+        if (!loanCatData) {
+          const { data: newCat } = await supabase
+            .from('transaction_categories')
+            .insert({
+              user_id: user?.id,
+              name: t("Empréstimo Concedido"),
+              type: 'expense',
+              icon: 'HandCoins',
+              color: 'orange'
+            })
+            .select()
+            .single();
+          loanCatData = newCat;
+        }
+
+        if (loanCatData) {
+          await supabase.from('transactions').insert({
+            user_id: user?.id,
+            type: 'expense',
+            amount: loanAmount,
+            description: `${t("Empréstimo concedido a")} ${newLoan.borrower_name}`,
+            category_id: loanCatData.id,
+            date: today,
+          });
+        }
+      }
+
       await (supabase as any).from('loans').insert(loanData);
       toast.success(t('Empréstimo registrado!'));
     }
     resetLoanForm();
     fetchLoans();
+    fetchSavingsBalance();
+    fetchBudgetBalance();
   };
 
   const recordCollection = async () => {
@@ -300,18 +571,116 @@ export default function Debts() {
       collection_date: new Date().toISOString(),
     });
 
+    // Handle collection destination - create income in Budget or add to savings
+    const today = format(new Date(), 'yyyy-MM-dd');
+
+    // Get or create loan collection category
+    let { data: loanCatData } = await supabase
+      .from('transaction_categories')
+      .select('id')
+      .eq('name', t("Recebimento de Empréstimo"))
+      .eq('type', 'income')
+      .maybeSingle();
+
+    if (!loanCatData) {
+      const { data: newCat } = await supabase
+        .from('transaction_categories')
+        .insert({
+          user_id: user?.id,
+          name: t("Recebimento de Empréstimo"),
+          type: 'income',
+          icon: 'DollarSign',
+          color: 'green'
+        })
+        .select()
+        .single();
+      loanCatData = newCat;
+    }
+
+    if (collectionDestination === 'budget' && loanCatData) {
+      // Create income transaction in Budget
+      await supabase.from('transactions').insert({
+        user_id: user?.id,
+        type: 'income',
+        amount: collection,
+        description: `${t("Recebimento de empréstimo de")} ${selectedLoan.borrower_name}`,
+        category_id: loanCatData.id,
+        date: today,
+      });
+    } else if (collectionDestination === 'savings') {
+      // Add to savings goal
+      const { data: goals } = await supabase
+        .from('savings_goals')
+        .select('id, saved_amount, target_amount, status')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      if (goals && goals.length > 0) {
+        const goal = goals[0];
+        const newSavedAmount = (goal.saved_amount || 0) + collection;
+        const isNowCompleted = newSavedAmount >= goal.target_amount;
+        await supabase
+          .from('savings_goals')
+          .update({
+            saved_amount: newSavedAmount,
+            status: isNowCompleted ? 'completed' : ((goal.status as string) === 'completed' ? 'active' : goal.status),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', goal.id);
+      }
+    }
+    // If new_money, we just record the loan collection without budget transaction
+    // (the money is considered as cash in hand)
+
     if (newAmount === 0) toast.success("🎉 " + t('Emprestimo recuperado!'));
     else toast.success(t('Recebimento registrado!'));
     setCollectionDialogOpen(false);
     setCollectionAmount('');
     setSelectedLoan(null);
     fetchLoans();
+    fetchSavingsBalance();
+    fetchBudgetBalance();
   };
 
   const deleteLoan = async (id: string) => {
+    // First get loan details to know amount and source
+    const loan = loans.find(l => l.id === id);
+    if (!loan) {
+      await (supabase as any).from('loans').delete().eq('id', id);
+      toast.success(t('Empréstimo excluído'));
+      fetchLoans();
+      return;
+    }
+
+    // Find and delete related budget transaction (by description)
+    const loanDescription = `${t("Empréstimo concedido a")} ${loan.borrower_name}`;
+    const { data: relatedTx } = await supabase
+      .from('transactions')
+      .select('id, amount')
+      .eq('user_id', user?.id)
+      .eq('description', loanDescription)
+      .eq('type', 'expense')
+      .limit(1);
+
+    if (relatedTx && relatedTx.length > 0) {
+      // Delete the transaction
+      await supabase.from('transactions').delete().eq('id', relatedTx[0].id);
+    }
+
+    // Note: For savings, we don't automatically restore - user can manually adjust if needed
+    // The savings was already deducted when loan was created
+
+    // Delete any loan collections for this loan
+    await (supabase as any).from('loan_collections').delete().eq('loan_id', id);
+
+    // Delete the loan
     await (supabase as any).from('loans').delete().eq('id', id);
+
     toast.success(t('Empréstimo excluído'));
     fetchLoans();
+    fetchSavingsBalance();
+    fetchBudgetBalance();
   };
 
   const fetchLoans = async () => {
@@ -351,16 +720,42 @@ export default function Debts() {
     const loan = loans.find(l => l.id === collection.loan_id);
     if (!loan) return;
     const newAmount = loan.current_amount + collection.amount;
+
+    // Fix status logic: only 'partial' if partially paid, 'pending' if full amount pending
+    let newStatus = 'pending';
+    if (newAmount === 0) {
+      newStatus = 'paid';
+    } else if (newAmount > 0 && newAmount < loan.original_amount) {
+      newStatus = 'partial';
+    }
+
     await (supabase as any).from('loans').update({
       current_amount: newAmount,
-      status: newAmount === 0 ? 'paid' : (newAmount < loan.original_amount ? 'partial' : 'pending'),
+      status: newStatus,
       actual_return_date: null,
     }).eq('id', collection.loan_id);
+
+    // Find and delete related budget transaction
+    const collectionDescription = `${t("Recebimento de empréstimo de")} ${loan.borrower_name}`;
+    const { data: relatedTx } = await supabase
+      .from('transactions')
+      .select('id, amount')
+      .eq('user_id', user?.id)
+      .eq('description', collectionDescription)
+      .eq('type', 'income')
+      .limit(1);
+
+    if (relatedTx && relatedTx.length > 0) {
+      // Delete the income transaction from budget
+      await supabase.from('transactions').delete().eq('id', relatedTx[0].id);
+    }
+
     // Delete the collection record
     await (supabase as any).from('loan_collections').delete().eq('id', collection.id);
     toast.success(t('Recebimento eliminado'));
     fetchLoanCollections(collection.loan_id);
     fetchLoans();
+    fetchBudgetBalance();
   };
 
   const openDebtHistory = async (debt: Debt) => {
@@ -378,6 +773,7 @@ export default function Debts() {
   const resetLoanForm = () => {
     setLoanDialogOpen(false);
     setEditingLoan(null);
+    setLoanSource('savings');
     setNewLoan({ borrower_name: '', borrower_contact: '', original_amount: '', current_amount: '', interest_rate: '', loan_date: '', expected_return_date: '', notes: '' });
   };
 
@@ -564,7 +960,7 @@ export default function Debts() {
                             <Progress value={paidPct} className="h-2 mt-3" />
                           </div>
                           <div className="flex gap-2 ml-4">
-                            {debt.status !== 'paid' && <Button size="sm" variant="accent" onClick={() => { setSelectedDebt(debt); setPaymentAmount(debt.monthly_payment?.toString() || ''); setPaymentDialogOpen(true); }}><DollarSign className="h-4 w-4" /></Button>}
+                            {debt.status !== 'paid' && <Button size="sm" variant="accent" onClick={() => { setSelectedDebt(debt); setPaymentAmount(debt.monthly_payment?.toString() || ''); setPaymentSource('budget'); setPaymentDialogOpen(true); }}><DollarSign className="h-4 w-4" /></Button>}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button size="sm" variant="outline"><Clock className="h-4 w-4" /></Button>
@@ -590,6 +986,8 @@ export default function Debts() {
                 <div className="stat-card-income p-2 sm:p-4"><p className="text-xs sm:text-sm text-muted-foreground">{t('Total Recuperado')}</p><p className="text-sm sm:text-lg md:text-xl font-bold text-green-500 break-all">Kz {totalCollected.toLocaleString('pt-AO')}</p></div>
                 <div className="card-finance p-2 sm:p-4"><p className="text-xs sm:text-sm text-muted-foreground">{t('Pendente')}</p><p className="text-sm sm:text-lg md:text-xl font-bold break-all">Kz {totalLoansOutstanding.toLocaleString('pt-AO')}</p></div>
                 <div className="card-finance p-2 sm:p-4"><p className="text-xs sm:text-sm text-muted-foreground">{t('Recuperados')}</p><p className="text-sm sm:text-lg md:text-xl font-bold">{loans.filter(l => l.status === 'paid').length} {t('de')} {loans.length}</p></div>
+                <div className="card-finance p-2 sm:p-4 bg-blue-50 dark:bg-blue-950"><p className="text-xs sm:text-sm text-muted-foreground">{t('Poupança Disponível')}</p><p className="text-sm sm:text-lg md:text-xl font-bold text-blue-600 break-all">{formatPrice(savingsBalance)}</p></div>
+                <div className="card-finance p-2 sm:p-4 bg-green-50 dark:bg-green-950"><p className="text-xs sm:text-sm text-muted-foreground">{t('Orçamento Disponível')}</p><p className={`text-sm sm:text-lg md:text-xl font-bold break-all ${budgetBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatPrice(budgetBalance)}</p></div>
               </div>
 
               <div className="flex gap-3">
@@ -610,6 +1008,37 @@ export default function Debts() {
                         <div className="space-y-2"><Label>{t('Data do Empréstimo')}</Label><Input type="date" value={newLoan.loan_date} onChange={(e) => setNewLoan({ ...newLoan, loan_date: e.target.value })} /></div>
                       </div>
                       <div className="space-y-2"><Label>{t('Notas')}</Label><Textarea placeholder={t('Observações...')} value={newLoan.notes} onChange={(e) => setNewLoan({ ...newLoan, notes: e.target.value })} /></div>
+
+                      {/* Loan Source Selection */}
+                      {!editingLoan && (
+                        <div className="space-y-2">
+                          <Label>{t("Origem do Dinheiro")}</Label>
+                          <Select value={loanSource} onValueChange={(value: 'budget' | 'savings') => setLoanSource(value)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t("Selecione a origem")} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="savings">{t("Poupança")}</SelectItem>
+                              <SelectItem value="budget">{t("Orçamento")}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            {loanSource === 'savings' && t("O valor será deduzido da poupança")}
+                            {loanSource === 'budget' && t("O valor será deduzido do orçamento")}
+                          </p>
+                          {loanSource === 'savings' && (
+                            <p className="text-xs text-blue-600">
+                              {t("Saldo disponível: {{balance}}", { balance: formatPrice(savingsBalance) })}
+                            </p>
+                          )}
+                          {loanSource === 'budget' && (
+                            <p className={`text-xs ${budgetBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {t("Saldo disponível: {{balance}}", { balance: formatPrice(budgetBalance) })}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       <Button onClick={createOrUpdateLoan} className="w-full" variant="accent">{editingLoan ? t('Atualizar') : t('Registrar')} {t('Empréstimo')}</Button>
                     </div>
                   </DialogContent>
@@ -639,7 +1068,7 @@ export default function Debts() {
                             <Progress value={collectedPct} className="h-2 mt-3" />
                           </div>
                           <div className="flex gap-2 ml-4">
-                            {loan.status !== 'paid' && <Button size="sm" variant="accent" onClick={() => { setSelectedLoan(loan); setCollectionDialogOpen(true); }}><DollarSign className="h-4 w-4" /></Button>}
+                            {loan.status !== 'paid' && <Button size="sm" variant="accent" onClick={() => { setSelectedLoan(loan); setCollectionDestination('budget'); setCollectionDialogOpen(true); }}><DollarSign className="h-4 w-4" /></Button>}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button size="sm" variant="outline"><Clock className="h-4 w-4" /></Button>
@@ -712,6 +1141,27 @@ export default function Debts() {
               <DialogHeader><DialogTitle>{t('Registrar Pagamento')}</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-4">
                 {selectedDebt && <div className="p-4 bg-secondary/50 rounded-lg"><p className="font-medium">{selectedDebt.creditor}</p><p className="text-sm text-muted-foreground">{t('Saldo (Kz)')}: Kz {selectedDebt.current_amount.toLocaleString('pt-AO')}</p></div>}
+
+                {/* Source Selection */}
+                <div className="space-y-2">
+                  <Label>{t("Origem do Dinheiro")}</Label>
+                  <Select value={paymentSource} onValueChange={(value: 'budget' | 'savings' | 'investment') => setPaymentSource(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("Selecione a origem")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="budget">{t("Orçamento")}</SelectItem>
+                      <SelectItem value="savings">{t("Poupança")}</SelectItem>
+                      <SelectItem value="investment">{t("Investimento")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {paymentSource === 'budget' && t("O valor será pago a partir do orçamento")}
+                    {paymentSource === 'savings' && t("O valor será pago a partir da poupança")}
+                    {paymentSource === 'investment' && t("O valor será pago a partir de investimentos")}
+                  </p>
+                </div>
+
                 <div className="space-y-2"><Label>{t('Valor (Kz)')}</Label><Input type="number" placeholder="10000" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} /></div>
                 <Button onClick={makePayment} className="w-full" variant="accent"><CheckCircle className="h-4 w-4 mr-2" />{t('Confirmar')}</Button>
               </div>
@@ -724,6 +1174,27 @@ export default function Debts() {
               <DialogHeader><DialogTitle>{t('Registrar Recebimento')}</DialogTitle></DialogHeader>
               <div className="space-y-4 mt-4">
                 {selectedLoan && <div className="p-4 bg-secondary/50 rounded-lg"><p className="font-medium">{selectedLoan.borrower_name}</p><p className="text-sm text-muted-foreground">{t('Pendente')}: Kz {selectedLoan.current_amount.toLocaleString('pt-AO')}</p></div>}
+
+                {/* Destination Selection */}
+                <div className="space-y-2">
+                  <Label>{t("Destino do Dinheiro")}</Label>
+                  <Select value={collectionDestination} onValueChange={(value: 'budget' | 'savings' | 'new_money') => setCollectionDestination(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("Selecione o destino")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="budget">{t("Transferir para Orçamento")}</SelectItem>
+                      <SelectItem value="savings">{t("Transferir para Poupança")}</SelectItem>
+                      <SelectItem value="new_money">{t("Dinheiro Físico (Cofre)")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {collectionDestination === 'budget' && t("O valor será adicionado ao orçamento")}
+                    {collectionDestination === 'savings' && t("O valor será adicionado à poupança")}
+                    {collectionDestination === 'new_money' && t("O valor será considerado como dinheiro em mãos")}
+                  </p>
+                </div>
+
                 <div className="space-y-2"><Label>{t('Valor (Kz)')}</Label><Input type="number" placeholder="10000" value={collectionAmount} onChange={(e) => setCollectionAmount(e.target.value)} /></div>
                 <Button onClick={recordCollection} className="w-full" variant="accent"><CheckCircle className="h-4 w-4 mr-2" />{t('Confirmar')}</Button>
               </div>

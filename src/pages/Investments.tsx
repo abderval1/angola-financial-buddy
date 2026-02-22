@@ -28,7 +28,6 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { InvestmentPortfolioSummary } from "@/components/investments/InvestmentPortfolioSummary";
 import { InvestmentQuickActions } from "@/components/investments/InvestmentQuickActions";
 import { InvestmentProducts } from "@/components/investments/InvestmentProducts";
-import { InvestmentSimulator } from "@/components/investments/InvestmentSimulator";
 import { InvestmentEducation } from "@/components/investments/InvestmentEducation";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
 
@@ -77,6 +76,11 @@ export default function Investments() {
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
   const [reinforcingInvestment, setReinforcingInvestment] = useState<Investment | null>(null);
   const [activeView, setActiveView] = useState<"home" | "details">("home");
+
+  // Financial data for Prof recommendations
+  const [savingsBalance, setSavingsBalance] = useState(0);
+  const [budgetBalance, setBudgetBalance] = useState(0);
+  const [monthlyExpenses, setMonthlyExpenses] = useState(0);
 
   // Date range filter for performance calculation
   const [dateRangeStart, setDateRangeStart] = useState<string>('');
@@ -129,6 +133,7 @@ export default function Investments() {
     if (user) {
       fetchInvestments();
       fetchBodivaStats();
+      fetchFinancialData();
     }
   }, [user]);
 
@@ -149,6 +154,89 @@ export default function Investments() {
       return_frequency: i.return_frequency || 'annual'
     })) as Investment[]);
     setLoading(false);
+  };
+
+  // Fetch financial data for Prof recommendations
+  const fetchFinancialData = async () => {
+    if (!user) return;
+
+    // 1. Fetch savings goals (from Poupança menu)
+    const { data: savingsData } = await supabase
+      .from('savings_goals')
+      .select('saved_amount')
+      .eq('user_id', user.id);
+
+    const totalSavings = savingsData?.reduce((sum, goal) => sum + (goal.saved_amount || 0), 0) || 0;
+    setSavingsBalance(totalSavings);
+
+    // 2. Fetch monthly expenses - Same logic as VirtualCoach/Goals.tsx
+    // Priority: Manual Budget > Budget Alerts > Actual Spending (30 days) > Default
+    const manualBudget = Number(user.user_metadata?.monthly_budget || 0);
+    if (manualBudget > 0) {
+      setMonthlyExpenses(manualBudget);
+    } else {
+      // Source B: Planned Budget (Sum of Monthly Alerts with is_active=true)
+      const { data: alertData } = await supabase
+        .from('budget_alerts')
+        .select('limit_amount')
+        .eq('user_id', user.id)
+        .eq('period', 'monthly')
+        .eq('is_active', true);
+
+      const budgetLimit = alertData?.reduce((acc, curr) => acc + Number(curr.limit_amount), 0) || 0;
+
+      // Source C: Actual Spending (Last 30 Days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data: txData } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('type', 'expense')
+        .eq('user_id', user.id)
+        .gte('date', thirtyDaysAgo.toISOString().split('T')[0]);
+
+      const actualSpend = txData?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
+
+      if (budgetLimit > 0 && actualSpend > 0) {
+        setMonthlyExpenses(Math.max(budgetLimit, actualSpend));
+      } else if (budgetLimit > 0) {
+        setMonthlyExpenses(budgetLimit);
+      } else if (actualSpend > 0) {
+        setMonthlyExpenses(actualSpend);
+      } else {
+        setMonthlyExpenses(500000);
+      }
+    }
+
+    // 3. Fetch budget balance (Saldo) - Same logic as Debts.tsx
+    const { data: allTx } = await supabase
+      .from('transactions')
+      .select('type, amount, date')
+      .eq('user_id', user.id);
+
+    if (allTx) {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const periodStart = new Date(currentYear, currentMonth, 1);
+
+      const currentMonthStr = now.toISOString().slice(0, 7);
+      const monthTransactions = allTx.filter((t: any) => t.date && t.date.startsWith(currentMonthStr));
+      const monthIncome = monthTransactions.filter((t: any) => t.type === 'income').reduce((sum: any, t: any) => sum + t.amount, 0);
+      const monthExpense = monthTransactions.filter((t: any) => t.type === 'expense').reduce((sum: any, t: any) => sum + t.amount, 0);
+      const monthBalance = monthIncome - monthExpense;
+
+      const carriedOverBalance = allTx
+        .filter((t: any) => {
+          if (!t.date) return false;
+          const txDate = new Date(t.date);
+          return txDate < periodStart;
+        })
+        .reduce((sum: any, t: any) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
+
+      setBudgetBalance(monthBalance + carriedOverBalance);
+    }
   };
 
   // Fetch BODIVA statistics with real web scraping
@@ -379,9 +467,13 @@ export default function Investments() {
         fundos: Math.round((105 + Math.random() * 30) * 100) / 100
       },
       livroOrdens: [
-        { symbol: "BAY", compra: Math.round(150000000 + Math.random() * 30000000), venda: Math.round(180000000 + Math.random() * 30000000), ultimo: Math.round(165000000 + Math.random() * 30000000) },
-        { symbol: "SGC", compra: Math.round(80000000 + Math.random() * 15000000), venda: Math.round(95000000 + Math.random() * 15000000), ultimo: Math.round(87500000 + Math.random() * 15000000) },
-        { symbol: "ENL", compra: Math.round(45000000 + Math.random() * 7000000), venda: Math.round(52000000 + Math.random() * 7000000), ultimo: Math.round(48500000 + Math.random() * 7000000) }
+        { symbol: "BAY", tipo: "Ação", compra: Math.round(150000000 + Math.random() * 30000000), venda: Math.round(180000000 + Math.random() * 30000000), ultimo: Math.round(165000000 + Math.random() * 30000000) },
+        { symbol: "SGC", tipo: "Ação", compra: Math.round(80000000 + Math.random() * 15000000), venda: Math.round(95000000 + Math.random() * 15000000), ultimo: Math.round(87500000 + Math.random() * 15000000) },
+        { symbol: "ENL", tipo: "Ação", compra: Math.round(45000000 + Math.random() * 7000000), venda: Math.round(52000000 + Math.random() * 7000000), ultimo: Math.round(48500000 + Math.random() * 7000000) },
+        { symbol: "OI2029", tipo: "OT-NR", taxaCupao: 17.5, dataVencimento: "15/06/2029", compra: Math.round(98000 + Math.random() * 2000), venda: Math.round(101000 + Math.random() * 2000), ultimo: Math.round(99500 + Math.random() * 2000) },
+        { symbol: "OJ2031", tipo: "OT-NR", taxaCupao: 18.25, dataVencimento: "15/12/2031", compra: Math.round(95000 + Math.random() * 3000), venda: Math.round(99000 + Math.random() * 3000), ultimo: Math.round(97000 + Math.random() * 3000) },
+        { symbol: "BT91", tipo: "BT", taxaCupao: 15.0, dataVencimento: "30/06/2025", compra: Math.round(97000 + Math.random() * 2000), venda: Math.round(99000 + Math.random() * 2000), ultimo: Math.round(98000 + Math.random() * 2000) },
+        { symbol: "BMA", tipo: "Obrigação", taxaCupao: 12.5, dataVencimento: "20/03/2028", compra: Math.round(92000 + Math.random() * 3000), venda: Math.round(96000 + Math.random() * 3000), ultimo: Math.round(94000 + Math.random() * 3000) }
       ]
     };
   };
@@ -704,15 +796,30 @@ export default function Investments() {
               />
 
               {/* Main Content Grid */}
-              <div className="grid lg:grid-cols-2 gap-6">
+              <div className="space-y-6 w-full">
                 {/* Investment Products */}
                 <InvestmentProducts
+                  savingsBalance={savingsBalance}
+                  monthlyExpenses={monthlyExpenses}
+                  budgetBalance={budgetBalance}
+                  investmentsTotal={totalInvested}
                   onSelectProduct={(productId) => {
                     // Pre-fill investment based on product
                     const productMap: Record<string, { type: string; name: string; risk: string }> = {
-                      "otnr": { type: "obrigacoes", name: "OTNR", risk: "low" },
-                      "bt": { type: "obrigacoes", name: "Bilhetes do Tesouro", risk: "low" },
                       "deposito": { type: "deposito_prazo", name: "Depósito a Prazo", risk: "low" },
+                      // Dynamic products from Livro de Ordens
+                      "otnr-OI2029": { type: "obrigacoes", name: "OI2029 - OT-NR", risk: "low" },
+                      "otnr-OJ2031": { type: "obrigacoes", name: "OJ2031 - OT-NR", risk: "low" },
+                      "bond-OI2029": { type: "obrigacoes", name: "OI2029 - OT-NR", risk: "low" },
+                      "bond-OJ2031": { type: "obrigacoes", name: "OJ2031 - OT-NR", risk: "low" },
+                      "bt-BT91": { type: "obrigacoes", name: "BT91 - Bilhete do Tesouro", risk: "low" },
+                      "bond-BT91": { type: "obrigacoes", name: "BT91 - Bilhete do Tesouro", risk: "low" },
+                      "bond-BMA": { type: "obrigacoes", name: "BMA - Obrigação", risk: "medium" },
+                      // Ações
+                      "acao-BAY": { type: "acoes", name: "BAY", risk: "high" },
+                      "acao-SGC": { type: "acoes", name: "SGC", risk: "high" },
+                      "acao-ENL": { type: "acoes", name: "ENL", risk: "high" },
+                      // Static products
                       "fundos-conservadores": { type: "fundos", name: "Fundo Conservador", risk: "low" },
                       "obrigacoes-corp": { type: "obrigacoes", name: "Obrigações Corporativas", risk: "medium" },
                       "fundos-mistos": { type: "fundos", name: "Fundo Misto", risk: "medium" },
@@ -730,14 +837,36 @@ export default function Investments() {
                         risk_level: product.risk,
                       });
                       setDialogOpen(true);
+                    } else {
+                      // Try to extract symbol from dynamic product ID (e.g., "acao-BAY" -> "BAY")
+                      const symbol = productId.includes('-') ? productId.split('-')[1] : productId;
+                      const prefix = productId.includes('-') ? productId.split('-')[0] : '';
+
+                      // Determine type and risk based on prefix
+                      let type = 'acoes';
+                      let risk = 'high';
+                      let name = symbol;
+
+                      if (prefix === 'otnr' || prefix === 'bt' || prefix === 'bond') {
+                        type = 'obrigacoes';
+                        risk = prefix === 'bt' ? 'low' : 'medium';
+                        name = `${symbol} - Obrigação`;
+                      } else if (prefix === 'acao') {
+                        type = 'acoes';
+                        risk = 'high';
+                        name = symbol;
+                      }
+
+                      setNewInvestment({
+                        ...newInvestment,
+                        type,
+                        name,
+                        risk_level: risk,
+                      });
+                      setDialogOpen(true);
                     }
                   }}
                 />
-
-                <div className="space-y-6">
-                  {/* Simulator */}
-                  <InvestmentSimulator />
-                </div>
               </div>
 
               {/* Education Section */}

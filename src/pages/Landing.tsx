@@ -89,6 +89,9 @@ export default function Landing() {
               <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                 Funcionalidades
               </a>
+              <Link to="/blog" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                Blog
+              </Link>
               <a href="#education" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                 Educação
               </a>

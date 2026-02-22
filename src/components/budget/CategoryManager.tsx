@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-    Trash2, Plus,
+    Trash2, Plus, Edit2,
     Briefcase, Car, Home, Heart, GraduationCap, Gamepad2, Shirt, FileText, UtensilsCrossed, Laptop, TrendingUp, Plus as PlusIcon
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,6 +55,9 @@ export function CategoryManager({ open, onOpenChange, categories, onUpdate }: Ca
     const [newCategoryName, setNewCategoryName] = useState("");
     const [newCategoryColor, setNewCategoryColor] = useState("gray");
     const [loading, setLoading] = useState(false);
+    const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+    const [editName, setEditName] = useState("");
+    const [editColor, setEditColor] = useState("gray");
 
     const filteredCategories = categories.filter(c => c.type === activeTab);
 
@@ -90,8 +93,34 @@ export function CategoryManager({ open, onOpenChange, categories, onUpdate }: Ca
         }
     };
 
+    const handleUpdateCategory = async () => {
+        if (!editingCategoryId || !editName.trim()) return;
+
+        setLoading(true);
+        try {
+            const { error } = await supabase
+                .from('transaction_categories')
+                .update({
+                    name: editName,
+                    color: editColor
+                })
+                .eq('id', editingCategoryId);
+
+            if (error) throw error;
+
+            toast.success(t("Categoria atualizada!"));
+            setEditingCategoryId(null);
+            onUpdate();
+        } catch (error: any) {
+            toast.error(t("Erro ao atualizar categoria") + ": " + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleDeleteCategory = async (id: string) => {
-        // Optional: Confirm dialog could be added here
+        if (!confirm(t("Tem certeza? Esta ação não pode ser desfeita."))) return;
+
         setLoading(true);
         try {
             const { error } = await supabase
@@ -172,8 +201,54 @@ export function CategoryManager({ open, onOpenChange, categories, onUpdate }: Ca
                                     <div className="space-y-2">
                                         {filteredCategories.map((category) => {
                                             const Icon = ICON_MAP[category.icon || 'FileText'] || FileText;
+                                            const isEditing = editingCategoryId === category.id;
+
+                                            if (isEditing) {
+                                                return (
+                                                    <div key={category.id} className="p-3 rounded-lg border bg-accent/20 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                        <div className="flex gap-2">
+                                                            <div className="flex-1 space-y-1">
+                                                                <Label className="text-xs">{t("Nome")}</Label>
+                                                                <Input
+                                                                    size={32}
+                                                                    value={editName}
+                                                                    onChange={(e) => setEditName(e.target.value)}
+                                                                    className="h-8 text-sm"
+                                                                />
+                                                            </div>
+                                                            <div className="w-[100px] space-y-1">
+                                                                <Label className="text-xs">{t("Cor")}</Label>
+                                                                <Select value={editColor} onValueChange={setEditColor}>
+                                                                    <SelectTrigger className="h-8 text-sm">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {Object.keys(COLOR_MAP).map(color => (
+                                                                            <SelectItem key={color} value={color}>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLOR_MAP[color] }} />
+                                                                                    <span className="capitalize text-xs">{color}</span>
+                                                                                </div>
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button variant="ghost" size="sm" onClick={() => setEditingCategoryId(null)} className="h-7 text-xs">
+                                                                {t("Cancelar")}
+                                                            </Button>
+                                                            <Button size="sm" onClick={handleUpdateCategory} disabled={loading} className="h-7 text-xs">
+                                                                {t("Salvar")}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
                                             return (
-                                                <div key={category.id} className="flex items-center justify-between p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                                                <div key={category.id} className="flex items-center justify-between p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors group">
                                                     <div className="flex items-center gap-3">
                                                         <div
                                                             className="w-8 h-8 rounded-full flex items-center justify-center text-white"
@@ -183,15 +258,30 @@ export function CategoryManager({ open, onOpenChange, categories, onUpdate }: Ca
                                                         </div>
                                                         <span className="font-medium text-sm">{category.name}</span>
                                                     </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                        onClick={() => handleDeleteCategory(category.id)}
-                                                        disabled={loading}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            onClick={() => {
+                                                                setEditingCategoryId(category.id);
+                                                                setEditName(category.name);
+                                                                setEditColor(category.color || "gray");
+                                                            }}
+                                                            disabled={loading}
+                                                        >
+                                                            <Edit2 className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                            onClick={() => handleDeleteCategory(category.id)}
+                                                            disabled={loading}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             );
                                         })}

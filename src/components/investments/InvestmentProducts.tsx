@@ -1,278 +1,497 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
-  Shield,
   TrendingUp,
-  Zap,
   Clock,
-  Percent,
-  Coins,
-  Calendar,
-  AlertTriangle,
-  ChevronRight,
-  Building,
-  Landmark,
-  PiggyBank,
-  Briefcase,
-  LineChart
+  ArrowLeft,
+  ArrowRight,
+  BarChart3,
+  RefreshCw,
+  Coins
 } from "lucide-react";
 
-interface InvestmentProduct {
-  id: string;
-  name: string;
-  description: string;
-  icon: React.ReactNode;
-  minAmount: number;
-  rate: string;
-  term: string;
-  paymentFrequency: string;
-  risk: "low" | "medium" | "high";
+// Full interface for Livro de Ordens data from database
+interface BodivaMarketData {
+  id?: string;
+  data_date: string;
+  symbol: string;
+  title_type?: string;
+  price?: number;
+  variation?: number;
+  num_trades?: number;
+  quantity?: number;
+  amount?: number;
+  // Extended fields that may come from Excel upload
+  isin?: string;
+  tipologia?: string;
+  taxa_cupao?: number;
+  data_emissao?: string;
+  data_vencimento?: number;
+  vnua?: number;
+  // Buy side (Compra)
+  compra_preco?: number;
+  compra_quantidade?: number;
+  compra_yield?: number;
+  // Sell side (Venda)
+  venda_preco?: number;
+  venda_quantidade?: number;
+  venda_yield?: number;
 }
-
-const SAFE_INVESTMENTS: InvestmentProduct[] = [
-  {
-    id: "otnr",
-    name: "OTNR - Obrigações do Tesouro",
-    description: "Títulos de dívida pública com rendimento garantido pelo Estado",
-    icon: <Landmark className="h-5 w-5" />,
-    minAmount: 100000,
-    rate: "15-20% a.a.",
-    term: "2-10 anos",
-    paymentFrequency: "Juros semestrais",
-    risk: "low",
-  },
-  {
-    id: "bt",
-    name: "BT - Bilhetes do Tesouro",
-    description: "Títulos de curto prazo do governo angolano",
-    icon: <Building className="h-5 w-5" />,
-    minAmount: 50000,
-    rate: "12-18% a.a.",
-    term: "91-364 dias",
-    paymentFrequency: "Desconto na compra",
-    risk: "low",
-  },
-  {
-    id: "deposito",
-    name: "Depósito a Prazo",
-    description: "Aplicação segura em bancos angolanos com juros garantidos",
-    icon: <PiggyBank className="h-5 w-5" />,
-    minAmount: 25000,
-    rate: "10-15% a.a.",
-    term: "3-24 meses",
-    paymentFrequency: "Juros no vencimento",
-    risk: "low",
-  },
-  {
-    id: "fundos-conservadores",
-    name: "Fundos Conservadores",
-    description: "Fundos de renda fixa com gestão profissional",
-    icon: <Briefcase className="h-5 w-5" />,
-    minAmount: 100000,
-    rate: "12-16% a.a.",
-    term: "Resgate D+1",
-    paymentFrequency: "Rendimento diário",
-    risk: "low",
-  },
-];
-
-const MEDIUM_INVESTMENTS: InvestmentProduct[] = [
-  {
-    id: "obrigacoes-corp",
-    name: "Obrigações Corporativas",
-    description: "Títulos de empresas angolanas sólidas",
-    icon: <Building className="h-5 w-5" />,
-    minAmount: 250000,
-    rate: "18-25% a.a.",
-    term: "2-5 anos",
-    paymentFrequency: "Juros semestrais",
-    risk: "medium",
-  },
-  {
-    id: "fundos-mistos",
-    name: "Fundos Mistos",
-    description: "Combinação de renda fixa e variável",
-    icon: <LineChart className="h-5 w-5" />,
-    minAmount: 150000,
-    rate: "15-22% a.a.",
-    term: "Resgate D+3",
-    paymentFrequency: "Rendimento variável",
-    risk: "medium",
-  },
-  {
-    id: "carteira-equilibrada",
-    name: "Carteira Equilibrada",
-    description: "OTNR + Ações BODIVA pré-montada",
-    icon: <Briefcase className="h-5 w-5" />,
-    minAmount: 500000,
-    rate: "18% esperado",
-    term: "2+ anos",
-    paymentFrequency: "Dividendos + Juros",
-    risk: "medium",
-  },
-];
-
-const ADVANCED_INVESTMENTS: InvestmentProduct[] = [
-  {
-    id: "acoes-bodiva",
-    name: "Ações na BODIVA",
-    description: "Investimento em empresas listadas na bolsa de Angola",
-    icon: <TrendingUp className="h-5 w-5" />,
-    minAmount: 100000,
-    rate: "20-40% a.a.",
-    term: "Sem prazo",
-    paymentFrequency: "Dividendos + Valorização",
-    risk: "high",
-  },
-  {
-    id: "fundos-acoes",
-    name: "Fundos de Ações",
-    description: "Exposição diversificada ao mercado acionário",
-    icon: <LineChart className="h-5 w-5" />,
-    minAmount: 200000,
-    rate: "25-45% a.a.",
-    term: "Resgate D+5",
-    paymentFrequency: "Rendimento variável",
-    risk: "high",
-  },
-  {
-    id: "carteira-agressiva",
-    name: "Carteira Personalizada",
-    description: "Portfólio customizado para seu perfil",
-    icon: <Zap className="h-5 w-5" />,
-    minAmount: 1000000,
-    rate: "30%+ esperado",
-    term: "3+ anos",
-    paymentFrequency: "Múltiplas fontes",
-    risk: "high",
-  },
-];
 
 interface InvestmentProductsProps {
   onSelectProduct: (productId: string) => void;
+  savingsBalance?: number;
+  monthlyExpenses?: number;
+  budgetBalance?: number;
+  investmentsTotal?: number;
 }
 
-export function InvestmentProducts({ onSelectProduct }: InvestmentProductsProps) {
+export function InvestmentProducts({ onSelectProduct, savingsBalance = 0, monthlyExpenses = 0, budgetBalance = 0, investmentsTotal = 0 }: InvestmentProductsProps) {
   const { t } = useTranslation();
   const { formatPrice } = useCurrency();
+  const [marketData, setMarketData] = useState<BodivaMarketData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState<BodivaMarketData | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const ITEMS_PER_PAGE = 10;
 
-  const getRiskBadge = (risk: "low" | "medium" | "high") => {
-    switch (risk) {
-      case "low":
-        return <Badge className="bg-success/10 text-success border-success/20">{t("Baixo Risco")}</Badge>;
-      case "medium":
-        return <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20">{t("Risco Moderado")}</Badge>;
-      case "high":
-        return <Badge className="bg-destructive/10 text-destructive border-destructive/20">{t("Alto Risco")}</Badge>;
+  // Fetch data directly from bodiva_market_data table
+  const fetchMarketData = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('bodiva_market_data')
+        .select('*')
+        .order('data_date', { ascending: false })
+        .order('symbol', { ascending: true });
+
+      if (error) throw error;
+      setMarketData(data || []);
+    } catch (err) {
+      console.error('Error fetching market data:', err);
+      setMarketData([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const ProductCard = ({ product }: { product: InvestmentProduct }) => (
-    <Card
-      className="hover:shadow-lg transition-all cursor-pointer group border-border/50 hover:border-primary/30"
-      onClick={() => onSelectProduct(product.id)}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-            {product.icon}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 mb-1">
-              <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                {t(product.name)}
-              </h4>
-              {getRiskBadge(product.risk)}
-            </div>
-            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-              {t(product.description)}
-            </p>
+  useEffect(() => {
+    fetchMarketData();
+  }, []);
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="flex items-center gap-1.5">
-                <Coins className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>Min: {formatPrice(product.minAmount)}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Percent className="h-3.5 w-3.5 text-success" />
-                <span className="text-success font-medium">{product.rate}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>{t(product.term)}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                <span>{t(product.paymentFrequency)}</span>
-              </div>
+  // Convert marketData to display products
+  const allProducts = useMemo(() => {
+    return marketData.map((item, index) => {
+      const isBond = item.title_type?.toLowerCase().includes('obrigação') ||
+        item.title_type?.toLowerCase().includes('ot-') ||
+        item.title_type?.toLowerCase().includes('bt-') ||
+        item.title_type?.toLowerCase().includes('titulo') ||
+        item.symbol?.startsWith('OI') ||
+        item.symbol?.startsWith('OJ') ||
+        item.symbol?.startsWith('OK');
+
+      const price = item.price || 0;
+      const compraPrice = item.compra_preco || item.price || 0;
+      const variation = item.variation || (price && compraPrice ? ((price - compraPrice) / compraPrice * 100) : undefined);
+
+      return {
+        id: `lo-${item.symbol}-${index}`,
+        item,
+        symbol: item.symbol,
+        tipo: item.title_type || item.tipologia || 'Ação',
+        isin: item.isin || '-',
+        taxaCupao: item.taxa_cupao,
+        dataVencimento: item.data_vencimento?.toString(),
+        vnua: item.vnua,
+        // Ultima Cotação
+        ultimoPreco: item.price,
+        ultimoQuantidade: item.quantity,
+        ultimoYield: undefined,
+        // Compra
+        compraPreco: item.compra_preco || item.price,
+        compraQuantidade: item.compra_quantidade,
+        compraYield: item.compra_yield,
+        // Venda
+        vendaPreco: item.venda_preco,
+        vendaQuantidade: item.venda_quantidade,
+        vendaYield: item.venda_yield,
+        // Calculated
+        variation,
+        icon: isBond ? <TrendingUp className="h-4 w-4 rotate-0" /> : <TrendingUp className="h-4 w-4" />,
+        risk: isBond ? 'low' : 'high' as const,
+      };
+    });
+  }, [marketData]);
+
+  // Pagination
+  const totalPages = Math.ceil(allProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = allProducts.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
+
+  // Handle product click - show detail dialog
+  const handleProductClick = (product: typeof allProducts[0]) => {
+    setSelectedProduct(product.item);
+    setIsDetailOpen(true);
+  };
+
+  // Generate Prof (AI) recommendations based on product data
+  const generateProfRecommendations = (product: BodivaMarketData): string[] => {
+    const recommendations: string[] = [];
+    const tipo = product.title_type || '';
+
+    if (tipo.toLowerCase().includes('ação') || tipo.toLowerCase().includes('acção') || !tipo) {
+      // Stock recommendations
+      if (product.variation && product.variation > 5) {
+        recommendations.push(`✨ A ação ${product.symbol} teve uma valorização de ${product.variation.toFixed(2)}% - considere recolher lucros.`);
+      } else if (product.variation && product.variation < -5) {
+        recommendations.push(`📉 A ação ${product.symbol} caiu ${Math.abs(product.variation).toFixed(2)}% - pode ser uma oportunidade de compra.`);
+      }
+
+      if (product.price && product.compra_preco) {
+        const spread = ((product.price - product.compra_preco) / product.compra_preco * 100);
+        recommendations.push(`📊 O spread compra/venda é de ${spread.toFixed(2)}% - ${spread < 2 ? 'excelente liquidez' : 'liquidez moderada'}.`);
+      }
+
+      if (product.num_trades) {
+        recommendations.push(`📈 ${product.num_trades} transações hoje - ${product.num_trades > 100 ? 'muito ativa' : 'atividade moderada'}.`);
+      }
+
+      recommendations.push(`💡 Para ações, diversifique em pelo menos 5 empresas diferentes.`);
+      recommendations.push(`📅 Investir a longo prazo (5+ anos) ajuda a mitigar a volatilidade.`);
+    } else {
+      // Bond recommendations
+      if (product.taxa_cupao && product.taxa_cupao > 15) {
+        recommendations.push(`🎯 Taxa de cupão de ${product.taxa_cupao}% é excelente para títulos de rendimento fixo!`);
+      } else if (product.taxa_cupao) {
+        recommendations.push(`📈 Taxa de cupão de ${product.taxa_cupao}% está acima da média do mercado.`);
+      }
+
+      if (product.data_vencimento) {
+        recommendations.push(`📅 Este título vence em ${product.data_vencimento} - planeie o seu investimento.`);
+      }
+
+      if (product.amount) {
+        recommendations.push(`💰 Volume de negociação: ${formatPrice(product.amount)} - ${product.amount > 100000000 ? 'alta liquidez' : 'liquidez moderada'}.`);
+      }
+
+      recommendations.push(`🛡️ Obrigações são mais seguras que ações, ideal para preservação de capital.`);
+      recommendations.push(`💰 Considere uma carteira 60/40: 60% obrigações, 40% ações.`);
+    }
+
+    return recommendations;
+  };
+
+  // Get risk badge color
+  const getRiskBadge = (risk: string) => {
+    switch (risk) {
+      case 'low':
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">{t("Baixo Risco")}</Badge>;
+      case 'medium':
+        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs">{t("Risco Médio")}</Badge>;
+      case 'high':
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">{t("Alto Risco")}</Badge>;
+      default:
+        return null;
+    }
+  };
+
+  // Simple product card for grid display
+  const ProductCard = ({ product }: { product: typeof allProducts[0] }) => (
+    <Card
+      className="hover:shadow-lg transition-all cursor-pointer group border-border/50 hover:border-primary/30 bg-card"
+      onClick={() => handleProductClick(product)}
+    >
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+              {product.icon}
+            </div>
+            <div>
+              <h4 className="font-bold text-sm">{product.symbol}</h4>
+              <p className="text-xs text-muted-foreground line-clamp-1">{product.tipo}</p>
             </div>
           </div>
-          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+          {getRiskBadge(product.risk)}
+        </div>
+
+        {/* Show key data points */}
+        <div className="space-y-1 text-xs">
+          {product.taxaCupao && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Cupão:</span>
+              <span className="font-semibold text-primary">{product.taxaCupao.toFixed(2)}%</span>
+            </div>
+          )}
+          {product.ultimoPreco && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Preço:</span>
+              <span className="font-semibold">{formatPrice(product.ultimoPreco)}</span>
+            </div>
+          )}
+          {product.variation !== undefined && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Var:</span>
+              <span className={`font-semibold ${product.variation >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {(product.variation >= 0 ? '+' : '') + product.variation.toFixed(2)}%
+              </span>
+            </div>
+          )}
+          {product.compraPreco && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Compra:</span>
+              <span className="font-semibold">{formatPrice(product.compraPreco)}</span>
+            </div>
+          )}
+          {product.vendaPreco && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Venda:</span>
+              <span className="font-semibold">{formatPrice(product.vendaPreco)}</span>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
   );
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <CardTitle className="text-lg">{t("Produtos de Investimento")}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="safe" className="w-full">
-          <TabsList className="w-full grid grid-cols-3 mb-4">
-            <TabsTrigger value="safe" className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">{t("Seguros")}</span>
-              <span className="sm:hidden">🟢</span>
-            </TabsTrigger>
-            <TabsTrigger value="medium" className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline">{t("Intermédios")}</span>
-              <span className="sm:hidden">🟡</span>
-            </TabsTrigger>
-            <TabsTrigger value="advanced" className="flex items-center gap-2">
-              <Zap className="h-4 w-4" />
-              <span className="hidden sm:inline">{t("Avançados")}</span>
-              <span className="sm:hidden">🔴</span>
-            </TabsTrigger>
-          </TabsList>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">{t("Livro de Ordens - Produtos de Investimento")}</h3>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={fetchMarketData} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {allProducts.length} {t("itens")}
+          </span>
+        </div>
+      </div>
 
-          <TabsContent value="safe" className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-success bg-success/5 p-3 rounded-lg mb-4">
-              <Shield className="h-4 w-4" />
-              <span>{t("Investimentos ideais para iniciantes com rendimento previsível")}</span>
-            </div>
-            {SAFE_INVESTMENTS.map((product) => (
+      {/* Products Grid - 10 columns */}
+      {isLoading ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin" />
+          <p>{t("A carregar dados do mercado...")}</p>
+        </div>
+      ) : allProducts.length > 0 ? (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-2">
+            {paginatedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
-          </TabsContent>
+          </div>
 
-          <TabsContent value="medium" className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-500/5 p-3 rounded-lg mb-4">
-              <TrendingUp className="h-4 w-4" />
-              <span>{t("Equilíbrio entre risco e retorno para investidores moderados")}</span>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {currentPage + 1} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage === totalPages - 1}
+              >
+                <ArrowRight className="h-4 w-4" />
+              </Button>
             </div>
-            {MEDIUM_INVESTMENTS.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </TabsContent>
+          )}
+        </>
+      ) : (
+        <div className="text-center py-12 text-muted-foreground">
+          <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>{t("Sem dados do Livro de Ordens disponíveis")}</p>
+          <p className="text-sm">{t("Importe os dados no Admin para ver os produtos")}</p>
+        </div>
+      )}
 
-          <TabsContent value="advanced" className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/5 p-3 rounded-lg mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <span>{t("Pode gerar ganhos maiores, mas também perdas. Invista com cuidado.")}</span>
+      {/* Detail Dialog with Prof Recommendations */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedProduct?.title_type?.toLowerCase().includes('ação') ? <TrendingUp className="h-5 w-5" /> : <BarChart3 className="h-5 w-5" />}
+              {selectedProduct?.symbol} - {selectedProduct?.title_type || 'Ação'}
+            </DialogTitle>
+            <DialogDescription>
+              Detalhes completos do título e recomendações do Prof
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedProduct && (
+            <div className="space-y-4">
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="text-xs text-muted-foreground">Código de Negociação</p>
+                  <p className="font-semibold">{selectedProduct.symbol}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">ISIN</p>
+                  <p className="font-semibold">{selectedProduct.isin || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Tipologia</p>
+                  <p className="font-semibold">{selectedProduct.title_type || selectedProduct.tipologia || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">VNUA / Dividendos</p>
+                  <p className="font-semibold">{selectedProduct.vnua ? formatPrice(selectedProduct.vnua) : '-'}</p>
+                </div>
+              </div>
+
+              {/* Taxa de Cupão */}
+              {selectedProduct.taxa_cupao && (
+                <div className="p-4 bg-primary/10 rounded-lg">
+                  <p className="text-xs text-muted-foreground">Taxa de Cupão</p>
+                  <p className="text-2xl font-bold text-primary">{selectedProduct.taxa_cupao.toFixed(2)}%</p>
+                </div>
+              )}
+
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-4">
+                {selectedProduct.data_emissao && (
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Data de Emissão</p>
+                    <p className="font-medium">{selectedProduct.data_emissao}</p>
+                  </div>
+                )}
+                {selectedProduct.data_vencimento && (
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Data de Vencimento</p>
+                    <p className="font-medium">{selectedProduct.data_vencimento}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Última Cotação */}
+              <div className="p-4 border rounded-lg">
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Última Cotação
+                </h4>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Preço</p>
+                    <p className="font-semibold">{selectedProduct.price ? formatPrice(selectedProduct.price) : '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Quantidade</p>
+                    <p className="font-semibold">{selectedProduct.quantity?.toLocaleString('pt-AO') || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Variação</p>
+                    <p className={`font-semibold ${(selectedProduct.variation || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {selectedProduct.variation ? `${selectedProduct.variation >= 0 ? '+' : ''}${selectedProduct.variation.toFixed(2)}%` : '-'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Compra */}
+              <div className="p-4 border rounded-lg">
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <ArrowRight className="h-4 w-4" />
+                  Compra (Melhor Oferta)
+                </h4>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Preço</p>
+                    <p className="font-semibold">{selectedProduct.compra_preco ? formatPrice(selectedProduct.compra_preco) : (selectedProduct.price ? formatPrice(selectedProduct.price) : '-')}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Quantidade</p>
+                    <p className="font-semibold">{selectedProduct.compra_quantidade?.toLocaleString('pt-AO') || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Yield</p>
+                    <p className="font-semibold">{selectedProduct.compra_yield ? `${selectedProduct.compra_yield.toFixed(2)}%` : '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Venda */}
+              <div className="p-4 border rounded-lg">
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Venda (Melhor Oferta)
+                </h4>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Preço</p>
+                    <p className="font-semibold">{selectedProduct.venda_preco ? formatPrice(selectedProduct.venda_preco) : '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Quantidade</p>
+                    <p className="font-semibold">{selectedProduct.venda_quantidade?.toLocaleString('pt-AO') || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Yield</p>
+                    <p className="font-semibold">{selectedProduct.venda_yield ? `${selectedProduct.venda_yield.toFixed(2)}%` : '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Info */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
+                <div>
+                  <p className="text-xs text-muted-foreground">Nº de Transações</p>
+                  <p className="font-semibold">{selectedProduct.num_trades?.toLocaleString('pt-AO') || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Volume Total</p>
+                  <p className="font-semibold">{selectedProduct.amount ? formatPrice(selectedProduct.amount) : '-'}</p>
+                </div>
+              </div>
+
+              {/* Prof Recommendations */}
+              <div className="p-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-primary" />
+                  Recomendações do Prof
+                </h4>
+                <ul className="space-y-2">
+                  {generateProfRecommendations(selectedProduct).map((rec, idx) => (
+                    <li key={idx} className="text-sm flex items-start gap-2">
+                      <span className="text-primary">•</span>
+                      <span>{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Add Investment Button */}
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setIsDetailOpen(false);
+                  onSelectProduct(selectedProduct.symbol);
+                }}
+              >
+                <Coins className="h-4 w-4 mr-2" />
+                {t("Registar Este Investimento")}
+              </Button>
             </div>
-            {ADVANCED_INVESTMENTS.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
