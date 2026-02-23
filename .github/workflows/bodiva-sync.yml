@@ -86,16 +86,11 @@ jobs:
           // Filter out copyright and footer rows
           const copyrightPattern = /COPYRIGHT|BODIVA|DIREITOS RESERVADOS|TODOS OS DIREITOS/i;
 
-          // Parse number - handles AOA (e.g., 1.234,56) or percentage (e.g., 98,50%)
-          const parseNumber = (val, isPercentage = false) => {
-            if (val === undefined || val === null) return isPercentage ? 0 : 0;
+          // Parse number from Portuguese format
+          const parseNumber = (val) => {
+            if (val === undefined || val === null) return 0;
             const s = val.toString().trim();
-            if (!s) return isPercentage ? 0 : 0;
-            
-            // Check if it's already a number
-            if (!isNaN(parseFloat(s)) && isFinite(s)) {
-              return parseFloat(s);
-            }
+            if (!s) return 0;
             
             // Remove currency symbols and spaces
             let clean = s.replace(/[A-Z]{3}/gi, '').replace(/\s/g, '');
@@ -116,8 +111,7 @@ jobs:
             
             const result = parseFloat(clean) || 0;
             
-            // If it was a percentage value, keep it as percentage (divide by 100)
-            // If it's marked as percentage, assume it should be in decimal form
+            // If it was a percentage value, convert to decimal (98,50% -> 0.985)
             return hasPercent ? result / 100 : result;
           };
 
@@ -134,16 +128,23 @@ jobs:
               // Determine title type
               const titleType = row[1]?.toString().trim() || 'Acções';
               
-              // Check if it's a bond (Obrigações) - bonds use percentages
-              const isBond = /obrigac/i.test(titleType);
+              // Only "Acções" use AOA, everything else (OT-ME, Obrigações, etc.) use %
+              const isShare = /acces|accoes/i.test(titleType);
               
-              // Price: bonds use %, shares use AOA
+              // Parse price - shares in AOA, others in %
               const priceRaw = row[2]?.toString() || '0';
-              const price = parseNumber(priceRaw, isBond);
+              let price;
+              if (isShare) {
+                // For shares: remove AOA and parse as currency
+                price = parseNumber(priceRaw);
+              } else {
+                // For bonds/OTs: parse as percentage
+                price = parseNumber(priceRaw);
+              }
               
               // Variation is always percentage
               const variationRaw = row[3]?.toString() || '0';
-              const variation = parseNumber(variationRaw, true);
+              const variation = parseNumber(variationRaw);
               
               return {
                 data_date: today,
@@ -153,7 +154,7 @@ jobs:
                 variation: variation,
                 num_trades: parseInt(row[4]?.toString().replace(/\D/g, '')) || 0,
                 quantity: parseInt(row[5]?.toString().replace(/\D/g, '')) || 0,
-                amount: parseNumber(row[6]) // Amount is always in AOA
+                amount: isShare ? parseNumber(row[6]) : 0 // Amount only for shares
               };
             })
             .filter(item => item.symbol); // Remove empty entries
