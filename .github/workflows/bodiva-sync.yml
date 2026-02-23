@@ -83,8 +83,18 @@ jobs:
           const dataRows = rawJson.slice(headerIdx + 1);
           const today = new Date().toISOString().split('T')[0];
 
+          // Filter out copyright and footer rows
+          const copyrightPattern = /COPYRIGHT|BODIVA|DIREITOS RESERVADOS|TODOS OS DIREITOS/i;
+
           const dataToInsert = dataRows
-            .filter(row => row[0] && row[0].toString().trim() !== '')
+            .filter(row => {
+              // Skip empty rows
+              if (!row[0] || !row[0].toString().trim()) return false;
+              // Skip copyright/footer rows
+              const firstCell = row[0]?.toString() || '';
+              if (copyrightPattern.test(firstCell)) return false;
+              return true;
+            })
             .map(row => {
               // Parse Portuguese numbers (1.234,56 -> 1234.56)
               const parseNumber = (val) => {
