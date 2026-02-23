@@ -269,6 +269,7 @@ export default function BodivaMarketData() {
                 isForecast: false,
                 price: item.price,
                 volume: item.amount,
+                title_type: item.title_type,
                 sma5: sma5,
                 ema9: ema9Values[index],
                 ema21: ema21Values[index]
@@ -282,6 +283,7 @@ export default function BodivaMarketData() {
         const lastKnown = filteredHistoricalData[filteredHistoricalData.length - 1]; // filtered is already ASC
         const lastPrice = lastKnown.price;
         const lastDate = new Date(lastKnown.data_date);
+        const lastTitleType = lastKnown.title_type || '';
 
         const prices = filteredHistoricalData.map(h => h.price);
         const n = prices.length;
@@ -307,6 +309,7 @@ export default function BodivaMarketData() {
                 isForecast: true,
                 price: null,
                 forecast: Number(predicted.toFixed(2)),
+                title_type: lastTitleType,
                 volume: null
             });
         }
@@ -957,6 +960,7 @@ export default function BodivaMarketData() {
                                                 formatter={(value: any, name: string, props: any) => {
                                                     const isForecast = props.payload.isForecast;
                                                     const prefix = isForecast ? '[PREVISÃO] ' : '';
+                                                    const titleType = props.payload.title_type || '';
 
                                                     if (name === 'price') {
                                                         const isShare = titleType.toLowerCase().includes('acções') || titleType.toLowerCase().includes('acces');
