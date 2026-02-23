@@ -10,15 +10,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Puxar o código do repositório
       - uses: actions/checkout@v4
 
+      # 2️⃣ Configurar Node.js
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+      # 3️⃣ Instalar dependências
       - name: Instalar dependências
         run: npm install xlsx @supabase/supabase-js dotenv
 
+      # 4️⃣ Baixar Excel da BODIVA
       - name: Download BODIVA Excel
         run: |
           curl -k -L --fail --retry 3 --retry-delay 5 \
@@ -26,6 +30,7 @@ jobs:
           "https://www.bodiva.ao/reports/controllers/excel/Export/ResumoMercados.php" \
           --max-time 60
 
+      # 5️⃣ Validar que o ficheiro existe e não está vazio
       - name: Validar ficheiro
         run: |
           if [ ! -s bodiva_data.xlsx ]; then
@@ -33,6 +38,7 @@ jobs:
             exit 1
           fi
 
+      # 6️⃣ Converter e enviar para Supabase
       - name: Convert and Upload
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -41,5 +47,6 @@ jobs:
           node convert.js
           node upload.js
 
+      # 7️⃣ Limpar ficheiros temporários
       - name: Cleanup
         run: rm -f bodiva_data.xlsx bodiva_data.json
