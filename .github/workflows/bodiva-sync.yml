@@ -2,51 +2,182 @@ name: Sync BODIVA Market Data
 
 on:
   schedule:
-    - cron: '*/15 * * * *'   # Executa a cada 15 minutos
-  workflow_dispatch:          # Permite execução manual
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    # Allow manual trigger
 
 jobs:
   sync-bodiva:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
+    
     steps:
-      # 1️⃣ Puxar o código do repositório
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # 2️⃣ Configurar Node.js
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
-      # 3️⃣ Instalar dependências
-      - name: Instalar dependências
-        run: npm install xlsx @supabase/supabase-js dotenv
+      - name: Install dependencies
+        run: npm install xlsx supabase dotenv
 
-      # 4️⃣ Baixar Excel da BODIVA
       - name: Download BODIVA Excel
         run: |
-          curl -k -L --fail --retry 3 --retry-delay 5 \
-          -o bodiva_data.xlsx \
-          "https://www.bodiva.ao/reports/controllers/excel/Export/ResumoMercados.php" \
-          --max-time 60
+          # Download the Excel file from BODIVA
+          curl -k -L --fail --retry 3 --retry-delay 5 -o bodiva_data.xlsx "https://www.bodiva.ao/reports/controllers/excel/Export/ResumoMercados.php" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+            -H "Accept: application/vnd.ms-excel, application/octet-stream, */*" \
+            --max-time 60
 
-      # 5️⃣ Validar que o ficheiro existe e não está vazio
-      - name: Validar ficheiro
+      - name: Check if file was downloaded
         run: |
-          if [ ! -s bodiva_data.xlsx ]; then
-            echo "❌ Ficheiro vazio ou download falhou"
+          if [ ! -f bodiva_data.xlsx ]; then
+            echo "ERROR: Failed to download BODIVA data"
             exit 1
           fi
+          file_size=$(stat -f%z bodiva_data.xlsx 2>/dev/null || stat -c%s bodiva_data.xlsx 2>/dev/null)
+          if [ "$file_size" -lt 1000 ]; then
+            echo "ERROR: Downloaded file is too small ($file_size bytes)"
+            cat bodiva_data.xlsx
+            exit 1
+          fi
+          echo "Downloaded file size: $file_size bytes"
 
-      # 6️⃣ Converter e enviar para Supabase
-      - name: Convert and Upload
+      - name: Convert Excel to JSON
+        run: |
+          cat > convert.js << 'ENDOFFILE'
+          const XLSX = require('xlsx');
+          const fs = require('fs');
+
+          const workbook = XLSX.readFile('bodiva_data.xlsx');
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rawJson = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+
+          // Find header row
+          let headerIdx = -1;
+          for (let i = 0; i < Math.min(rawJson.length, 10); i++) {
+            const rowStr = JSON.stringify(rawJson[i]);
+            if (rowStr.includes('Mobiliário') || rowStr.includes('Título')) {
+              headerIdx = i;
+              break;
+            }
+          }
+          if (headerIdx === -1) headerIdx = 0;
+
+          const dataRows = rawJson.slice(headerIdx + 1);
+          const today = new Date().toISOString().split('T')[0];
+
+          const dataToInsert = dataRows
+            .filter(row => row[0] && row[0].toString().trim() !== '')
+            .map(row => {
+              // Parse Portuguese numbers (1.234,56 -> 1234.56)
+              const parseNumber = (val) => {
+                if (val === undefined || val === null) return 0;
+                const s = val.toString().trim();
+                if (!s) return 0;
+                // Remove currency and spaces
+                let clean = s.replace(/[A-Z]{3}/g, '').replace(/\s/g, '');
+                // Handle Portuguese format
+                if (clean.includes(',') && clean.includes('.')) {
+                  // Remove dots (thousands), replace comma with dot
+                  clean = clean.replace(/\./g, '').replace(',', '.');
+                } else if (clean.includes(',')) {
+                  clean = clean.replace(',', '.');
+                }
+                return parseFloat(clean) || 0;
+              };
+
+              return {
+                data_date: today,
+                symbol: row[0]?.toString().toUpperCase().substring(0, 255) || '',
+                title_type: row[1]?.toString().substring(0, 255) || 'Acções',
+                price: parseNumber(row[2]),
+                variation: parseNumber(row[3]),
+                num_trades: parseInt(row[4]?.toString().replace(/\D/g, '')) || 0,
+                quantity: parseInt(row[5]?.toString().replace(/\D/g, '')) || 0,
+                amount: parseNumber(row[6])
+              };
+            })
+            .filter(item => item.symbol); // Remove empty entries
+
+          // Deduplicate
+          const seen = new Map();
+          dataToInsert.forEach(item => {
+            const key = `${item.data_date}_${item.symbol}`;
+            seen.set(key, item);
+          });
+
+          const uniqueData = Array.from(seen.values());
+          console.log(JSON.stringify(uniqueData, null, 2));
+          ENDOFFILE
+          node convert.js > bodiva_data.json
+
+      - name: Upload to Supabase
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          node convert.js
+          cat > upload.js << 'ENDOFFILE'
+          const { createClient } = require('@supabase/supabase-js');
+          const fs = require('fs');
+
+          const supabaseUrl = process.env.SUPABASE_URL;
+          const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          const supabase = createClient(supabaseUrl, supabaseKey);
+
+          const data = JSON.parse(fs.readFileSync('bodiva_data.json', 'utf8'));
+
+          if (data.length === 0) {
+            console.log('No data to upload');
+            process.exit(0);
+          }
+
+          // Upsert market data
+          const { data: result, error } = await supabase
+            .from('bodiva_market_data')
+            .upsert(data, { onConflict: 'data_date,symbol' });
+
+          if (error) {
+            console.error('Error uploading market data:', error);
+            // Log failure
+            await supabase.from('bodiva_sync_log').upsert({
+              sync_date: new Date().toISOString().split('T')[0],
+              records_count: 0,
+              status: 'failed',
+              error_message: error.message,
+              created_at: new Date().toISOString()
+            }, { onConflict: 'sync_date' });
+            process.exit(1);
+          }
+
+          console.log(`Successfully uploaded ${data.length} market data records`);
+
+          // Log successful sync - upsert instead of insert to handle duplicates
+          const { error: logError } = await supabase
+            .from('bodiva_sync_log')
+            .upsert({
+              sync_date: new Date().toISOString().split('T')[0],
+              records_count: data.length,
+              status: 'success',
+              error_message: null,
+              created_at: new Date().toISOString()
+            }, { onConflict: 'sync_date' });
+
+          if (logError) {
+            console.error('Error logging sync:', logError);
+          } else {
+            console.log('Sync logged successfully');
+          }
+          ENDOFFILE
           node upload.js
 
-      # 7️⃣ Limpar ficheiros temporários
       - name: Cleanup
-        run: rm -f bodiva_data.xlsx bodiva_data.json
+        run: |
+          rm -f bodiva_data.xlsx bodiva_data.json convert.js upload.js
+          echo "Cleanup complete"
