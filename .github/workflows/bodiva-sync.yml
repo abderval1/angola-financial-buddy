@@ -86,7 +86,7 @@ jobs:
           // Filter out copyright and footer rows
           const copyrightPattern = /COPYRIGHT|BODIVA|DIREITOS RESERVADOS|TODOS OS DIREITOS/i;
 
-          // Parse number - handles Portuguese format (1.234,56)
+          // Parse number from Portuguese format (1.234,56 -> 1234.56)
           const parseNumber = (val) => {
             if (val === undefined || val === null) return 0;
             const s = val.toString().trim();
@@ -95,9 +95,8 @@ jobs:
             // Remove currency symbols and spaces
             let clean = s.replace(/[A-Z]{3}/gi, '').replace(/\s/g, '');
             
-            // Handle Portuguese format (1.234,56 -> 1234.56)
+            // Handle Portuguese format
             if (clean.includes(',') && clean.includes('.')) {
-              // Remove dots (thousands), replace comma with dot
               clean = clean.replace(/\./g, '').replace(',', '.');
             } else if (clean.includes(',')) {
               clean = clean.replace(',', '.');
@@ -108,40 +107,26 @@ jobs:
 
           const dataToInsert = dataRows
             .filter(row => {
-              // Skip empty rows
               if (!row[0] || !row[0].toString().trim()) return false;
-              // Skip copyright/footer rows
               const firstCell = row[0]?.toString() || '';
               if (copyrightPattern.test(firstCell)) return false;
               return true;
             })
             .map(row => {
-              // Determine title type
               const titleType = row[1]?.toString().trim() || 'Acções';
-              
-              // Only "Acções" use AOA, everything else (OT-ME, Obrigações, etc.) use %
-              const isShare = /acces|accoes/i.test(titleType);
-              
-              // Parse price
-              const priceRaw = row[2]?.toString() || '0';
-              const price = parseNumber(priceRaw);
-              
-              // Parse variation (always %)
-              const variationRaw = row[3]?.toString() || '0';
-              const variation = parseNumber(variationRaw);
               
               return {
                 data_date: today,
                 symbol: row[0]?.toString().toUpperCase().substring(0, 255) || '',
                 title_type: titleType.substring(0, 255) || 'Acções',
-                price: isShare ? price : price / 100,  // Acções in AOA, others as decimal (106.55% -> 1.0655)
-                variation: variation / 100,  // Convert % to decimal
+                price: parseNumber(row[2]),
+                variation: parseNumber(row[3]),
                 num_trades: parseInt(row[4]?.toString().replace(/\D/g, '')) || 0,
                 quantity: parseInt(row[5]?.toString().replace(/\D/g, '')) || 0,
-                amount: isShare ? parseNumber(row[6]) : 0  // Amount only for shares
+                amount: parseNumber(row[6])
               };
             })
-            .filter(item => item.symbol); // Remove empty entries
+            .filter(item => item.symbol);
 
           // Deduplicate
           const seen = new Map();
@@ -176,14 +161,12 @@ jobs:
               process.exit(0);
             }
 
-            // Upsert market data - keeps all historical data
             const { data: result, error } = await supabase
               .from('bodiva_market_data')
               .upsert(data, { onConflict: 'data_date,symbol' });
 
             if (error) {
               console.error('Error uploading market data:', error);
-              // Log failure
               await supabase.from('bodiva_sync_log').upsert({
                 sync_date: new Date().toISOString().split('T')[0],
                 records_count: 0,
@@ -196,7 +179,6 @@ jobs:
 
             console.log(`Successfully uploaded ${data.length} market data records`);
 
-            // Log successful sync - upsert instead of insert to handle duplicates
             const { error: logError } = await supabase
               .from('bodiva_sync_log')
               .upsert({
