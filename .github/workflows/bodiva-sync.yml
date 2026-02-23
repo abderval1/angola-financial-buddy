@@ -1,0 +1,26 @@
+name: Sync BODIVA Market Data
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sync-bodiva:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install xlsx supabase dotenv
+      - name: Download BODIVA Excel
+        run: |
+          curl -L -o bodiva_data.xlsx "https://www.bodiva.ao/reports/controllers/excel/Export/ResumoMercados.php" --max-time 60
+      - name: Convert and Upload
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node convert.js && node upload.js
+      - name: Cleanup
+        run: rm -f bodiva_data.xlsx bodiva_data.json convert.js upload.js
