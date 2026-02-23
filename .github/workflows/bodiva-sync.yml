@@ -127,53 +127,57 @@ jobs:
           const { createClient } = require('@supabase/supabase-js');
           const fs = require('fs');
 
-          const supabaseUrl = process.env.SUPABASE_URL;
-          const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-          const supabase = createClient(supabaseUrl, supabaseKey);
+          async function main() {
+            const supabaseUrl = process.env.SUPABASE_URL;
+            const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+            const supabase = createClient(supabaseUrl, supabaseKey);
 
-          const data = JSON.parse(fs.readFileSync('bodiva_data.json', 'utf8'));
+            const data = JSON.parse(fs.readFileSync('bodiva_data.json', 'utf8'));
 
-          if (data.length === 0) {
-            console.log('No data to upload');
-            process.exit(0);
+            if (data.length === 0) {
+              console.log('No data to upload');
+              process.exit(0);
+            }
+
+            // Upsert market data
+            const { data: result, error } = await supabase
+              .from('bodiva_market_data')
+              .upsert(data, { onConflict: 'data_date,symbol' });
+
+            if (error) {
+              console.error('Error uploading market data:', error);
+              // Log failure
+              await supabase.from('bodiva_sync_log').upsert({
+                sync_date: new Date().toISOString().split('T')[0],
+                records_count: 0,
+                status: 'failed',
+                error_message: error.message,
+                created_at: new Date().toISOString()
+              }, { onConflict: 'sync_date' });
+              process.exit(1);
+            }
+
+            console.log(`Successfully uploaded ${data.length} market data records`);
+
+            // Log successful sync - upsert instead of insert to handle duplicates
+            const { error: logError } = await supabase
+              .from('bodiva_sync_log')
+              .upsert({
+                sync_date: new Date().toISOString().split('T')[0],
+                records_count: data.length,
+                status: 'success',
+                error_message: null,
+                created_at: new Date().toISOString()
+              }, { onConflict: 'sync_date' });
+
+            if (logError) {
+              console.error('Error logging sync:', logError);
+            } else {
+              console.log('Sync logged successfully');
+            }
           }
 
-          // Upsert market data
-          const { data: result, error } = await supabase
-            .from('bodiva_market_data')
-            .upsert(data, { onConflict: 'data_date,symbol' });
-
-          if (error) {
-            console.error('Error uploading market data:', error);
-            // Log failure
-            await supabase.from('bodiva_sync_log').upsert({
-              sync_date: new Date().toISOString().split('T')[0],
-              records_count: 0,
-              status: 'failed',
-              error_message: error.message,
-              created_at: new Date().toISOString()
-            }, { onConflict: 'sync_date' });
-            process.exit(1);
-          }
-
-          console.log(`Successfully uploaded ${data.length} market data records`);
-
-          // Log successful sync - upsert instead of insert to handle duplicates
-          const { error: logError } = await supabase
-            .from('bodiva_sync_log')
-            .upsert({
-              sync_date: new Date().toISOString().split('T')[0],
-              records_count: data.length,
-              status: 'success',
-              error_message: null,
-              created_at: new Date().toISOString()
-            }, { onConflict: 'sync_date' });
-
-          if (logError) {
-            console.error('Error logging sync:', logError);
-          } else {
-            console.log('Sync logged successfully');
-          }
+          main().catch(console.error);
           ENDOFFILE
           node upload.cjs
 
