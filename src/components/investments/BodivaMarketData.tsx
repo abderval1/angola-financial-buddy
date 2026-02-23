@@ -58,7 +58,7 @@ export default function BodivaMarketData() {
         volume: true,
         forecast: true
     });
-    const [timeRange, setTimeRange] = useState<'7D' | '1M' | '3M' | '1Y' | 'ALL'>('1M');
+    const [timeRange, setTimeRange] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | 'ALL'>('1M');
     const { toast } = useToast();
     const { lastUpdate, loading: lastUpdateLoading, timeAgo, refresh: refreshLastUpdate } = useBodivaLastUpdate();
 
@@ -229,14 +229,46 @@ export default function BodivaMarketData() {
     const filteredHistoricalData = useMemo(() => {
         if (historicalData.length === 0) return [];
 
-        let sliceSize = historicalData.length;
-        if (timeRange === '7D') sliceSize = 7;
-        else if (timeRange === '1M') sliceSize = 30;
-        else if (timeRange === '3M') sliceSize = 90;
-        else if (timeRange === '1Y') sliceSize = 365;
-
         // historicalData is DESC (newest first)
-        return [...historicalData].slice(0, sliceSize).reverse(); // Return ASC for indicators & chart
+        // Simulate OHLC data for candlestick chart
+        // We only have close price, so we estimate open/high/low from variation
+        const dataWithOHLC = [...historicalData].reverse().map((item) => {
+            const close = item.price;
+            const variation = item.variation || 0;
+
+            // Estimate open from variation (reverse calculate)
+            const open = variation >= 0
+                ? close / (1 + variation / 100)
+                : close * (1 - variation / 100);
+
+            // Estimate high/low with small margin
+            const range = Math.abs(close - open) * 0.3;
+            const high = Math.max(close, open) + range;
+            const low = Math.min(close, open) - range;
+
+            // Calculate volume direction
+            const isUp = close >= open;
+
+            return {
+                ...item,
+                open,
+                high,
+                low,
+                close,
+                isUp,
+                volumeColor: isUp ? '#22c55e' : '#ef4444'
+            };
+        });
+
+        let sliceSize = dataWithOHLC.length;
+        if (timeRange === '1D') sliceSize = Math.min(1, dataWithOHLC.length);
+        else if (timeRange === '1W') sliceSize = Math.min(7, dataWithOHLC.length);
+        else if (timeRange === '1M') sliceSize = Math.min(30, dataWithOHLC.length);
+        else if (timeRange === '3M') sliceSize = Math.min(90, dataWithOHLC.length);
+        else if (timeRange === '1Y') sliceSize = Math.min(365, dataWithOHLC.length);
+
+        // Return ASC for indicators & chart
+        return dataWithOHLC.slice(0, sliceSize);
     }, [historicalData, timeRange]);
 
     const processedHistorical = useMemo(() => {
@@ -881,7 +913,7 @@ export default function BodivaMarketData() {
                                 </div>
 
                                 <div className="flex items-center gap-2 bg-white/50 p-1.5 rounded-lg border border-slate-200 shadow-inner">
-                                    {(['7D', '1M', '3M', '1Y', 'ALL'] as const).map((range) => (
+                                    {(['1D', '1W', '1M', '3M', '1Y', 'ALL'] as const).map((range) => (
                                         <Button
                                             key={range}
                                             variant={timeRange === range ? "default" : "ghost"}
