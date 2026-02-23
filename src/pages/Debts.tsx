@@ -863,23 +863,23 @@ export default function Debts() {
     <AppLayout title="Dívidas & Empréstimos" subtitle="Gerencie suas finanças">
       <ModuleGuard moduleKey="basic" title={t('Controle de Dívidas')} description={t('Gerencie o que você deve e o que os outros lhe devem')}>
         <div className="space-y-6 animate-fade-in">
-          {/* Risk Cards */}
+          {/* Risk Cards - Fixed for mobile */}
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <Card className={netPosition < 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'}>
-              <CardHeader className="pb-2"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2"><TrendingDown className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" /> {t('Dívida Total')}</CardTitle></CardHeader>
-              <CardContent><p className="text-sm sm:text-xl md:text-2xl font-bold break-all">Kz {totalDebt.toLocaleString('pt-AO')}</p></CardContent>
+            <Card className={`${netPosition < 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'} p-3 sm:p-4`}>
+              <CardHeader className="pb-1 sm:pb-2 p-0"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2"><TrendingDown className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" /> {t('Dívida Total')}</CardTitle></CardHeader>
+              <CardContent className="p-0"><p className="text-xs sm:text-xl md:text-2xl font-bold break-all leading-tight">Kz {totalDebt.toLocaleString('pt-AO')}</p></CardContent>
             </Card>
-            <Card className="card-finance">
-              <CardHeader className="pb-2"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2"><TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" /> {t('A Receber')}</CardTitle></CardHeader>
-              <CardContent><p className="text-sm sm:text-xl md:text-2xl font-bold break-all">Kz {totalLoansOutstanding.toLocaleString('pt-AO')}</p></CardContent>
+            <Card className="card-finance p-3 sm:p-4">
+              <CardHeader className="pb-1 sm:pb-2 p-0"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2"><TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" /> {t('A Receber')}</CardTitle></CardHeader>
+              <CardContent className="p-0"><p className="text-xs sm:text-xl md:text-2xl font-bold break-all leading-tight">Kz {totalLoansOutstanding.toLocaleString('pt-AO')}</p></CardContent>
             </Card>
-            <Card className={netPosition < 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'}>
-              <CardHeader className="pb-2"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2"><Shield className="h-3 w-3 sm:h-4 sm:w-4" /> {t('Posição Líquida')}</CardTitle></CardHeader>
-              <CardContent><p className={`text-sm sm:text-xl md:text-2xl font-bold break-all ${netPosition < 0 ? 'text-red-500' : 'text-green-500'}`}>{netPosition >= 0 ? '+' : ''}Kz {netPosition.toLocaleString('pt-AO')}</p></CardContent>
+            <Card className={`${netPosition < 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'} p-3 sm:p-4`}>
+              <CardHeader className="pb-1 sm:pb-2 p-0"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2"><Shield className="h-3 w-3 sm:h-4 sm:w-4" /> {t('Posição Líquida')}</CardTitle></CardHeader>
+              <CardContent className="p-0"><p className={`text-xs sm:text-xl md:text-2xl font-bold break-all leading-tight ${netPosition < 0 ? 'text-red-500' : 'text-green-500'}`}>{netPosition >= 0 ? '+' : ''}Kz {netPosition.toLocaleString('pt-AO')}</p></CardContent>
             </Card>
-            <Card className={overdueLoansCount > 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'}>
-              <CardHeader className="pb-2"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-2"><AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500" /> {t('Atrasos')}</CardTitle></CardHeader>
-              <CardContent><p className="text-sm sm:text-lg md:text-2xl font-bold">{overdueLoansCount}</p></CardContent>
+            <Card className={`${overdueLoansCount > 0 ? 'border-red-500 bg-red-500/10' : 'card-finance'} p-3 sm:p-4`}>
+              <CardHeader className="pb-1 sm:pb-2 p-0"><CardTitle className="text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2"><AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500" /> {t('Atrasos')}</CardTitle></CardHeader>
+              <CardContent className="p-0"><p className="text-xs sm:text-lg md:text-2xl font-bold leading-tight">{overdueLoansCount}</p></CardContent>
             </Card>
           </div>
 
@@ -899,11 +899,11 @@ export default function Debts() {
           )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1">
-              <TabsTrigger value="debts" className="flex items-center gap-1 text-xs md:text-sm"><CreditCard className="h-3 w-3 md:h-4 md:w-4" /> <span className="hidden sm:inline">{t('Dívidas')}</span><span className="sm:hidden">{t('Dív')}</span> ({debts.length})</TabsTrigger>
-              <TabsTrigger value="loans" className="flex items-center gap-1 text-xs md:text-sm"><Users className="h-3 w-3 md:h-4 md:w-4" /> <span className="hidden sm:inline">{t('Empréstimos')}</span><span className="sm:hidden">{t('Emp')}</span> ({loans.length})</TabsTrigger>
-              <TabsTrigger value="calendar" className="flex items-center gap-1 text-xs md:text-sm"><Calendar className="h-3 w-3 md:h-4 md:w-4" /> <span className="hidden md:inline">{t('Calendário de Vencimentos')}</span><span className="md:hidden">{t('Calendário')}</span></TabsTrigger>
-              <TabsTrigger value="progress" className="flex items-center gap-1 text-xs md:text-sm"><TrendingUp className="h-3 w-3 md:h-4 md:w-4" /> {t('Progresso')}</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1 h-auto">
+              <TabsTrigger value="debts" className="flex items-center gap-1 text-xs md:text-sm px-1 py-2"><CreditCard className="h-3 w-3 md:h-4 md:w-4" /> <span className="hidden sm:inline">{t('Dívidas')}</span><span className="sm:hidden">{t('Dív')}</span> ({debts.length})</TabsTrigger>
+              <TabsTrigger value="loans" className="flex items-center gap-1 text-xs md:text-sm px-1 py-2"><Users className="h-3 w-3 md:h-4 md:w-4" /> <span className="hidden sm:inline">{t('Empréstimos')}</span><span className="sm:hidden">{t('Emp')}</span> ({loans.length})</TabsTrigger>
+              <TabsTrigger value="calendar" className="flex items-center gap-1 text-xs md:text-sm px-1 py-2"><Calendar className="h-3 w-3 md:h-4 md:w-4" /> <span className="hidden md:inline">{t('Calendário de Vencimentos')}</span><span className="md:hidden">{t('Calendário')}</span></TabsTrigger>
+              <TabsTrigger value="progress" className="flex items-center gap-1 text-xs md:text-sm px-1 py-2"><TrendingUp className="h-3 w-3 md:h-4 md:w-4" /> {t('Progresso')}</TabsTrigger>
             </TabsList>
 
             {/* DEBTS TAB */}
@@ -1097,7 +1097,7 @@ export default function Debts() {
 
             {/* Progress Tab */}
             <TabsContent value="progress" className="mt-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Debt Progress */}
                 <Card>
                   <CardHeader><CardTitle>{t('Progresso das Dívidas')}</CardTitle></CardHeader>

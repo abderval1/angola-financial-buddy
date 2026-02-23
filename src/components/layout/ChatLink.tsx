@@ -26,23 +26,8 @@ export function ChatLink() {
         refetchInterval: 30000, // Check every 30 seconds
     });
 
-    // Check if user has seen the latest message
-    const { data: lastRead } = useQuery({
-        queryKey: ["chat-last-read", user?.id],
-        queryFn: async () => {
-            if (!user) return null;
-
-            const { data, error } = await supabase
-                .from("user_settings")
-                .select("last_chat_read_at")
-                .eq("user_id", user.id)
-                .single();
-
-            if (error && error.code !== 'PGRST116') return null;
-            return data?.last_chat_read_at;
-        },
-        enabled: !!user,
-    });
+    // Check if user has seen the latest message (use localStorage as fallback)
+    const lastRead = typeof window !== 'undefined' ? localStorage.getItem('last_chat_read_at') : null;
 
     // Determine if there's a new message (show badge if last message is newer than last read)
     const hasNewMessages = lastMessage &&

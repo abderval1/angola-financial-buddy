@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { TrendingUp, TrendingDown, RefreshCw, BarChart3, Calendar, Lightbulb, Users, Shield, Zap, Info, PieChart as PieChartIcon, ExternalLink, LineChart, Activity, Target, Percent, Search, ChevronDown, Filter, Settings2, Eye, EyeOff } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, BarChart3, Calendar, Lightbulb, Users, Shield, Zap, Info, PieChart as PieChartIcon, ExternalLink, LineChart, Activity, Target, Percent, Search, ChevronDown, Filter, Settings2, Eye, EyeOff, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useBodivaLastUpdate } from '@/hooks/useBodivaLastUpdate';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -59,6 +60,7 @@ export default function BodivaMarketData() {
     });
     const [timeRange, setTimeRange] = useState<'7D' | '1M' | '3M' | '1Y' | 'ALL'>('1M');
     const { toast } = useToast();
+    const { lastUpdate, loading: lastUpdateLoading, timeAgo, refresh: refreshLastUpdate } = useBodivaLastUpdate();
 
     const fetchMarketData = async () => {
         setLoading(true);
@@ -396,9 +398,17 @@ export default function BodivaMarketData() {
                         <BarChart3 className="h-5 w-5 text-primary" />
                         Resumo do Mercado BODIVA
                     </CardTitle>
-                    <Button variant="ghost" size="sm" onClick={fetchMarketData}>
-                        <RefreshCw className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {timeAgo && (
+                            <Badge variant="outline" className="text-xs bg-azul_bodiva-1/5 text-azul_bodiva-1 border-azul_bodiva-1/20">
+                                <Clock className="h-3 w-3 mr-1" />
+                                Atualizado: {timeAgo}
+                            </Badge>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => { fetchMarketData(); refreshLastUpdate(); }}>
+                            <RefreshCw className="h-4 w-4" />
+                        </Button>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent className="space-y-6">
