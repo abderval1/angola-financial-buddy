@@ -50,7 +50,7 @@ jobs:
 
       - name: Convert Excel to JSON
         run: |
-          cat > convert.js << 'ENDOFFILE'
+          cat > convert.cjs << 'ENDOFFILE'
           const XLSX = require('xlsx');
           const fs = require('fs');
 
@@ -116,14 +116,14 @@ jobs:
           const uniqueData = Array.from(seen.values());
           console.log(JSON.stringify(uniqueData, null, 2));
           ENDOFFILE
-          node convert.js > bodiva_data.json
+          node convert.cjs > bodiva_data.json
 
       - name: Upload to Supabase
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          cat > upload.js << 'ENDOFFILE'
+          cat > upload.cjs << 'ENDOFFILE'
           const { createClient } = require('@supabase/supabase-js');
           const fs = require('fs');
 
@@ -175,9 +175,9 @@ jobs:
             console.log('Sync logged successfully');
           }
           ENDOFFILE
-          node upload.js
+          node upload.cjs
 
       - name: Cleanup
         run: |
-          rm -f bodiva_data.xlsx bodiva_data.json convert.js upload.js
+          rm -f bodiva_data.xlsx bodiva_data.json convert.cjs upload.cjs
           echo "Cleanup complete"
