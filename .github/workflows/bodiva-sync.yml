@@ -2,8 +2,18 @@ name: Sync BODIVA Market Data
 
 on:
   schedule:
-    # Run every 15 minutes
-    - cron: '*/15 * * * *'
+    # Angola time: 8:15 to 17:30 (UTC+1 = UTC to 16:30)
+    # Run every 15 minutes during business hours, Monday to Friday
+    - cron: '15 7 * * 1-5'      # 8:15 Angola (Mon-Fri)
+    - cron: '30 7 * * 1-5'      # 8:30 Angola (Mon-Fri)
+    - cron: '45 7 * * 1-5'      # 8:45 Angola (Mon-Fri)
+    - cron: '0 8-15 * * 1-5'   # 9:00-16:00 Angola (Mon-Fri, every hour at :00)
+    - cron: '15 8-15 * * 1-5'  # 9:15-16:15 Angola (Mon-Fri, every hour at :15)
+    - cron: '30 8-15 * * 1-5'  # 9:30-16:30 Angola (Mon-Fri, every hour at :30)
+    - cron: '45 8-15 * * 1-5'  # 9:45-16:45 Angola (Mon-Fri, every hour at :45)
+    - cron: '0 16 * * 1-5'     # 17:00 Angola (Mon-Fri)
+    - cron: '15 16 * * 1-5'    # 17:15 Angola (Mon-Fri)
+    - cron: '30 16 * * 1-5'    # 17:30 Angola (Mon-Fri)
   workflow_dispatch:
     # Allow manual trigger
 
@@ -139,7 +149,7 @@ jobs:
               process.exit(0);
             }
 
-            // Upsert market data
+            // Upsert market data - keeps all historical data
             const { data: result, error } = await supabase
               .from('bodiva_market_data')
               .upsert(data, { onConflict: 'data_date,symbol' });
