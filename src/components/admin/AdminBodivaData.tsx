@@ -1139,7 +1139,9 @@ export default function AdminBodivaData() {
                                                 <TableCell className="font-medium">{item.symbol}</TableCell>
                                                 <TableCell>{item.title_type}</TableCell>
                                                 <TableCell className="text-right">
-                                                    {item.price.toLocaleString('pt-AO', { minimumFractionDigits: 2 })} AOA
+                                                    {item.title_type.toLowerCase().includes('acções') || item.title_type.toLowerCase().includes('acces')
+                                                        ? item.price.toLocaleString('pt-AO', { minimumFractionDigits: 2 }) + ' AOA'
+                                                        : item.price.toLocaleString('pt-AO', { minimumFractionDigits: 2 }) + ' %'}
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <span className={`flex items-center justify-end gap-1 ${item.variation >= 0 ? 'text-green-600' : 'text-red-600'}`}>

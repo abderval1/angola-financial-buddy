@@ -819,7 +819,9 @@ export default function BodivaMarketData() {
                                         <Badge variant="outline">{item.title_type}</Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        {item.price.toLocaleString('pt-AO', { minimumFractionDigits: 2 })} AOA
+                                        {item.title_type.toLowerCase().includes('acções') || item.title_type.toLowerCase().includes('acces')
+                                            ? item.price.toLocaleString('pt-AO', { minimumFractionDigits: 2 }) + ' AOA'
+                                            : item.price.toLocaleString('pt-AO', { minimumFractionDigits: 2 }) + ' %'}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <span className={`flex items-center justify-end gap-1 ${item.variation >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -956,7 +958,10 @@ export default function BodivaMarketData() {
                                                     const isForecast = props.payload.isForecast;
                                                     const prefix = isForecast ? '[PREVISÃO] ' : '';
 
-                                                    if (name === 'price') return [value.toLocaleString('pt-AO') + ' AOA', prefix + 'Preço'];
+                                                    if (name === 'price') {
+                                                        const isShare = titleType.toLowerCase().includes('acções') || titleType.toLowerCase().includes('acces');
+                                                        return [value.toLocaleString('pt-AO') + (isShare ? ' AOA' : ' %'), prefix + 'Preço'];
+                                                    }
                                                     if (name === 'forecast') return [value.toLocaleString('pt-AO') + ' AOA', 'Projecção IA'];
                                                     if (name === 'sma5') return [value?.toFixed(2) + ' AOA', 'SMA (5)'];
                                                     if (name === 'ema9') return [value?.toFixed(2) + ' AOA', 'EMA (9)'];
