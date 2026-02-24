@@ -103,6 +103,7 @@ export default function Education() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      console.log('[Education] Raw contents:', data);
       return data || [];
     },
   });
@@ -312,7 +313,9 @@ export default function Education() {
   };
 
   const isCoursePurchased = (courseId: string) => {
-    return hasPremiumPlanAccess || purchases.some((p: any) => p.course_id === courseId && p.status === 'approved');
+    const purchased = hasPremiumPlanAccess || purchases.some((p: any) => p.course_id === courseId && p.status === 'approved');
+    console.log('[Education] isCoursePurchased check:', { courseId, hasPremiumPlanAccess, purchases, result: purchased });
+    return purchased;
   };
 
   const getCoursePurchaseStatus = (courseId: string) => {
@@ -523,6 +526,9 @@ export default function Education() {
                     const isCompleted = isContentCompleted(content.id);
                     const progressPercent = getContentProgress(content.id);
                     const isCourse = content.content_type === "course";
+
+                    // Debug logging
+                    console.log('[Education] Course:', content.id, content.title, 'is_premium:', content.is_premium, 'price:', content.price);
 
                     return (
                       <Card
