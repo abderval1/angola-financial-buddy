@@ -52,6 +52,7 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
   const [showCertificate, setShowCertificate] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [activeQuiz, setActiveQuiz] = useState<any>(null); // Track which quiz is active (final or module)
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
@@ -108,23 +109,42 @@ export function CourseViewer({ courseId, isOpen, onClose }: CourseViewerProps) {
     enabled: isOpen && !!user?.id && modules.length > 0,
   });
 
-  // Fetch final quiz
-  const { data: finalQuiz } = useQuery({
-    queryKey: ["course-final-quiz", courseId],
+  // Fetch all quizzes (final and module)
+  const { data: allQuizzes = [], error: quizzesError } = useQuery({
+    queryKey: ["course-quizzes", courseId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("course_quizzes")
         .select("*, quiz_questions(*)")
         .eq("course_id", courseId)
-        .eq("is_final_quiz", true)
         .eq("is_active", true)
-        .maybeSingle();
+        .order("is_final_quiz", { ascending: false });
 
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.error('[CourseViewer] Error fetching quizzes:', error);
+        throw error;
+      }
+      console.log('[CourseViewer] Raw quiz data:', data);
+      return data || [];
     },
     enabled: isOpen && !!courseId,
   });
+
+  // Get final quiz (single object)
+  const finalQuiz: any = allQuizzes.find((q: any) => q.is_final_quiz);
+  // Get module quizzes
+  const moduleQuizzes: any[] = allQuizzes.filter((q: any) => !q.is_final_quiz && q.module_id);
+  // Get quiz for current module
+  const currentModuleQuiz: any = moduleQuizzes.find((q: any) => q.module_id === modules[currentModuleIndex]?.id);
+
+  // Debug logging
+  console.log('[CourseViewer] Course ID:', courseId);
+  console.log('[CourseViewer] All Quizzes count:', allQuizzes.length);
+  console.log('[CourseViewer] Final Quiz:', finalQuiz);
+  console.log('[CourseViewer] Module Quizzes:', moduleQuizzes);
+  console.log('[CourseViewer] Current Module:', modules[currentModuleIndex]);
+  console.log('[CourseViewer] Current Module Quiz:', currentModuleQuiz);
+  console.log('[CourseViewer] Quiz Error:', quizzesError);
 
   // Fetch user's quiz attempts
   const { data: quizAttempts = [] } = useQuery({
