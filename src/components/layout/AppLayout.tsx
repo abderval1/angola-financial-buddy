@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { WhatsAppButton } from "../support/WhatsAppButton";
+import { PWAInstallPrompt } from "../PWAInstallPrompt";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -23,6 +24,7 @@ export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
           {children}
         </main>
         <WhatsAppButton />
+        <PWAInstallPrompt />
       </div>
     </div>
   );

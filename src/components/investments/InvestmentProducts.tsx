@@ -86,9 +86,28 @@ export function InvestmentProducts({ onSelectProduct, savingsBalance = 0, monthl
     fetchMarketData();
   }, []);
 
-  // Convert marketData to display products
+  // Convert marketData to display products - only keep latest entry per symbol
   const allProducts = useMemo(() => {
-    return marketData.map((item, index) => {
+    // First, get the latest date from the data
+    const latestDate = marketData.length > 0 ? marketData[0].data_date : null;
+
+    // Filter to only include entries from the latest date
+    const latestData = latestDate
+      ? marketData.filter(item => item.data_date === latestDate)
+      : marketData;
+
+    // Then deduplicate by symbol (keep first occurrence which is already sorted by symbol)
+    const seen = new Set<string>();
+    const uniqueProducts: BodivaMarketData[] = [];
+
+    for (const item of latestData) {
+      if (!seen.has(item.symbol)) {
+        seen.add(item.symbol);
+        uniqueProducts.push(item);
+      }
+    }
+
+    return uniqueProducts.map((item, index) => {
       const isBond = item.title_type?.toLowerCase().includes('obrigação') ||
         item.title_type?.toLowerCase().includes('ot-') ||
         item.title_type?.toLowerCase().includes('bt-') ||
@@ -201,28 +220,37 @@ export function InvestmentProducts({ onSelectProduct, savingsBalance = 0, monthl
     }
   };
 
+  // Helper to format price based on product type (AOA for stocks, % for bonds)
+  const formatProductPrice = (price: number | undefined, isBond: boolean): string => {
+    if (price === undefined || price === null) return '-';
+    if (isBond) {
+      return `${price.toFixed(2)}%`;
+    }
+    return formatPrice(price);
+  };
+
   // Simple product card for grid display
   const ProductCard = ({ product }: { product: typeof allProducts[0] }) => (
     <Card
       className="hover:shadow-lg transition-all cursor-pointer group border-border/50 hover:border-primary/30 bg-card"
       onClick={() => handleProductClick(product)}
     >
-      <CardContent className="p-3">
+      <CardContent className="p-4 sm:p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
               {product.icon}
             </div>
             <div>
-              <h4 className="font-bold text-sm">{product.symbol}</h4>
-              <p className="text-xs text-muted-foreground line-clamp-1">{product.tipo}</p>
+              <h4 className="font-bold text-sm sm:text-base">{product.symbol}</h4>
+              <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">{product.tipo}</p>
             </div>
           </div>
           {getRiskBadge(product.risk)}
         </div>
 
         {/* Show key data points */}
-        <div className="space-y-1 text-xs">
+        <div className="space-y-1 text-xs sm:text-sm">
           {product.taxaCupao && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Cupão:</span>
@@ -232,7 +260,7 @@ export function InvestmentProducts({ onSelectProduct, savingsBalance = 0, monthl
           {product.ultimoPreco && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Preço:</span>
-              <span className="font-semibold">{formatPrice(product.ultimoPreco)}</span>
+              <span className="font-semibold">{formatProductPrice(product.ultimoPreco, product.risk === 'low')}</span>
             </div>
           )}
           {product.variation !== undefined && (
@@ -246,13 +274,13 @@ export function InvestmentProducts({ onSelectProduct, savingsBalance = 0, monthl
           {product.compraPreco && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Compra:</span>
-              <span className="font-semibold">{formatPrice(product.compraPreco)}</span>
+              <span className="font-semibold">{formatProductPrice(product.compraPreco, product.risk === 'low')}</span>
             </div>
           )}
           {product.vendaPreco && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Venda:</span>
-              <span className="font-semibold">{formatPrice(product.vendaPreco)}</span>
+              <span className="font-semibold">{formatProductPrice(product.vendaPreco, product.risk === 'low')}</span>
             </div>
           )}
         </div>
@@ -283,7 +311,7 @@ export function InvestmentProducts({ onSelectProduct, savingsBalance = 0, monthl
         </div>
       ) : allProducts.length > 0 ? (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {paginatedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
@@ -390,7 +418,7 @@ export function InvestmentProducts({ onSelectProduct, savingsBalance = 0, monthl
                 <div className="grid grid-cols-3 gap-2 text-sm">
                   <div>
                     <p className="text-muted-foreground">Preço</p>
-                    <p className="font-semibold">{selectedProduct.price ? formatPrice(selectedProduct.price) : '-'}</p>
+                    <p className="font-semibold">{selectedProduct.price ? formatProductPrice(selectedProduct.price, selectedProduct.title_type?.toLowerCase().includes('obrigação') || selectedProduct.title_type?.toLowerCase().includes('ot-') || selectedProduct.title_type?.toLowerCase().includes('bt-')) : '-'}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Quantidade</p>
