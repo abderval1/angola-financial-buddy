@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { TwoFactorSetup } from "@/components/profile/TwoFactorSetup";
 import { useTranslation } from "react-i18next";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { translatePage, resetTranslation } from "@/components/GoogleTranslate";
 
 interface NotificationPreferences {
   email: boolean;
@@ -134,8 +135,12 @@ export default function Settings() {
         updated_at: new Date().toISOString(),
       };
 
-      // Apply changes immediately
-      i18n.changeLanguage(data.language);
+      // Apply changes immediately - use Google Translate
+      if (data.language && data.language !== 'pt') {
+        translatePage(data.language);
+      } else if (data.language === 'pt') {
+        resetTranslation();
+      }
       setCurrency(data.currency as any);
 
       // Two-factor status is handled by the TwoFactorSetup component directly via Supabase Auth
@@ -375,7 +380,12 @@ export default function Settings() {
                   value={formData.language}
                   onValueChange={(value) => {
                     setFormData({ ...formData, language: value });
-                    i18n.changeLanguage(value);
+                    // Apply Google Translate immediately for preview
+                    if (value && value !== 'pt') {
+                      translatePage(value);
+                    } else {
+                      resetTranslation();
+                    }
                   }}
                 >
                   <SelectTrigger>
