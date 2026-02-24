@@ -559,6 +559,15 @@ export default function Education() {
                             )}
                           </div>
 
+                          {/* Lock overlay for premium courses not purchased */}
+                          {content.is_premium && !isCoursePurchased(content.id) && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-[1px]">
+                              <div className="bg-white/10 backdrop-blur-sm rounded-full p-3 shadow-lg">
+                                <Lock className="h-8 w-8 text-white" />
+                              </div>
+                            </div>
+                          )}
+
                           {isCompleted && (
                             <div className="absolute inset-0 bg-success/10 flex items-center justify-center backdrop-blur-[1px]">
                               <div className="bg-white rounded-full p-1 shadow-md">
@@ -634,8 +643,8 @@ export default function Education() {
                                   </>
                                 ) : (
                                   <>
-                                    <CreditCard className="h-4 w-4 mr-1" />
-                                    Comprar
+                                    <Lock className="h-4 w-4 mr-1" />
+                                    Desbloquear
                                   </>
                                 )}
                               </Button>
