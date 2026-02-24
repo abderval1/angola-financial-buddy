@@ -72,18 +72,35 @@ export function PublicChat() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
+  const [messageLimit, setMessageLimit] = useState(10);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const isInitialLoad = useRef(true);
 
-  // Fetch messages with user profiles
+  // Fetch messages with user profiles - paginated
   const { data: messages = [], isLoading } = useQuery({
-    queryKey: ["chat-messages"],
+    queryKey: ["chat-messages", messageLimit],
     queryFn: async () => {
       const { data: chatData, error } = await supabase
         .from("chat_messages")
         .select("*")
         .is("room_id", null)
         .or("is_deleted.is.null,is_deleted.eq.false")
-        .order("created_at", { ascending: true })
-        .limit(100);
+        .order("created_at", { ascending: false })
+        .limit(messageLimit);
+
+      if (error) throw error;
+
+      // Check if there are more messages
+      const { count } = await supabase
+        .from("chat_messages")
+        .select("*", { count: 'exact', head: true })
+        .is("room_id", null)
+        .or("is_deleted.is.null,is_deleted.eq.false");
+
+      setHasMoreMessages((chatData?.length || 0) < (count || 0));
+
+      // Reverse to get oldest first for display
+      const reversedData = (chatData || []).reverse();
 
       if (error) throw error;
 
@@ -237,10 +254,19 @@ export function PublicChat() {
 
   // Scroll to bottom on new messages
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (scrollRef.current && messages.length > 0) {
+      // Only auto-scroll on initial load or when new messages arrive at the bottom
+      if (isInitialLoad.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        isInitialLoad.current = false;
+      }
     }
   }, [messages]);
+
+  // Load more messages
+  const loadMoreMessages = () => {
+    setMessageLimit(prev => prev + 10);
+  };
 
   // Send message mutation
   const sendMessageMutation = useMutation({
@@ -432,6 +458,17 @@ export function PublicChat() {
             </div>
           ) : (
             <div className="space-y-4">
+              {hasMoreMessages && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadMoreMessages}
+                  className="w-full mb-2"
+                >
+                  <Loader2 className="h-4 w-4 mr-2" />
+                  Carregar mais mensagens
+                </Button>
+              )}
               {messages.map((msg) => {
                 const userColor = getUserColor(msg.user_id);
                 const messageReactions = reactionsByMessage[msg.id] || {};
