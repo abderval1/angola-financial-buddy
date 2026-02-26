@@ -15,20 +15,18 @@ export function WhatsAppButton() {
                         href={whatsappUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="fixed bottom-6 right-0 z-50 group"
+                        className="fixed bottom-24 right-4 z-40 group"
                     >
                         <div className="relative">
-                            {/* Hidden by default, peeks out on hover */}
-                            <div className="translate-x-[calc(100%-12px)] group-hover:translate-x-0 transition-transform duration-300 ease-out">
+                            {/* Always hidden, peek out on hover */}
+                            <div className="translate-x-[calc(100%-12px)] group-hover:translate-x-0 transition-transform duration-300 ease-out opacity-0 group-hover:opacity-100">
                                 <Button
                                     size="icon"
-                                    className="h-14 w-14 rounded-full bg-[#25D366] hover:bg-[#128C7E] shadow-lg border-2 border-white/20"
+                                    className="h-12 w-12 rounded-full bg-[#25D366] hover:bg-[#128C7E] shadow-lg border-2 border-white/20"
                                 >
-                                    <MessageCircle className="h-8 w-8 text-white fill-white" />
+                                    <MessageCircle className="h-6 w-6 text-white fill-white" />
                                     <span className="sr-only">Falar com Suporte no WhatsApp</span>
                                 </Button>
-                                {/* Pulsing effect ring - only visible on hover */}
-                                <span className="absolute -inset-1 rounded-full bg-[#25D366] opacity-30 animate-ping pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
                         </div>
                     </a>
