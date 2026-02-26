@@ -38,6 +38,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import NotFound from "./pages/NotFound";
 import Blog from "./pages/Blog";
+import { GoogleTranslate } from "./components/GoogleTranslate";
+import { FloatingChat } from "./components/community/FloatingChat";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +53,8 @@ const App = () => (
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
+                <GoogleTranslate />
+                <FloatingChat />
                 <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                   <PresenceTracker />
                   <GlobalAuditTracker />
