@@ -10,7 +10,7 @@ import {
   Plus, TrendingUp, TrendingDown, Trash2, Edit2, AlertTriangle,
   Briefcase, Car, Home, Heart, GraduationCap, Gamepad2, Shirt, FileText, UtensilsCrossed, Laptop,
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, Layers, List, Table as TableIcon, History as HistoryIcon,
-  Settings, Wallet, PiggyBank, Activity
+  Settings, Wallet, PiggyBank, Activity, Eye, EyeOff
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -156,6 +156,7 @@ export default function Budget() {
   });
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [showOnboardingGuide, setShowOnboardingGuide] = useState(false);
+  const [hideValues, setHideValues] = useState(false);
 
   // Chart preferences - load from localStorage or use defaults
   const [chartType, setChartType] = useState<'pie' | 'bar' | 'donut'>(
@@ -756,7 +757,19 @@ export default function Budget() {
             </div>
           </div>
 
-          {/* Metrics Cards */}
+          {/* Metrics Cards with Toggle */}
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold">{t("Resumo Financeiro")}</h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setHideValues(!hideValues)}
+              className="flex items-center gap-1"
+            >
+              {hideValues ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              <span className="hidden sm:inline">{hideValues ? t("Mostrar") : t("Ocultar")}</span>
+            </Button>
+          </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
             <MetricCard
               title={viewMode === 'all' ? t("Saldo Acumulado") : t("Saldo Anterior")}
@@ -764,7 +777,7 @@ export default function Budget() {
               icon={HistoryIcon}
               type="neutral"
               valueClassName={carriedOverBalance >= 0 ? "text-success" : "text-destructive"}
-              formatter={(v) => formatPrice(v)}
+              formatter={(v) => hideValues ? "****" : formatPrice(v)}
             />
             <MetricCard
               title={t("Receitas")}
@@ -774,7 +787,7 @@ export default function Budget() {
               icon={TrendingUp}
               type="neutral"
               valueClassName="text-success"
-              formatter={(v) => formatPrice(v)}
+              formatter={(v) => hideValues ? "****" : formatPrice(v)}
             />
             <MetricCard
               title={t("Despesas")}
@@ -784,7 +797,7 @@ export default function Budget() {
               icon={TrendingDown}
               type="reverse"
               valueClassName="text-destructive"
-              formatter={(v) => formatPrice(v)}
+              formatter={(v) => hideValues ? "****" : formatPrice(v)}
             />
             <MetricCard
               title={t("Saldo")}
@@ -794,7 +807,7 @@ export default function Budget() {
               icon={Wallet}
               type="neutral"
               valueClassName={(balance + carriedOverBalance) >= 0 ? "text-success" : "text-destructive"}
-              formatter={(v) => formatPrice(v)}
+              formatter={(v) => hideValues ? "****" : formatPrice(v)}
             />
           </div>
 
@@ -1039,8 +1052,8 @@ export default function Budget() {
                       </linearGradient>
                     </defs>
                     <XAxis dataKey="date" axisLine={false} tickLine={false} className="text-xs" />
-                    <YAxis axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => `${v / 1000}k`} />
-                    <Tooltip formatter={(v: number) => `Kz ${v.toLocaleString()}`} />
+                    <YAxis axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => hideValues ? '****' : `${v / 1000}k`} />
+                    <Tooltip formatter={(v: number) => hideValues ? '****' : `Kz ${v.toLocaleString()}`} />
                     <Area type="monotone" dataKey="receita" stroke="hsl(160 84% 39%)" fill="url(#receitaGrad)" strokeWidth={2} />
                     <Area type="monotone" dataKey="despesa" stroke="hsl(0 72% 51%)" fill="url(#despesaGrad)" strokeWidth={2} />
                   </AreaChart>
@@ -1115,9 +1128,9 @@ export default function Budget() {
                     <ResponsiveContainer width="100%" height="100%">
                       {chartType === 'bar' ? (
                         <BarChart data={incomeByCategory} layout="vertical">
-                          <XAxis type="number" axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => chartValueMode === 'percentage' ? `${v}%` : `${v / 1000}k`} />
+                          <XAxis type="number" axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => chartValueMode === 'percentage' ? `${v}%` : hideValues ? '****' : `${v / 1000}k`} />
                           <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} className="text-xs" width={80} />
-                          <Tooltip formatter={(v: number) => chartValueMode === 'percentage' ? `${v.toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
+                          <Tooltip formatter={(v: number) => hideValues ? '****' : chartValueMode === 'percentage' ? `${v.toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
                           <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                             {incomeByCategory.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
@@ -1139,7 +1152,7 @@ export default function Budget() {
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(v: number) => chartValueMode === 'percentage' ? `${((v / totalIncome) * 100).toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
+                          <Tooltip formatter={(v: number) => hideValues ? '****' : chartValueMode === 'percentage' ? `${((v / totalIncome) * 100).toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
                         </PieChart>
                       )}
                     </ResponsiveContainer>
@@ -1152,7 +1165,7 @@ export default function Budget() {
                           <span className="text-muted-foreground truncate" title={cat.name}>{cat.name}</span>
                         </div>
                         <span className="font-semibold text-xs break-all">
-                          {chartValueMode === 'percentage'
+                          {hideValues ? '****' : chartValueMode === 'percentage'
                             ? `${((cat.value / totalIncome) * 100).toFixed(1)}%`
                             : `Kz ${cat.value.toLocaleString()}`}
                         </span>
@@ -1172,9 +1185,9 @@ export default function Budget() {
                     <ResponsiveContainer width="100%" height="100%">
                       {chartType === 'bar' ? (
                         <BarChart data={expensesByCategory} layout="vertical">
-                          <XAxis type="number" axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => chartValueMode === 'percentage' ? `${v}%` : `${v / 1000}k`} />
+                          <XAxis type="number" axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => chartValueMode === 'percentage' ? `${v}%` : hideValues ? '****' : `${v / 1000}k`} />
                           <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} className="text-xs" width={80} />
-                          <Tooltip formatter={(v: number) => chartValueMode === 'percentage' ? `${v.toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
+                          <Tooltip formatter={(v: number) => hideValues ? '****' : chartValueMode === 'percentage' ? `${v.toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
                           <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                             {expensesByCategory.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
@@ -1196,7 +1209,7 @@ export default function Budget() {
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(v: number) => chartValueMode === 'percentage' ? `${((v / totalExpense) * 100).toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
+                          <Tooltip formatter={(v: number) => hideValues ? '****' : chartValueMode === 'percentage' ? `${((v / totalExpense) * 100).toFixed(1)}%` : `Kz ${v.toLocaleString()}`} />
                         </PieChart>
                       )}
                     </ResponsiveContainer>
@@ -1209,7 +1222,7 @@ export default function Budget() {
                           <span className="text-muted-foreground truncate" title={cat.name}>{cat.name}</span>
                         </div>
                         <span className="font-semibold text-xs break-all">
-                          {chartValueMode === 'percentage'
+                          {hideValues ? '****' : chartValueMode === 'percentage'
                             ? `${((cat.value / totalExpense) * 100).toFixed(1)}%`
                             : `Kz ${cat.value.toLocaleString()}`}
                         </span>
@@ -1294,7 +1307,7 @@ export default function Budget() {
                       <div className="space-y-1.5">
                         <div className="flex justify-between text-xs">
                           <span className={isOverLimit ? "text-destructive font-bold" : isWarning ? "text-amber-600 font-bold" : "text-muted-foreground"}>
-                            {t("Gasto")}: <span className="break-all">{formatPrice(spent)}</span>
+                            {t("Gasto")}: <span className="break-all">{hideValues ? '****' : formatPrice(spent)}</span>
                           </span>
                           <span className="font-medium">{progress.toFixed(0)}%</span>
                         </div>
@@ -1403,7 +1416,7 @@ export default function Budget() {
                                   </div>
                                   <div className="flex items-center gap-4">
                                     <span className={`font-semibold break-all ${tx.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                                      {tx.type === 'income' ? '+' : '-'}Kz {tx.amount.toLocaleString('pt-AO')}
+                                      {tx.type === 'income' ? '+' : '-'}Kz {hideValues ? '****' : tx.amount.toLocaleString('pt-AO')}
                                     </span>
                                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                       <Button
@@ -1447,6 +1460,7 @@ export default function Budget() {
                     <TransactionTable
                       transactions={displayTransactions}
                       categories={categories}
+                      hideValues={hideValues}
                       onEdit={(tx) => {
                         setEditingTransactionId(tx.id);
                         setNewTransaction({
@@ -1466,6 +1480,7 @@ export default function Budget() {
                     <TransactionCalendar
                       transactions={displayTransactions}
                       categories={categories}
+                      hideValues={hideValues}
                     />
                   )}
                 </>

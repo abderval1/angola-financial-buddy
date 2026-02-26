@@ -41,10 +41,11 @@ interface TransactionCalendarProps {
     categories: Category[];
     onEdit?: (transaction: Transaction) => void;
     onDelete?: (id: string) => void;
+    hideValues?: boolean;
 }
 
 
-export function TransactionCalendar({ transactions, categories, onEdit, onDelete }: TransactionCalendarProps) {
+export function TransactionCalendar({ transactions, categories, onEdit, onDelete, hideValues = false }: TransactionCalendarProps) {
     const { t, i18n } = useTranslation();
     const { formatPrice } = useCurrency();
     const currentLocale = localeMap[i18n.language] || pt;
@@ -124,7 +125,7 @@ export function TransactionCalendar({ transactions, categories, onEdit, onDelete
                                     <div className="flex items-center gap-3">
                                         <span className={`font-bold flex items-center gap-1 ${transaction.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
                                             {transaction.type === 'income' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                                            {formatPrice(transaction.amount)}
+                                            {hideValues ? '****' : formatPrice(transaction.amount)}
                                         </span>
 
                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
