@@ -23,6 +23,7 @@ import { format, parseISO, differenceInDays, differenceInMonths, differenceInYea
 import { useAchievements } from "@/hooks/useAchievements";
 import { useTranslation } from "react-i18next";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useInvestmentPrices } from "@/hooks/useInvestmentPrices";
 
 // Import new components
 import { InvestmentPortfolioSummary } from "@/components/investments/InvestmentPortfolioSummary";
@@ -671,6 +672,30 @@ export default function Investments() {
 
     // Helper functions for calculations (must be defined before use)
     const calculateProjectedValue = (investment: Investment) => {
+        // First, try to use market prices if available (for stocks/ações)
+        if (investment.type === 'acoes' && marketPrices) {
+            const name = investment.name.toUpperCase();
+            let symbol = '';
+            if (name.includes('BAY')) symbol = 'BAY';
+            else if (name.includes('SGC')) symbol = 'SGC';
+            else if (name.includes('ENL')) symbol = 'ENL';
+            else if (name.includes('AFA')) symbol = 'AFA';
+            else if (name.includes('FIP')) symbol = 'FIP';
+            else symbol = name.substring(0, 3);
+
+            const marketPrice = marketPrices[symbol];
+            if (marketPrice && marketPrice.currentPrice > 0) {
+                // Calculate market-based value
+                // We need to know the number of shares - we'll use a simple approximation
+                // assuming current_value or amount represents total value at purchase
+                // For more accuracy, we'd need to store purchase price per share
+                const purchaseValue = investment.current_value || investment.amount;
+                const changePercent = marketPrice.changePercent / 100;
+                return purchaseValue * (1 + changePercent);
+            }
+        }
+
+        // Fall back to expected return calculation
         if (!investment.start_date || !investment.expected_return) return investment.current_value || investment.amount;
         const start = parseISO(investment.start_date);
         const now = new Date();
@@ -690,6 +715,9 @@ export default function Investments() {
     };
 
     // Stats
+    // Fetch market prices for investments
+    const { prices: marketPrices, loading: pricesLoading } = useInvestmentPrices(investments);
+
     // Calculate projected values based on expected return and time elapsed
     const totalInvested = investments.reduce((sum, i) => sum + i.amount, 0);
 
