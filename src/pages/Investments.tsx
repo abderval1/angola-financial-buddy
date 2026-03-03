@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import {
     Plus, TrendingUp, TrendingDown, Trash2, Edit2,
     Wallet, PieChart, BarChart3, Coins, Building, Landmark, LineChart,
-    ChevronRight, Calendar, Eye, Globe, RefreshCw
+    ChevronRight, Calendar, Eye, Globe, RefreshCw, Activity
 } from "lucide-react";
 import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,6 +31,7 @@ import { InvestmentProducts } from "@/components/investments/InvestmentProducts"
 import { InvestmentEducation } from "@/components/investments/InvestmentEducation";
 import { VirtualCoach } from "@/components/goals/VirtualCoach";
 import { ModuleGuard } from "@/components/subscription/ModuleGuard";
+import { MarketTerminal } from "@/components/investments/MarketTerminal";
 
 
 interface Investment {
@@ -51,19 +52,19 @@ interface Investment {
 }
 
 const INVESTMENT_TYPES = [
-    { value: 'poupanca', label: 'investment_poupanca', icon: '🏦', color: 'hsl(160 84% 39%)' },
-    { value: 'deposito_prazo', label: 'investment_deposito_prazo', icon: '📅', color: 'hsl(200 90% 45%)' },
-    { value: 'obrigacoes', label: 'investment_obrigacoes', icon: '🏛️', color: 'hsl(270 60% 55%)' },
-    { value: 'acoes', label: 'investment_acoes', icon: '📈', color: 'hsl(25 95% 53%)' },
-    { value: 'fundos', label: 'investment_fundos', icon: '💼', color: 'hsl(340 75% 55%)' },
-    { value: 'imobiliario', label: 'investment_imobiliario', icon: '🏠', color: 'hsl(45 93% 47%)' },
-    { value: 'cripto', label: 'investment_cripto', icon: '₿', color: 'hsl(30 100% 50%)' },
-    { value: 'outro', label: 'investment_outro', icon: '💰', color: 'hsl(220 10% 45%)' },
+    { value: 'poupanca', label: 'investment_poupanca', icon: 'ðŸ¦', color: 'hsl(160 84% 39%)' },
+    { value: 'deposito_prazo', label: 'investment_deposito_prazo', icon: 'ðŸ“…', color: 'hsl(200 90% 45%)' },
+    { value: 'obrigacoes', label: 'investment_obrigacoes', icon: 'ðŸ›ï¸', color: 'hsl(270 60% 55%)' },
+    { value: 'acoes', label: 'investment_acoes', icon: 'ðŸ“ˆ', color: 'hsl(25 95% 53%)' },
+    { value: 'fundos', label: 'investment_fundos', icon: 'ðŸ’¼', color: 'hsl(340 75% 55%)' },
+    { value: 'imobiliario', label: 'investment_imobiliario', icon: 'ðŸ ', color: 'hsl(45 93% 47%)' },
+    { value: 'cripto', label: 'investment_cripto', icon: 'â‚¿', color: 'hsl(30 100% 50%)' },
+    { value: 'outro', label: 'investment_outro', icon: 'ðŸ’°', color: 'hsl(220 10% 45%)' },
 ];
 
 const RISK_LEVELS = [
     { value: 'low', label: 'Baixo', color: 'text-success' },
-    { value: 'medium', label: 'Médio', color: 'text-warning' },
+    { value: 'medium', label: 'MÃ©dio', color: 'text-warning' },
     { value: 'high', label: 'Alto', color: 'text-destructive' },
 ];
 
@@ -77,7 +78,7 @@ export default function Investments() {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
     const [reinforcingInvestment, setReinforcingInvestment] = useState<Investment | null>(null);
-    const [activeView, setActiveView] = useState<"home" | "details">("home");
+    const [activeView, setActiveView] = useState<"home" | "details" | "market">("home");
 
     // Financial data for Prof recommendations
     const [savingsBalance, setSavingsBalance] = useState(0);
@@ -107,9 +108,9 @@ export default function Investments() {
             other: 200000000000,
         },
         topSecurities: [
-            { symbol: "BAY", name: "Banco Atlântico", volume: 450000000, change: 2.5 },
+            { symbol: "BAY", name: "Banco AtlÃ¢ntico", volume: 450000000, change: 2.5 },
             { symbol: "SGC", name: "SG Coloid", volume: 320000000, change: -1.2 },
-            { symbol: "FIP", name: "FIP - Imobiliário", volume: 280000000, change: 0.8 },
+            { symbol: "FIP", name: "FIP - ImobiliÃ¡rio", volume: 280000000, change: 0.8 },
             { symbol: "ENL", name: "Endiama", volume: 180000000, change: 3.1 },
             { symbol: "AFA", name: "Afrigroup", volume: 150000000, change: -0.5 },
         ],
@@ -163,7 +164,7 @@ export default function Investments() {
     const fetchFinancialData = async () => {
         if (!user) return;
 
-        // 1. Fetch savings goals (from Poupança menu)
+        // 1. Fetch savings goals (from PoupanÃ§a menu)
         const { data: savingsData } = await supabase
             .from('savings_goals')
             .select('saved_amount')
@@ -368,7 +369,7 @@ export default function Investments() {
                     const text = row.replace(/<[^>]+>/g, ' ').trim();
                     const numbers = text.match(/\d+[\d.,]*/g) || [];
 
-                    if (text.toLowerCase().includes('index') || text.toLowerCase().includes('índice')) {
+                    if (text.toLowerCase().includes('index') || text.toLowerCase().includes('Ã­ndice')) {
                         const name = text.split(/\d/)[0].trim().substring(0, 30);
                         if (name && numbers[0]) {
                             data.indices[name] = {
@@ -443,9 +444,9 @@ export default function Investments() {
                 other: Math.round(150000000000 + Math.random() * 100000000000)
             },
             topSecurities: [
-                { symbol: "BAY", name: "Banco Atlântico", volume: Math.round(400000000 + Math.random() * 100000000), change: Math.round((Math.random() - 0.3) * 5 * 100) / 100 },
+                { symbol: "BAY", name: "Banco AtlÃ¢ntico", volume: Math.round(400000000 + Math.random() * 100000000), change: Math.round((Math.random() - 0.3) * 5 * 100) / 100 },
                 { symbol: "SGC", name: "SG Coloid", volume: Math.round(300000000 + Math.random() * 80000000), change: Math.round((Math.random() - 0.5) * 4 * 100) / 100 },
-                { symbol: "FIP", name: "FIP - Imobiliário", volume: Math.round(250000000 + Math.random() * 60000000), change: Math.round((Math.random() - 0.4) * 3 * 100) / 100 },
+                { symbol: "FIP", name: "FIP - ImobiliÃ¡rio", volume: Math.round(250000000 + Math.random() * 60000000), change: Math.round((Math.random() - 0.4) * 3 * 100) / 100 },
                 { symbol: "ENL", name: "Endiama", volume: Math.round(180000000 + Math.random() * 40000000), change: Math.round((Math.random() - 0.2) * 6 * 100) / 100 },
                 { symbol: "AFA", name: "Afrigroup", volume: Math.round(140000000 + Math.random() * 30000000), change: Math.round((Math.random() - 0.5) * 3 * 100) / 100 }
             ],
@@ -470,13 +471,13 @@ export default function Investments() {
                 fundos: Math.round((105 + Math.random() * 30) * 100) / 100
             },
             livroOrdens: [
-                { symbol: "BAY", tipo: "Ação", compra: Math.round(150000000 + Math.random() * 30000000), venda: Math.round(180000000 + Math.random() * 30000000), ultimo: Math.round(165000000 + Math.random() * 30000000) },
-                { symbol: "SGC", tipo: "Ação", compra: Math.round(80000000 + Math.random() * 15000000), venda: Math.round(95000000 + Math.random() * 15000000), ultimo: Math.round(87500000 + Math.random() * 15000000) },
-                { symbol: "ENL", tipo: "Ação", compra: Math.round(45000000 + Math.random() * 7000000), venda: Math.round(52000000 + Math.random() * 7000000), ultimo: Math.round(48500000 + Math.random() * 7000000) },
+                { symbol: "BAY", tipo: "AÃ§Ã£o", compra: Math.round(150000000 + Math.random() * 30000000), venda: Math.round(180000000 + Math.random() * 30000000), ultimo: Math.round(165000000 + Math.random() * 30000000) },
+                { symbol: "SGC", tipo: "AÃ§Ã£o", compra: Math.round(80000000 + Math.random() * 15000000), venda: Math.round(95000000 + Math.random() * 15000000), ultimo: Math.round(87500000 + Math.random() * 15000000) },
+                { symbol: "ENL", tipo: "AÃ§Ã£o", compra: Math.round(45000000 + Math.random() * 7000000), venda: Math.round(52000000 + Math.random() * 7000000), ultimo: Math.round(48500000 + Math.random() * 7000000) },
                 { symbol: "OI2029", tipo: "OT-NR", taxaCupao: 17.5, dataVencimento: "15/06/2029", compra: Math.round(98000 + Math.random() * 2000), venda: Math.round(101000 + Math.random() * 2000), ultimo: Math.round(99500 + Math.random() * 2000) },
                 { symbol: "OJ2031", tipo: "OT-NR", taxaCupao: 18.25, dataVencimento: "15/12/2031", compra: Math.round(95000 + Math.random() * 3000), venda: Math.round(99000 + Math.random() * 3000), ultimo: Math.round(97000 + Math.random() * 3000) },
                 { symbol: "BT91", tipo: "BT", taxaCupao: 15.0, dataVencimento: "30/06/2025", compra: Math.round(97000 + Math.random() * 2000), venda: Math.round(99000 + Math.random() * 2000), ultimo: Math.round(98000 + Math.random() * 2000) },
-                { symbol: "BMA", tipo: "Obrigação", taxaCupao: 12.5, dataVencimento: "20/03/2028", compra: Math.round(92000 + Math.random() * 3000), venda: Math.round(96000 + Math.random() * 3000), ultimo: Math.round(94000 + Math.random() * 3000) }
+                { symbol: "BMA", tipo: "ObrigaÃ§Ã£o", taxaCupao: 12.5, dataVencimento: "20/03/2028", compra: Math.round(92000 + Math.random() * 3000), venda: Math.round(96000 + Math.random() * 3000), ultimo: Math.round(94000 + Math.random() * 3000) }
             ]
         };
     };
@@ -502,10 +503,10 @@ export default function Investments() {
                 .eq('id', reinforcingInvestment.id);
 
             if (error) {
-                toast.error("Erro ao reforçar investimento");
+                toast.error("Erro ao reforÃ§ar investimento");
                 return;
             }
-            toast.success(`Investimento reforçado com ${additionalAmount.toLocaleString('pt-AO')} Kz! 💰`);
+            toast.success(`Investimento reforÃ§ado com ${additionalAmount.toLocaleString('pt-AO')} Kz! ðŸ’°`);
             resetForm();
             fetchInvestments();
             return;
@@ -556,7 +557,7 @@ export default function Investments() {
                     .from('savings_goals')
                     .update({ current_amount: Math.max(0, savingsBalance - investmentAmount) })
                     .eq('user_id', user?.id)
-                    .eq('name', 'Poupança Principal');
+                    .eq('name', 'PoupanÃ§a Principal');
             } else if (newInvestment.source === 'budget' && budgetBalance > 0) {
                 // For budget, we need to update the available balance
                 // This would require finding the budget and updating it
@@ -573,7 +574,7 @@ export default function Investments() {
                 }
             }
 
-            toast.success("Investimento registrado! 📈");
+            toast.success("Investimento registrado! ðŸ“ˆ");
             unlockAchievement('newbie_investor', 'Investidor Novato', 2);
         }
 
@@ -610,7 +611,7 @@ export default function Investments() {
                     .from('savings_goals')
                     .update({ current_amount: savingsBalance + returnAmount })
                     .eq('user_id', user?.id)
-                    .eq('name', 'Poupança Principal');
+                    .eq('name', 'PoupanÃ§a Principal');
             } else if (source === 'budget') {
                 const { data: budgetData } = await supabase
                     .from('budgets')
@@ -626,7 +627,7 @@ export default function Investments() {
             }
         }
 
-        toast.success("Investimento excluído e dinheiro devolvido!");
+        toast.success("Investimento excluÃ­do e dinheiro devolvido!");
         fetchInvestments();
         fetchFinancialData();
     };
@@ -817,30 +818,40 @@ export default function Investments() {
             <ModuleGuard
                 moduleKey="basic"
                 title={t("Investimentos & Portfolio")}
-                description={t("Acompanhe o crescimento do seu património...")}
+                description={t("Acompanhe o crescimento do seu patrimÃ³nio...")}
             >
                 <div className="space-y-6 animate-fade-in">
-                    {/* View Toggle */}
-                    {investments.length > 0 && (
-                        <div className="flex gap-2">
-                            <Button
-                                variant={activeView === "home" ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setActiveView("home")}
-                            >
-                                <Wallet className="h-4 w-4 mr-2" />
-                                {t("Visão Geral")}
-                            </Button>
-                            <Button
-                                variant={activeView === "details" ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setActiveView("details")}
-                            >
-                                <Eye className="h-4 w-4 mr-2" />
-                                {t("Meus Investimentos")}
-                            </Button>
-                        </div>
-                    )}
+                    {/* View Toggle - Always show Market option, others based on investments */}
+                    <div className="flex gap-2">
+                        <Button
+                            variant={activeView === "home" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setActiveView("home")}
+                        >
+                            <Wallet className="h-4 w-4 mr-2" />
+                            {t("VisÃ£o Geral")}
+                        </Button>
+                        {investments.length > 0 && (
+                            <>
+                                <Button
+                                    variant={activeView === "details" ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => setActiveView("details")}
+                                >
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    {t("Meus Investimentos")}
+                                </Button>
+                            </>
+                        )}
+                        <Button
+                            variant={activeView === "market" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setActiveView("market")}
+                        >
+                            <Activity className="h-4 w-4 mr-2" />
+                            {t("Mercado")}
+                        </Button>
+                    </div>
 
                     {activeView === "home" ? (
                         <>
@@ -875,6 +886,7 @@ export default function Investments() {
                                 }}
                                 expenseSource="default"
                                 hasBudgetAlerts={budgetBalance > 0}
+                                existingSavings={savingsBalance}
                             />
 
                             {/* Main Content Grid */}
@@ -888,7 +900,7 @@ export default function Investments() {
                                     onSelectProduct={(productId) => {
                                         // Pre-fill investment based on product
                                         const productMap: Record<string, { type: string; name: string; risk: string }> = {
-                                            "deposito": { type: "deposito_prazo", name: "Depósito a Prazo", risk: "low" },
+                                            "deposito": { type: "deposito_prazo", name: "DepÃ³sito a Prazo", risk: "low" },
                                             // Dynamic products from Livro de Ordens
                                             "otnr-OI2029": { type: "obrigacoes", name: "OI2029 - OT-NR", risk: "low" },
                                             "otnr-OJ2031": { type: "obrigacoes", name: "OJ2031 - OT-NR", risk: "low" },
@@ -896,18 +908,18 @@ export default function Investments() {
                                             "bond-OJ2031": { type: "obrigacoes", name: "OJ2031 - OT-NR", risk: "low" },
                                             "bt-BT91": { type: "obrigacoes", name: "BT91 - Bilhete do Tesouro", risk: "low" },
                                             "bond-BT91": { type: "obrigacoes", name: "BT91 - Bilhete do Tesouro", risk: "low" },
-                                            "bond-BMA": { type: "obrigacoes", name: "BMA - Obrigação", risk: "medium" },
-                                            // Ações
+                                            "bond-BMA": { type: "obrigacoes", name: "BMA - ObrigaÃ§Ã£o", risk: "medium" },
+                                            // AÃ§Ãµes
                                             "acao-BAY": { type: "acoes", name: "BAY", risk: "high" },
                                             "acao-SGC": { type: "acoes", name: "SGC", risk: "high" },
                                             "acao-ENL": { type: "acoes", name: "ENL", risk: "high" },
                                             // Static products
                                             "fundos-conservadores": { type: "fundos", name: "Fundo Conservador", risk: "low" },
-                                            "obrigacoes-corp": { type: "obrigacoes", name: "Obrigações Corporativas", risk: "medium" },
+                                            "obrigacoes-corp": { type: "obrigacoes", name: "ObrigaÃ§Ãµes Corporativas", risk: "medium" },
                                             "fundos-mistos": { type: "fundos", name: "Fundo Misto", risk: "medium" },
                                             "carteira-equilibrada": { type: "fundos", name: "Carteira Equilibrada", risk: "medium" },
-                                            "acoes-bodiva": { type: "acoes", name: "Ações BODIVA", risk: "high" },
-                                            "fundos-acoes": { type: "fundos", name: "Fundo de Ações", risk: "high" },
+                                            "acoes-bodiva": { type: "acoes", name: "AÃ§Ãµes BODIVA", risk: "high" },
+                                            "fundos-acoes": { type: "fundos", name: "Fundo de AÃ§Ãµes", risk: "high" },
                                             "carteira-agressiva": { type: "fundos", name: "Carteira Personalizada", risk: "high" },
                                         };
                                         const product = productMap[productId];
@@ -932,7 +944,7 @@ export default function Investments() {
                                             if (prefix === 'otnr' || prefix === 'bt' || prefix === 'bond') {
                                                 type = 'obrigacoes';
                                                 risk = prefix === 'bt' ? 'low' : 'medium';
-                                                name = `${symbol} - Obrigação`;
+                                                name = `${symbol} - ObrigaÃ§Ã£o`;
                                             } else if (prefix === 'acao') {
                                                 type = 'acoes';
                                                 risk = 'high';
@@ -954,12 +966,18 @@ export default function Investments() {
                             {/* Education Section */}
                             <InvestmentEducation />
                         </>
+                    ) : activeView === "market" ? (
+                        <>
+                            <MarketTerminal
+                                savingsBalance={savingsBalance}
+                            />
+                        </>
                     ) : (
                         /* Details View - Existing Investments */
                         <div className="space-y-6">
                             {/* Back Button */}
                             <Button variant="ghost" onClick={() => setActiveView("home")}>
-                                ← {t("Voltar à Visão Geral")}
+                                â† {t("Voltar Ã  VisÃ£o Geral")}
                             </Button>
 
                             {/* Portfolio Distribution */}
@@ -967,7 +985,7 @@ export default function Investments() {
                                 <div className="grid lg:grid-cols-2 gap-6">
                                     <Card>
                                         <CardHeader>
-                                            <CardTitle className="text-lg">{t("Distribuição por Tipo")}</CardTitle>
+                                            <CardTitle className="text-lg">{t("DistribuiÃ§Ã£o por Tipo")}</CardTitle>
                                         </CardHeader>
                                         <CardContent>
                                             <div className="flex items-center gap-6">
@@ -1009,7 +1027,7 @@ export default function Investments() {
 
                                     <Card>
                                         <CardHeader>
-                                            <CardTitle className="text-lg">{t("Resumo Rápido")}</CardTitle>
+                                            <CardTitle className="text-lg">{t("Resumo RÃ¡pido")}</CardTitle>
                                         </CardHeader>
                                         <CardContent className="space-y-4">
                                             <div className="flex justify-between">
@@ -1038,7 +1056,7 @@ export default function Investments() {
                             {/* Investment List - Recent 5 */}
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between">
-                                    <CardTitle className="text-lg">{t("Últimos Investimentos")}</CardTitle>
+                                    <CardTitle className="text-lg">{t("Ãšltimos Investimentos")}</CardTitle>
                                     <div className="flex gap-2">
                                         {investments.length > 5 && (
                                             <Button variant="outline" size="sm" onClick={() => setActiveView("details")}>
@@ -1058,7 +1076,7 @@ export default function Investments() {
                                             <Wallet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                                             <h3 className="text-lg font-semibold mb-2">{t("Nenhum investimento ainda")}</h3>
                                             <p className="text-muted-foreground mb-4">
-                                                {t("Comece a investir e acompanhe seu patrimônio crescer")}
+                                                {t("Comece a investir e acompanhe seu patrimÃ´nio crescer")}
                                             </p>
                                             <Button variant="accent" onClick={() => setDialogOpen(true)}>
                                                 <Plus className="h-4 w-4 mr-2" />
@@ -1117,7 +1135,7 @@ export default function Investments() {
                                                                         className="text-xs"
                                                                     >
                                                                         <Plus className="h-3 w-3 mr-1" />
-                                                                        {t("Reforçar")}
+                                                                        {t("ReforÃ§ar")}
                                                                     </Button>
                                                                     <Button
                                                                         variant="ghost"
@@ -1179,21 +1197,21 @@ export default function Investments() {
                         <DialogContent className="sm:max-w-lg">
                             <DialogHeader>
                                 <DialogTitle>
-                                    {reinforcingInvestment ? `${t("Reforçar")}: ${reinforcingInvestment.name}` : editingInvestment ? t("Editar Investimento") : t("Registrar Investimento")}
+                                    {reinforcingInvestment ? `${t("ReforÃ§ar")}: ${reinforcingInvestment.name}` : editingInvestment ? t("Editar Investimento") : t("Registrar Investimento")}
                                 </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto pr-2">
                                 {reinforcingInvestment && (
                                     <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
                                         <p className="text-sm font-medium">{t("Valor atual")}: {formatPrice((reinforcingInvestment.current_value || reinforcingInvestment.amount) + (parseFloat(newInvestment.amount) || 0))}</p>
-                                        <p className="text-xs text-muted-foreground mt-1">{t("Original")}: {formatPrice(reinforcingInvestment.amount)} + {t("Reforço")}: {formatPrice(parseFloat(newInvestment.amount) || 0)}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">{t("Original")}: {formatPrice(reinforcingInvestment.amount)} + {t("ReforÃ§o")}: {formatPrice(parseFloat(newInvestment.amount) || 0)}</p>
                                     </div>
                                 )}
                                 {!reinforcingInvestment && (
                                     <div className="space-y-2">
                                         <Label>{t("Nome do Investimento")}</Label>
                                         <Input
-                                            placeholder={t("Ex: Poupança BFA, Obrigações 2027...")}
+                                            placeholder={t("Ex: PoupanÃ§a BFA, ObrigaÃ§Ãµes 2027...")}
                                             value={newInvestment.name}
                                             onChange={(e) => setNewInvestment({ ...newInvestment, name: e.target.value })}
                                         />
@@ -1258,7 +1276,7 @@ export default function Investments() {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>{t("Frequência")}</Label>
+                                            <Label>{t("FrequÃªncia")}</Label>
                                             <Select
                                                 value={newInvestment.return_frequency}
                                                 onValueChange={(value: 'monthly' | 'annual') => setNewInvestment({ ...newInvestment, return_frequency: value })}
@@ -1287,15 +1305,15 @@ export default function Investments() {
                                                 <SelectContent>
                                                     <SelectItem value="savings">
                                                         <div className="flex items-center gap-2">
-                                                            <span>🏦</span>
-                                                            <span>{t("Poupança")}</span>
+                                                            <span>ðŸ¦</span>
+                                                            <span>{t("PoupanÃ§a")}</span>
                                                             <span className="text-muted-foreground text-xs">({formatPrice(savingsBalance)})</span>
                                                         </div>
                                                     </SelectItem>
                                                     <SelectItem value="budget">
                                                         <div className="flex items-center gap-2">
-                                                            <span>💰</span>
-                                                            <span>{t("Orçamento")}</span>
+                                                            <span>ðŸ’°</span>
+                                                            <span>{t("OrÃ§amento")}</span>
                                                             <span className="text-muted-foreground text-xs">({formatPrice(budgetBalance)})</span>
                                                         </div>
                                                     </SelectItem>
@@ -1303,7 +1321,7 @@ export default function Investments() {
                                             </Select>
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>{t("Nível de Risco")}</Label>
+                                            <Label>{t("NÃ­vel de Risco")}</Label>
                                             <Select
                                                 value={newInvestment.risk_level}
                                                 onValueChange={(value) => setNewInvestment({ ...newInvestment, risk_level: value })}
@@ -1334,7 +1352,7 @@ export default function Investments() {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label>{t("Data de Início")}</Label>
+                                        <Label>{t("Data de InÃ­cio")}</Label>
                                         <Input
                                             type="date"
                                             value={newInvestment.start_date}
@@ -1354,7 +1372,7 @@ export default function Investments() {
                                 <div className="space-y-2">
                                     <Label>{t("Notas (opcional)")}</Label>
                                     <Textarea
-                                        placeholder="Observações sobre este investimento..."
+                                        placeholder="ObservaÃ§Ãµes sobre este investimento..."
                                         value={newInvestment.notes}
                                         onChange={(e) => setNewInvestment({ ...newInvestment, notes: e.target.value })}
                                         rows={3}
@@ -1366,384 +1384,14 @@ export default function Investments() {
                                         {t("Cancelar")}
                                     </Button>
                                     <Button variant="accent" onClick={createOrUpdateInvestment}>
-                                        {reinforcingInvestment ? t("Reforçar Investimento") : editingInvestment ? t("Atualizar") : t("Registrar")}
+                                        {reinforcingInvestment ? t("ReforÃ§ar Investimento") : editingInvestment ? t("Atualizar") : t("Registrar")}
                                     </Button>
                                 </div>
                             </div>
                         </DialogContent>
                     </Dialog>
-
-                    {/* BODIVA Statistics Section */}
-                    <Card className="mt-6">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <div className="flex items-center gap-2">
-                                <Globe className="h-5 w-5 text-primary" />
-                                <CardTitle className="text-lg">{t("Estatísticas do Mercado - BODIVA")}</CardTitle>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Select value={selectedStatType} onValueChange={setSelectedStatType}>
-                                    <SelectTrigger className="w-[180px]">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="indices">{t("Índices")}</SelectItem>
-                                        <SelectItem value="volumes">{t("Volumes")}</SelectItem>
-                                        <SelectItem value="capitalization">{t("Capitalização")}</SelectItem>
-                                        <SelectItem value="topSecurities">{t("Top Títulos")}</SelectItem>
-                                        <SelectItem value="taxas">{t("Taxas")}</SelectItem>
-                                        <SelectItem value="cotacoes">{t("Evolução Cotações")}</SelectItem>
-                                        <SelectItem value="precoMedio">{t("Preço Médio")}</SelectItem>
-                                        <SelectItem value="livroOrdens">{t("Livro de Ordens")}</SelectItem>
-                                        <SelectItem value="resumo">{t("Resumo Mercados")}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Button variant="outline" size="sm" onClick={fetchBodivaStats} disabled={bodivaLoading}>
-                                    <RefreshCw className={`h-4 w-4 ${bodivaLoading ? 'animate-spin' : ''}`} />
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            {bodivaLoading ? (
-                                <div className="flex items-center justify-center py-8">
-                                    <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                                    <span className="ml-2 text-muted-foreground">{t("A carregar dados da BODIVA...")}</span>
-                                </div>
-                            ) : bodivaError ? (
-                                <div className="text-center py-8 text-destructive">
-                                    <p>{t("Erro ao carregar dados")}: {bodivaError}</p>
-                                    <Button variant="outline" className="mt-2" onClick={fetchBodivaStats}>
-                                        {t("Tentar novamente")}
-                                    </Button>
-                                </div>
-                            ) : bodivaData && bodivaData.indices ? (
-                                <div className="space-y-4">
-                                    {bodivaData.mockData && (
-                                        <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-600">
-                                            ⚠️ {bodivaData.note || 'Dados de demonstração - o serviço de scraping está temporariamente indisponível'}
-                                        </div>
-                                    )}
-
-                                    {/* Indices Section */}
-                                    {selectedStatType === 'indices' && bodivaData.indices && (
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            {Object.entries(bodivaData.indices).map(([name, data]: [string, any]) => (
-                                                <div key={name} className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <span className="font-medium text-sm">{name}</span>
-                                                        <Badge variant={data.change >= 0 ? 'default' : 'destructive'} className={data.change >= 0 ? 'bg-success/10 text-success' : ''}>
-                                                            {data.change >= 0 ? '+' : ''}{data.changePercent?.toFixed(2)}%
-                                                        </Badge>
-                                                    </div>
-                                                    <p className="text-2xl font-bold">{data.value?.toLocaleString(i18n.language)}</p>
-                                                    <p className={`text-sm ${data.change >= 0 ? 'text-success' : 'text-destructive'}`}>
-                                                        {data.change >= 0 ? '+' : ''}{data.change?.toLocaleString(i18n.language)} Kz
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Volumes Section */}
-                                    {selectedStatType === 'volumes' && bodivaData.volumes && (
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">{t("Diário")}</span>
-                                                    <p className="text-2xl font-bold mt-1">{formatPrice(bodivaData.volumes.daily?.volume)}</p>
-                                                    <p className="text-sm text-muted-foreground">{bodivaData.volumes.daily?.transactions?.toLocaleString(i18n.language)} {t("transações")}</p>
-                                                </div>
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">{t("Mensal")}</span>
-                                                    <p className="text-2xl font-bold mt-1">{formatPrice(bodivaData.volumes.monthly?.volume)}</p>
-                                                    <p className="text-sm text-muted-foreground">{bodivaData.volumes.monthly?.transactions?.toLocaleString(i18n.language)} {t("transações")}</p>
-                                                </div>
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">{t("Anual")}</span>
-                                                    <p className="text-2xl font-bold mt-1">{formatPrice(bodivaData.volumes.yearly?.volume)}</p>
-                                                    <p className="text-sm text-muted-foreground">{bodivaData.volumes.yearly?.transactions?.toLocaleString(i18n.language)} {t("transações")}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Capitalization Section */}
-                                    {selectedStatType === 'capitalization' && bodivaData.capitalization && (
-                                        <div className="space-y-4">
-                                            <div className="p-6 rounded-lg border border-primary/30 bg-primary/5">
-                                                <span className="text-sm text-muted-foreground">{t("Capitalização Total do Mercado")}</span>
-                                                <p className="text-3xl font-bold mt-1">{(bodivaData.capitalization.total / 1000000000).toFixed(2)} {t("mil milhões")} Kz</p>
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">{t("investment_acoes")}</span>
-                                                    <p className="text-xl font-bold mt-1">{(bodivaData.capitalization.stocks / 1000000000).toFixed(2)} M M</p>
-                                                </div>
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">{t("investment_obrigacoes")}</span>
-                                                    <p className="text-xl font-bold mt-1">{(bodivaData.capitalization.bonds / 1000000000).toFixed(2)} M M</p>
-                                                </div>
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">{t("Outros")}</span>
-                                                    <p className="text-xl font-bold mt-1">{(bodivaData.capitalization.other / 1000000000).toFixed(2)} M M</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Top Securities Section */}
-                                    {selectedStatType === 'topSecurities' && bodivaData.topSecurities && (
-                                        <div className="space-y-2">
-                                            {bodivaData.topSecurities.map((security: any, index: number) => (
-                                                <div key={index} className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:bg-accent/50 transition-colors">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold">
-                                                            {index + 1}
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium">{security.symbol}</p>
-                                                            <p className="text-xs text-muted-foreground">{security.name}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="font-medium">{formatPrice(security.volume)}</p>
-                                                        <p className={`text-xs ${security.change >= 0 ? 'text-success' : 'text-destructive'}`}>
-                                                            {security.change >= 0 ? '+' : ''}{security.change}%
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Taxas Section */}
-                                    {selectedStatType === 'taxas' && (
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">Taxa Básica do BNA</span>
-                                                    <p className="text-2xl font-bold mt-1">{bodivaData.taxas?.taxaBasicaBNA || bodivaData.taxas?.taxaJuroPrime || '24.50'}%</p>
-                                                    <p className="text-xs text-muted-foreground mt-1">Taxa base monetária</p>
-                                                </div>
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">Taxa LUIBOR Overnight</span>
-                                                    <p className="text-2xl font-bold mt-1">{bodivaData.taxas?.taxaLUIBOROvernight || '--'}%</p>
-                                                    <p className="text-xs text-muted-foreground mt-1">Taxa overnight</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                                                <p className="text-sm font-medium mb-2">{t("Taxas do Mercado")}</p>
-                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                                                    <div>
-                                                        <span className="text-muted-foreground">BTs - 91 Dias:</span>
-                                                        <span className="font-medium ml-2">{bodivaData.taxas?.bt91Dias || '--'}%</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-muted-foreground">BTs - 182 Dias:</span>
-                                                        <span className="font-medium ml-2">{bodivaData.taxas?.bt182Dias || '--'}%</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-muted-foreground">BTs - 364 Dias:</span>
-                                                        <span className="font-medium ml-2">{bodivaData.taxas?.bt364Dias || '--'}%</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-muted-foreground">OT-NR 2 Anos:</span>
-                                                        <span className="font-medium ml-2">{bodivaData.taxas?.otnr2Anos || '--'}%</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-muted-foreground">OT-NR 3 Anos:</span>
-                                                        <span className="font-medium ml-2">{bodivaData.taxas?.otnr3Anos || '--'}%</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-muted-foreground">OT-NR 4 Anos:</span>
-                                                        <span className="font-medium ml-2">{bodivaData.taxas?.otnr4Anos || '--'}%</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-muted-foreground">OT-NR 5 Anos:</span>
-                                                        <span className="font-medium ml-2">{bodivaData.taxas?.otnr5Anos || '--'}%</span>
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-muted-foreground">Inflação Homóloga:</span>
-                                                        <span className="font-medium ml-2">{bodivaData.taxas?.inflacaoHomologa || '--'}%</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">Câmbio USD/AOA</span>
-                                                    <p className="text-2xl font-bold mt-1">{bodivaData.taxas?.cambioUSD || '829.50'}</p>
-                                                    <p className="text-xs text-success mt-1">+0.25% {t("hoje")}</p>
-                                                </div>
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">Câmbio EUR/AOA</span>
-                                                    <p className="text-2xl font-bold mt-1">{bodivaData.taxas?.cambioEUR || '895.25'}</p>
-                                                </div>
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">Depósito 360 dias</span>
-                                                    <p className="text-xl font-bold mt-1">{bodivaData.taxas?.deposito360Dias || '12.00'}%</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Evolução Cotações Section */}
-                                    {selectedStatType === 'cotacoes' && (
-                                        <div className="space-y-4">
-                                            <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                <p className="text-sm text-muted-foreground mb-3">{t("Evolução dos principais índices (YTD)")}</p>
-                                                <div className="space-y-3">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="font-medium">All Share Index</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-success font-medium">+5.8%</span>
-                                                            <TrendingUp className="h-4 w-4 text-success" />
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="font-medium">BODIVA 20</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-success font-medium">+7.2%</span>
-                                                            <TrendingUp className="h-4 w-4 text-success" />
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="font-medium">BODIVA PME</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-destructive font-medium">-2.1%</span>
-                                                            <TrendingDown className="h-4 w-4 text-destructive" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Resumo Mercados Section */}
-                                    {selectedStatType === 'resumo' && (
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card text-center">
-                                                    <span className="text-sm text-muted-foreground">{t("investment_acoes")}</span>
-                                                    <p className="text-xl font-bold mt-1">62%</p>
-                                                    <p className="text-xs text-muted-foreground">{t("do mercado")}</p>
-                                                </div>
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card text-center">
-                                                    <span className="text-sm text-muted-foreground">{t("investment_obrigacoes")}</span>
-                                                    <p className="text-xl font-bold mt-1">33%</p>
-                                                    <p className="text-xs text-muted-foreground">{t("do mercado")}</p>
-                                                </div>
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card text-center">
-                                                    <span className="text-sm text-muted-foreground">{t("investment_fundos")}</span>
-                                                    <p className="text-xl font-bold mt-1">4%</p>
-                                                    <p className="text-xs text-muted-foreground">{t("do mercado")}</p>
-                                                </div>
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card text-center">
-                                                    <span className="text-sm text-muted-foreground">{t("Outros")}</span>
-                                                    <p className="text-xl font-bold mt-1">1%</p>
-                                                    <p className="text-xs text-muted-foreground">{t("do mercado")}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Preço Médio Section */}
-                                    {selectedStatType === 'precoMedio' && bodivaData.precoMedio && (
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">Ações</span>
-                                                    <p className="text-2xl font-bold mt-1">{bodivaData.precoMedio.acoes?.toFixed(2)} Kz</p>
-                                                    <p className="text-xs text-muted-foreground">Preço médio por ação</p>
-                                                </div>
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">Obrigações</span>
-                                                    <p className="text-2xl font-bold mt-1">{bodivaData.precoMedio.obrigacoes?.toFixed(2)} Kz</p>
-                                                    <p className="text-xs text-muted-foreground">Preço médio por obrigação</p>
-                                                </div>
-                                                <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                                    <span className="text-sm text-muted-foreground">Fundos</span>
-                                                    <p className="text-2xl font-bold mt-1">{bodivaData.precoMedio.fundos?.toFixed(2)} Kz</p>
-                                                    <p className="text-xs text-muted-foreground">Cota média</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Livro de Ordens Section */}
-                                    {selectedStatType === 'livroOrdens' && bodivaData.livroOrdens && (
-                                        <div className="space-y-2">
-                                            <div className="grid grid-cols-4 gap-2 text-sm font-medium text-muted-foreground pb-2 border-b">
-                                                <div>{t("Título")}</div>
-                                                <div className="text-right">{t("Compra")}</div>
-                                                <div className="text-right">{t("Venda")}</div>
-                                                <div className="text-right">{t("Último")}</div>
-                                            </div>
-                                            {bodivaData.livroOrdens.map((order: any, index: number) => (
-                                                <div key={index} className="grid grid-cols-4 gap-2 p-3 rounded-lg border border-border/50 bg-card">
-                                                    <div>
-                                                        <span className="font-medium">{order.symbol}</span>
-                                                    </div>
-                                                    <div className="text-right text-success">
-                                                        {formatPrice(order.compra)}
-                                                    </div>
-                                                    <div className="text-right text-destructive">
-                                                        {formatPrice(order.venda)}
-                                                    </div>
-                                                    <div className="text-right font-medium">
-                                                        {formatPrice(order.ultimo)}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    <p className="text-xs text-muted-foreground text-center mt-4">
-                                        {t("Fonte: BODIVA - Bolsa de Dívida e Valores de Angola")} | {t("Atualizado")}: {bodivaData.timestamp ? new Date(bodivaData.timestamp).toLocaleString(i18n.language) : 'N/A'}
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm text-amber-600">
-                                        ⚠️ {t("A carregar dados...")} {t("Clique no botão de refresh para atualizar.")}
-                                    </div>
-
-                                    {/* Default fallback data when nothing is loaded */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="font-medium text-sm">All Share Index</span>
-                                                <Badge className="bg-success/10 text-success">--%</Badge>
-                                            </div>
-                                            <p className="text-2xl font-bold">---</p>
-                                            <p className="text-sm text-muted-foreground">{t("Aguardando dados")}</p>
-                                        </div>
-                                        <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="font-medium text-sm">BODIVA 20</span>
-                                                <Badge className="bg-success/10 text-success">--%</Badge>
-                                            </div>
-                                            <p className="text-2xl font-bold">---</p>
-                                            <p className="text-sm text-muted-foreground">{t("Aguardando dados")}</p>
-                                        </div>
-                                        <div className="p-4 rounded-lg border border-border/50 bg-card">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="font-medium text-sm">{t("Volume Diário")}</span>
-                                            </div>
-                                            <p className="text-2xl font-bold">---</p>
-                                            <p className="text-sm text-muted-foreground">{t("Aguardando dados")}</p>
-                                        </div>
-                                    </div>
-
-                                    <p className="text-xs text-muted-foreground text-center">
-                                        Execute a migração SQL e faça deploy da edge function para ativar as estatísticas da BODIVA
-                                    </p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
                 </div>
             </ModuleGuard>
-        </AppLayout >
+        </AppLayout>
     );
 }

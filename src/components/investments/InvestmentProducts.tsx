@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useCurrency } from "@/contexts/CurrencyContext";
@@ -149,9 +150,36 @@ export function InvestmentProducts({ onSelectProduct, savingsBalance = 0, monthl
     });
   }, [marketData]);
 
-  // Pagination
-  const totalPages = Math.ceil(allProducts.length / ITEMS_PER_PAGE);
-  const paginatedProducts = allProducts.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
+  // Filter states
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [brokerFilter, setBrokerFilter] = useState<string>('all');
+
+  // Get unique types and brokers for filters
+  const availableTypes = useMemo(() => {
+    const types = new Set<string>();
+    allProducts.forEach(p => {
+      if (p.tipo) types.add(p.tipo);
+    });
+    return ['all', ...Array.from(types).sort()];
+  }, [allProducts]);
+
+  // Filter products
+  const filteredProducts = useMemo(() => {
+    return allProducts.filter(p => {
+      if (typeFilter !== 'all' && p.tipo !== typeFilter) return false;
+      return true;
+    });
+  }, [allProducts, typeFilter, brokerFilter]);
+
+  // Update pagination for filtered results
+  const totalFilteredPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = filteredProducts.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
+
+  // Handle filter change - reset to page 0
+  const handleTypeFilterChange = (value: string) => {
+    setTypeFilter(value);
+    setCurrentPage(0);
+  };
 
   // Handle product click - show detail dialog
   const handleProductClick = (product: typeof allProducts[0]) => {
@@ -291,25 +319,41 @@ export function InvestmentProducts({ onSelectProduct, savingsBalance = 0, monthl
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h3 className="text-lg font-semibold">{t("Livro de Ordens - Produtos de Investimento")}</h3>
-        <div className="flex items-center gap-2">
+
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Type Filter */}
+          <Select value={typeFilter} onValueChange={handleTypeFilterChange}>
+            <SelectTrigger className="w-[160px] h-9">
+              <SelectValue placeholder={t("Tipo")} />
+            </SelectTrigger>
+            <SelectContent>
+              {availableTypes.map(type => (
+                <SelectItem key={type} value={type}>
+                  {type === 'all' ? t('Todos os Tipos') : type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button variant="outline" size="sm" onClick={fetchMarketData} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
           <span className="text-sm text-muted-foreground">
-            {allProducts.length} {t("itens")}
+            {filteredProducts.length} {t("itens")}
           </span>
         </div>
       </div>
 
-      {/* Products Grid - 10 columns */}
+      {/* Products Grid - filtered */}
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">
           <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin" />
           <p>{t("A carregar dados do mercado...")}</p>
         </div>
-      ) : allProducts.length > 0 ? (
+      ) : filteredProducts.length > 0 ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {paginatedProducts.map((product) => (
@@ -318,7 +362,7 @@ export function InvestmentProducts({ onSelectProduct, savingsBalance = 0, monthl
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {totalFilteredPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-4">
               <Button
                 variant="outline"
@@ -329,13 +373,13 @@ export function InvestmentProducts({ onSelectProduct, savingsBalance = 0, monthl
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <span className="text-sm text-muted-foreground">
-                {currentPage + 1} / {totalPages}
+                {currentPage + 1} / {totalFilteredPages}
               </span>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
-                disabled={currentPage === totalPages - 1}
+                onClick={() => setCurrentPage(p => Math.min(totalFilteredPages - 1, p + 1))}
+                disabled={currentPage === totalFilteredPages - 1}
               >
                 <ArrowRight className="h-4 w-4" />
               </Button>

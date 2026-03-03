@@ -36,6 +36,7 @@ interface VirtualCoachProps {
     inflationRate?: number;
     expenseSource?: 'default' | 'history' | 'alerts' | 'manual' | 'budget';
     hasBudgetAlerts?: boolean;
+    existingSavings?: number; // Para subtrair do valor da meta sem mexer no Prof
 }
 
 export function VirtualCoach({
@@ -45,7 +46,8 @@ export function VirtualCoach({
     investmentDistribution,
     inflationRate = 18, // Default Angolan inflation estimate
     expenseSource = 'default',
-    hasBudgetAlerts = false
+    hasBudgetAlerts = false,
+    existingSavings = 0
 }: VirtualCoachProps) {
     const navigate = useNavigate();
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -70,25 +72,53 @@ export function VirtualCoach({
         };
 
         // Step 2: Starter Emergency Fund (1 Month)
-        if (monthsCovered < 1) return {
-            step: 2,
-            title: "Fundo de Segurança Inicial",
-            desc: "Antes de investir, guarde pelo menos 1 mês de despesas para pequenos imprevistos.",
-            targetParams: { months: 1 },
-            action: "Criar Meta Agora",
-            route: "/savings",
-            isGoalAction: true,
-            goalData: {
-                name: "Fundo de Emergência Inicial",
-                target: monthlyExpenses,
-                icon: "🛡️"
-            },
-            icon: <ShieldCheck className="h-5 w-5 text-destructive" />
-        };
+        // Only show if they have LESS than 1 month of expenses saved
+        if (monthsCovered < 1) {
+            const hasPartial = existingSavings > 0;
+
+            // If they already have savings but less than 1 month, calculate remaining
+            if (hasPartial) {
+                const target = Math.max(0, monthlyExpenses - existingSavings);
+                return {
+                    step: 2,
+                    title: "Fundo de Segurança Inicial",
+                    desc: `Você já tem ${existingSavings.toLocaleString()} Kz guardados. Falta apenas ${target.toLocaleString()} Kz para atingir 1 mês de despesas.`,
+                    targetParams: { months: 1 },
+                    action: target > 0 ? "Completar Meta" : "Ver Meta",
+                    route: "/savings",
+                    isGoalAction: true,
+                    goalData: {
+                        name: "Fundo de Emergência Inicial",
+                        target: target,
+                        icon: "🛡️"
+                    },
+                    icon: <ShieldCheck className="h-5 w-5 text-destructive" />
+                };
+            } else {
+                return {
+                    step: 2,
+                    title: "Fundo de Segurança Inicial",
+                    desc: "Antes de investir, guarde pelo menos 1 mês de despesas para pequenos imprevistos.",
+                    targetParams: { months: 1 },
+                    action: "Criar Meta Agora",
+                    route: "/savings",
+                    isGoalAction: true,
+                    goalData: {
+                        name: "Fundo de Emergência Inicial",
+                        target: monthlyExpenses,
+                        icon: "🛡️"
+                    },
+                    icon: <ShieldCheck className="h-5 w-5 text-destructive" />
+                };
+            }
+        }
 
         // Step 3: Full Emergency Fund (3-6 Months)
         if (monthsCovered < 6) {
-            const target = monthlyExpenses * 6;
+            const fullTarget = monthlyExpenses * 6;
+            // Use existingSavings to calculate what they still need
+            const remaining = Math.max(0, fullTarget - existingSavings);
+            const hasPartial = existingSavings > 0;
             let sourceText = "";
 
             if (expenseSource === 'manual') sourceText = "seu valor definido manualmente";
@@ -100,14 +130,16 @@ export function VirtualCoach({
             return {
                 step: 3,
                 title: "Blindagem Financeira",
-                desc: `Com base em ${sourceText}, você gasta ${monthlyExpenses.toLocaleString()} Kz/mês. Para blindar suas finanças, sua Reserva deve chegar a ${target.toLocaleString()} Kz.`,
+                desc: hasPartial
+                    ? `Você já tem ${existingSavings.toLocaleString()} Kz guardados. Com base em ${sourceText}, precisa de mais ${remaining.toLocaleString()} Kz para atingir 6 meses de despesas (${fullTarget.toLocaleString()} Kz).`
+                    : `Com base em ${sourceText}, você gasta ${monthlyExpenses.toLocaleString()} Kz/mês. Para blindar suas finanças, sua Reserva deve chegar a ${fullTarget.toLocaleString()} Kz.`,
                 targetParams: { months: 6 },
-                action: "Criar Meta Completa",
+                action: hasPartial ? "Completar Reserva" : "Criar Meta Completa",
                 route: "/savings",
                 isGoalAction: true,
                 goalData: {
                     name: "Fundo de Emergência Completo",
-                    target: target,
+                    target: remaining,
                     icon: "🛡️"
                 },
                 icon: <ShieldCheck className="h-5 w-5 text-amber-500" />
