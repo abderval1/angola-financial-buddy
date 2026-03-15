@@ -11,8 +11,15 @@ interface InvestmentPrice {
     lastUpdate: string;
 }
 
+interface InvestmentHistoricalPrice {
+    symbol: string;
+    price: number;
+    data_date: string;
+}
+
 export function useInvestmentPrices(investments: { name: string; type: string }[]) {
     const [prices, setPrices] = useState<Record<string, InvestmentPrice>>({});
+    const [historicalPrices, setHistoricalPrices] = useState<Record<string, InvestmentHistoricalPrice[]>>({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -24,25 +31,50 @@ export function useInvestmentPrices(investments: { name: string; type: string }[
 
             setLoading(true);
             try {
-                // Extract unique symbols from investments
-                const symbols = investments.map(inv => {
-                    // Extract symbol from investment name (e.g., "BAY" from "Ações BAY" or just "BAY")
-                    const name = inv.name.toUpperCase();
-                    // Common BODIVA symbols
-                    if (name.includes('BAY')) return 'BAY';
-                    if (name.includes('SGC')) return 'SGC';
-                    if (name.includes('ENL')) return 'ENL';
-                    if (name.includes('AFA')) return 'AFA';
-                    if (name.includes('FIP')) return 'FIP';
-                    if (name.includes('BIOC')) return 'BIOC';
-                    if (name.includes('SOMA')) return 'SOMA';
-                    if (name.includes('FINI')) return 'FINI';
-                    if (name.includes('BCDA')) return 'BCDA';
-                    // For other stock names, try to extract first 3 letters
-                    return name.substring(0, 3);
+                // PRIMEIRO: Buscar todos os símbolos distintos da tabela bodiva_market_data
+                const { data: allSymbolsData } = await supabase
+                    .from('bodiva_market_data')
+                    .select('symbol')
+                    .order('symbol');
+
+                // Extrair símbolos únicos da base de dados
+                const dbSymbols = allSymbolsData ? [...new Set(allSymbolsData.map(d => d.symbol))] : [];
+                console.log('Símbolos disponíveis na BD:', dbSymbols);
+
+                // Extrair símbolos dos investimentos
+                const investmentSymbols = investments.map(inv => inv.name.toUpperCase());
+
+                // Tentar encontrar correspondência direta ou parcial com símbolos da BD
+                const matchedSymbols: string[] = [];
+
+                investmentSymbols.forEach(invName => {
+                    // Primeiro: ver se há correspondência exata
+                    const exactMatch = dbSymbols.find(s => s === invName);
+                    if (exactMatch) {
+                        matchedSymbols.push(exactMatch);
+                        return;
+                    }
+
+                    // Segundo: ver se o símbolo da BD está contido no nome do investimento
+                    const partialMatch = dbSymbols.find(s => invName.includes(s));
+                    if (partialMatch) {
+                        matchedSymbols.push(partialMatch);
+                        return;
+                    }
+
+                    // Terceiro: ver se o nome do investimento está contido no símbolo da BD
+                    const reverseMatch = dbSymbols.find(s => s.includes(invName.replace(/\s/g, '')));
+                    if (reverseMatch) {
+                        matchedSymbols.push(reverseMatch);
+                        return;
+                    }
+
+                    // Se não encontrar correspondência, adicionar o nome original
+                    matchedSymbols.push(invName);
                 });
 
-                const uniqueSymbols = [...new Set(symbols)];
+                const uniqueSymbols = [...new Set(matchedSymbols)];
+                console.log('Símbolos correspondidos:', uniqueSymbols);
 
                 if (uniqueSymbols.length === 0) {
                     setLoading(false);
@@ -52,7 +84,7 @@ export function useInvestmentPrices(investments: { name: string; type: string }[
                 // Fetch latest prices from bodiva_market_data
                 const { data: marketData, error } = await supabase
                     .from('bodiva_market_data')
-                    .select('symbol, name, close, variation, data_date')
+                    .select('symbol, price, variation, data_date')
                     .in('symbol', uniqueSymbols)
                     .order('data_date', { ascending: false });
 
@@ -64,35 +96,47 @@ export function useInvestmentPrices(investments: { name: string; type: string }[
 
                 // Get the latest price for each symbol
                 const priceMap: Record<string, InvestmentPrice> = {};
+                const historicalMap: Record<string, InvestmentHistoricalPrice[]> = {};
+                const dataToUse = marketData;
 
-                if (marketData) {
-                    // Group by symbol and get latest
-                    const latestBySymbol = new Map<string, typeof marketData[0]>();
-
-                    marketData.forEach(item => {
-                        if (!latestBySymbol.has(item.symbol)) {
-                            latestBySymbol.set(item.symbol, item);
+                if (dataToUse) {
+                    // Group all data by symbol for historical lookup
+                    const bySymbol = new Map<string, typeof dataToUse>();
+                    dataToUse.forEach(item => {
+                        if (!bySymbol.has(item.symbol)) {
+                            bySymbol.set(item.symbol, []);
                         }
+                        bySymbol.get(item.symbol)?.push(item);
                     });
 
-                    latestBySymbol.forEach((item, symbol) => {
-                        const currentPrice = item.close || 0;
-                        const change = item.variation || 0;
+                    bySymbol.forEach((items, symbol) => {
+                        // Latest price
+                        const latest = items[0];
+                        const currentPrice = latest.price || 0;
+                        const change = latest.variation || 0;
                         const changePercent = currentPrice > 0 ? (change / (currentPrice - change)) * 100 : 0;
 
                         priceMap[symbol] = {
-                            symbol: item.symbol,
-                            name: item.name || symbol,
+                            symbol: latest.symbol,
+                            name: latest.symbol,
                             currentPrice: currentPrice,
                             previousPrice: currentPrice - change,
                             change: change,
                             changePercent: changePercent,
-                            lastUpdate: item.data_date
+                            lastUpdate: latest.data_date
                         };
+
+                        // Historical prices for all dates
+                        historicalMap[symbol] = items.map(item => ({
+                            symbol: item.symbol,
+                            price: item.price,
+                            data_date: item.data_date
+                        })).sort((a, b) => new Date(a.data_date).getTime() - new Date(b.data_date).getTime());
                     });
                 }
 
                 setPrices(priceMap);
+                setHistoricalPrices(historicalMap);
             } catch (error) {
                 console.error('Error in fetchPrices:', error);
             } finally {
@@ -103,7 +147,7 @@ export function useInvestmentPrices(investments: { name: string; type: string }[
         fetchPrices();
     }, [investments]);
 
-    return { prices, loading };
+    return { prices, historicalPrices, loading };
 }
 
 // Helper to calculate investment value based on market prices

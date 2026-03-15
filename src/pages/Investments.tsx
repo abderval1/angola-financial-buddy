@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,8 @@ import { useInvestmentPrices } from "@/hooks/useInvestmentPrices";
 // Import new components
 import { InvestmentPortfolioSummary } from "@/components/investments/InvestmentPortfolioSummary";
 import { InvestmentQuickActions } from "@/components/investments/InvestmentQuickActions";
+import { InvestmentChatbot } from "@/components/investments/InvestmentChatbot";
+import { AIInsights } from "@/components/AIInsights";
 import { InvestmentProducts } from "@/components/investments/InvestmentProducts";
 import { InvestmentEducation } from "@/components/investments/InvestmentEducation";
 import { VirtualCoach } from "@/components/goals/VirtualCoach";
@@ -53,19 +55,19 @@ interface Investment {
 }
 
 const INVESTMENT_TYPES = [
-    { value: 'poupanca', label: 'investment_poupanca', icon: 'ðŸ¦', color: 'hsl(160 84% 39%)' },
-    { value: 'deposito_prazo', label: 'investment_deposito_prazo', icon: 'ðŸ“…', color: 'hsl(200 90% 45%)' },
-    { value: 'obrigacoes', label: 'investment_obrigacoes', icon: 'ðŸ›ï¸', color: 'hsl(270 60% 55%)' },
-    { value: 'acoes', label: 'investment_acoes', icon: 'ðŸ“ˆ', color: 'hsl(25 95% 53%)' },
-    { value: 'fundos', label: 'investment_fundos', icon: 'ðŸ’¼', color: 'hsl(340 75% 55%)' },
-    { value: 'imobiliario', label: 'investment_imobiliario', icon: 'ðŸ ', color: 'hsl(45 93% 47%)' },
-    { value: 'cripto', label: 'investment_cripto', icon: 'â‚¿', color: 'hsl(30 100% 50%)' },
-    { value: 'outro', label: 'investment_outro', icon: 'ðŸ’°', color: 'hsl(220 10% 45%)' },
+    { value: 'Poupança', label: 'Poupança', icon: '🏦¦', color: 'hsl(160 84% 39%)' },
+    { value: 'deposito_prazo', label: 'Depósito a Prazo', icon: '🏦“…', color: 'hsl(200 90% 45%)' },
+    { value: 'Obrigações', label: 'Obrigações', icon: '🏦›ï¸', color: 'hsl(270 60% 55%)' },
+    { value: 'acoes', label: 'Ações', icon: '🏦“ˆ', color: 'hsl(25 95% 53%)' },
+    { value: 'fundos', label: 'Fundos', icon: '🏦’¼', color: 'hsl(340 75% 55%)' },
+    { value: 'Imobiliário', label: 'Imobiliário', icon: '🏦 ', color: 'hsl(45 93% 47%)' },
+    { value: 'cripto', label: 'Cripto', icon: 'â‚¿', color: 'hsl(30 100% 50%)' },
+    { value: 'outro', label: 'Outro', icon: '🏦’°', color: 'hsl(220 10% 45%)' },
 ];
 
 const RISK_LEVELS = [
     { value: 'low', label: 'Baixo', color: 'text-success' },
-    { value: 'medium', label: 'MÃ©dio', color: 'text-warning' },
+    { value: 'medium', label: 'Médio', color: 'text-warning' },
     { value: 'high', label: 'Alto', color: 'text-destructive' },
 ];
 
@@ -109,9 +111,9 @@ export default function Investments() {
             other: 200000000000,
         },
         topSecurities: [
-            { symbol: "BAY", name: "Banco AtlÃ¢ntico", volume: 450000000, change: 2.5 },
+            { symbol: "BAY", name: "Banco Atlântico", volume: 450000000, change: 2.5 },
             { symbol: "SGC", name: "SG Coloid", volume: 320000000, change: -1.2 },
-            { symbol: "FIP", name: "FIP - ImobiliÃ¡rio", volume: 280000000, change: 0.8 },
+            { symbol: "FIP", name: "FIP - Imobiliário", volume: 280000000, change: 0.8 },
             { symbol: "ENL", name: "Endiama", volume: 180000000, change: 3.1 },
             { symbol: "AFA", name: "Afrigroup", volume: 150000000, change: -0.5 },
         ],
@@ -165,7 +167,7 @@ export default function Investments() {
     const fetchFinancialData = async () => {
         if (!user) return;
 
-        // 1. Fetch savings goals (from PoupanÃ§a menu)
+        // 1. Fetch savings goals (from Poupança menu)
         const { data: savingsData } = await supabase
             .from('savings_goals')
             .select('saved_amount')
@@ -370,7 +372,7 @@ export default function Investments() {
                     const text = row.replace(/<[^>]+>/g, ' ').trim();
                     const numbers = text.match(/\d+[\d.,]*/g) || [];
 
-                    if (text.toLowerCase().includes('index') || text.toLowerCase().includes('Ã­ndice')) {
+                    if (text.toLowerCase().includes('index') || text.toLowerCase().includes('índice')) {
                         const name = text.split(/\d/)[0].trim().substring(0, 30);
                         if (name && numbers[0]) {
                             data.indices[name] = {
@@ -445,9 +447,9 @@ export default function Investments() {
                 other: Math.round(150000000000 + Math.random() * 100000000000)
             },
             topSecurities: [
-                { symbol: "BAY", name: "Banco AtlÃ¢ntico", volume: Math.round(400000000 + Math.random() * 100000000), change: Math.round((Math.random() - 0.3) * 5 * 100) / 100 },
+                { symbol: "BAY", name: "Banco Atlântico", volume: Math.round(400000000 + Math.random() * 100000000), change: Math.round((Math.random() - 0.3) * 5 * 100) / 100 },
                 { symbol: "SGC", name: "SG Coloid", volume: Math.round(300000000 + Math.random() * 80000000), change: Math.round((Math.random() - 0.5) * 4 * 100) / 100 },
-                { symbol: "FIP", name: "FIP - ImobiliÃ¡rio", volume: Math.round(250000000 + Math.random() * 60000000), change: Math.round((Math.random() - 0.4) * 3 * 100) / 100 },
+                { symbol: "FIP", name: "FIP - Imobiliário", volume: Math.round(250000000 + Math.random() * 60000000), change: Math.round((Math.random() - 0.4) * 3 * 100) / 100 },
                 { symbol: "ENL", name: "Endiama", volume: Math.round(180000000 + Math.random() * 40000000), change: Math.round((Math.random() - 0.2) * 6 * 100) / 100 },
                 { symbol: "AFA", name: "Afrigroup", volume: Math.round(140000000 + Math.random() * 30000000), change: Math.round((Math.random() - 0.5) * 3 * 100) / 100 }
             ],
@@ -466,19 +468,19 @@ export default function Investments() {
                 "1Y": { index: Math.round((10 + Math.random() * 10) * 100) / 100, bonds: Math.round((5 + Math.random() * 5) * 100) / 100 },
                 "YTD": { index: Math.round((4 + Math.random() * 4) * 100) / 100, bonds: Math.round((2 + Math.random() * 2) * 100) / 100 }
             },
-            precoMedio: {
+            precoMédio: {
                 acoes: Math.round((100 + Math.random() * 50) * 100) / 100,
-                obrigacoes: Math.round((95 + Math.random() * 10) * 100) / 100,
+                Obrigações: Math.round((95 + Math.random() * 10) * 100) / 100,
                 fundos: Math.round((105 + Math.random() * 30) * 100) / 100
             },
             livroOrdens: [
-                { symbol: "BAY", tipo: "AÃ§Ã£o", compra: Math.round(150000000 + Math.random() * 30000000), venda: Math.round(180000000 + Math.random() * 30000000), ultimo: Math.round(165000000 + Math.random() * 30000000) },
-                { symbol: "SGC", tipo: "AÃ§Ã£o", compra: Math.round(80000000 + Math.random() * 15000000), venda: Math.round(95000000 + Math.random() * 15000000), ultimo: Math.round(87500000 + Math.random() * 15000000) },
-                { symbol: "ENL", tipo: "AÃ§Ã£o", compra: Math.round(45000000 + Math.random() * 7000000), venda: Math.round(52000000 + Math.random() * 7000000), ultimo: Math.round(48500000 + Math.random() * 7000000) },
+                { symbol: "BAY", tipo: "Ação", compra: Math.round(150000000 + Math.random() * 30000000), venda: Math.round(180000000 + Math.random() * 30000000), ultimo: Math.round(165000000 + Math.random() * 30000000) },
+                { symbol: "SGC", tipo: "Ação", compra: Math.round(80000000 + Math.random() * 15000000), venda: Math.round(95000000 + Math.random() * 15000000), ultimo: Math.round(87500000 + Math.random() * 15000000) },
+                { symbol: "ENL", tipo: "Ação", compra: Math.round(45000000 + Math.random() * 7000000), venda: Math.round(52000000 + Math.random() * 7000000), ultimo: Math.round(48500000 + Math.random() * 7000000) },
                 { symbol: "OI2029", tipo: "OT-NR", taxaCupao: 17.5, dataVencimento: "15/06/2029", compra: Math.round(98000 + Math.random() * 2000), venda: Math.round(101000 + Math.random() * 2000), ultimo: Math.round(99500 + Math.random() * 2000) },
                 { symbol: "OJ2031", tipo: "OT-NR", taxaCupao: 18.25, dataVencimento: "15/12/2031", compra: Math.round(95000 + Math.random() * 3000), venda: Math.round(99000 + Math.random() * 3000), ultimo: Math.round(97000 + Math.random() * 3000) },
                 { symbol: "BT91", tipo: "BT", taxaCupao: 15.0, dataVencimento: "30/06/2025", compra: Math.round(97000 + Math.random() * 2000), venda: Math.round(99000 + Math.random() * 2000), ultimo: Math.round(98000 + Math.random() * 2000) },
-                { symbol: "BMA", tipo: "ObrigaÃ§Ã£o", taxaCupao: 12.5, dataVencimento: "20/03/2028", compra: Math.round(92000 + Math.random() * 3000), venda: Math.round(96000 + Math.random() * 3000), ultimo: Math.round(94000 + Math.random() * 3000) }
+                { symbol: "BMA", tipo: "ObrigAção", taxaCupao: 12.5, dataVencimento: "20/03/2028", compra: Math.round(92000 + Math.random() * 3000), venda: Math.round(96000 + Math.random() * 3000), ultimo: Math.round(94000 + Math.random() * 3000) }
             ]
         };
     };
@@ -504,10 +506,10 @@ export default function Investments() {
                 .eq('id', reinforcingInvestment.id);
 
             if (error) {
-                toast.error("Erro ao reforÃ§ar investimento");
+                toast.error("Erro ao reforçar investimento");
                 return;
             }
-            toast.success(`Investimento reforÃ§ado com ${additionalAmount.toLocaleString('pt-AO')} Kz! ðŸ’°`);
+            toast.success(`Investimento reforçado com ${additionalAmount.toLocaleString('pt-AO')} Kz! 🏦’°`);
             resetForm();
             fetchInvestments();
             return;
@@ -553,15 +555,46 @@ export default function Investments() {
 
             // Update source balance (subtract investment amount)
             const investmentAmount = parseFloat(newInvestment.amount);
+            console.log('DEBUG source update:', { source: newInvestment.source, amount: investmentAmount, savingsBalance, budgetBalance });
+
             if (newInvestment.source === 'savings' && savingsBalance > 0) {
-                await supabase
+                const amountToSubtract = Math.min(investmentAmount, savingsBalance);
+                console.log('DEBUG subtract from savings:', amountToSubtract);
+
+                // First check if any savings goal exists with 'Poupança' in the name
+                const { data: savingsGoals } = await supabase
                     .from('savings_goals')
-                    .update({ current_amount: Math.max(0, savingsBalance - investmentAmount) })
+                    .select('id, saved_amount')
                     .eq('user_id', user?.id)
-                    .eq('name', 'PoupanÃ§a Principal');
+                    .ilike('name', '%Poupança%');
+
+                if (savingsGoals && savingsGoals.length > 0) {
+                    // Update the first matching savings goal
+                    const goal = savingsGoals[0];
+                    await supabase
+                        .from('savings_goals')
+                        .update({ saved_amount: Math.max(0, goal.saved_amount - amountToSubtract) })
+                        .eq('id', goal.id);
+                } else {
+                    // If no savings goal with 'Poupança', try to update any savings goal
+                    const { data: anySavings } = await supabase
+                        .from('savings_goals')
+                        .select('id, saved_amount')
+                        .eq('user_id', user?.id)
+                        .limit(1);
+
+                    if (anySavings && anySavings.length > 0) {
+                        const goal = anySavings[0];
+                        await supabase
+                            .from('savings_goals')
+                            .update({ saved_amount: Math.max(0, goal.saved_amount - amountToSubtract) })
+                            .eq('id', goal.id);
+                    }
+                }
             } else if (newInvestment.source === 'budget' && budgetBalance > 0) {
                 // For budget, we need to update the available balance
-                // This would require finding the budget and updating it
+                const amountToSubtract = Math.min(investmentAmount, budgetBalance);
+                console.log('DEBUG subtract from budget:', amountToSubtract);
                 const { data: budgetData } = await supabase
                     .from('budgets')
                     .select('id, available_amount')
@@ -570,12 +603,12 @@ export default function Investments() {
                 if (budgetData) {
                     await supabase
                         .from('budgets')
-                        .update({ available_amount: Math.max(0, budgetData.available_amount - investmentAmount) })
+                        .update({ available_amount: Math.max(0, budgetData.available_amount - amountToSubtract) })
                         .eq('id', budgetData.id);
                 }
             }
 
-            toast.success("Investimento registrado! ðŸ“ˆ");
+            toast.success("Investimento registrado! 🏦“ˆ");
             unlockAchievement('newbie_investor', 'Investidor Novato', 2);
         }
 
@@ -610,9 +643,9 @@ export default function Investments() {
             if (source === 'savings') {
                 await supabase
                     .from('savings_goals')
-                    .update({ current_amount: savingsBalance + returnAmount })
+                    .update({ saved_amount: savingsBalance + returnAmount })
                     .eq('user_id', user?.id)
-                    .eq('name', 'PoupanÃ§a Principal');
+                    .eq('name', 'Poupança Principal');
             } else if (source === 'budget') {
                 const { data: budgetData } = await supabase
                     .from('budgets')
@@ -628,7 +661,7 @@ export default function Investments() {
             }
         }
 
-        toast.success("Investimento excluÃ­do e dinheiro devolvido!");
+        toast.success("Investimento excluído e dinheiro devolvido!");
         fetchInvestments();
         fetchFinancialData();
     };
@@ -673,34 +706,114 @@ export default function Investments() {
     // Helper functions for calculations (must be defined before use)
     const calculateProjectedValue = (investment: Investment) => {
         // First, try to use market prices if available (for stocks/ações)
-        if (investment.type === 'acoes' && marketPrices) {
+        const investmentType = investment.type?.toLowerCase() || '';
+
+        // Debug: ver os dados
+        console.log('DEBUG calculateProjectedValue:', {
+            name: investment.name,
+            type: investment.type,
+            start_date: investment.start_date,
+            amount: investment.amount,
+            historicalPrices: historicalPrices ? Object.keys(historicalPrices) : 'undefined'
+        });
+
+        if ((investmentType === 'acoes' || investmentType === 'ações') && historicalPrices) {
             const name = investment.name.toUpperCase();
             let symbol = '';
-            if (name.includes('BAY')) symbol = 'BAY';
-            else if (name.includes('SGC')) symbol = 'SGC';
-            else if (name.includes('ENL')) symbol = 'ENL';
-            else if (name.includes('AFA')) symbol = 'AFA';
-            else if (name.includes('FIP')) symbol = 'FIP';
-            else symbol = name.substring(0, 3);
 
-            const marketPrice = marketPrices[symbol];
-            if (marketPrice && marketPrice.currentPrice > 0) {
-                // Calculate market-based value
-                // We need to know the number of shares - we'll use a simple approximation
-                // assuming current_value or amount represents total value at purchase
-                // For more accuracy, we'd need to store purchase price per share
-                const purchaseValue = investment.current_value || investment.amount;
-                const changePercent = marketPrice.changePercent / 100;
-                return purchaseValue * (1 + changePercent);
+            // Primeiro: verificar se o nome completo existe no histórico (ex: BFAAAAAA)
+            if (historicalPrices[name]) {
+                symbol = name;
+            } else {
+                // Segundo: procurar se algum símbolo do histórico está contido no nome
+                const keys = Object.keys(historicalPrices);
+                const found = keys.find(k => name.includes(k)) || keys.find(k => k.includes(name.replace(/\s/g, '')));
+                if (found) {
+                    symbol = found;
+                } else {
+                    // Terceiro: usar lógica simples para símbolos conhecidos
+                    if (name.includes('BAY')) symbol = 'BAY';
+                    else if (name.includes('SGC')) symbol = 'SGC';
+                    else if (name.includes('ENL')) symbol = 'ENL';
+                    else if (name.includes('AFA')) symbol = 'AFA';
+                    else if (name.includes('FIP')) symbol = 'FIP';
+                    else if (name.includes('BIOC')) symbol = 'BIOC';
+                    else if (name.includes('SOMA')) symbol = 'SOMA';
+                    else if (name.includes('FINI')) symbol = 'FINI';
+                    else if (name.includes('BCDA')) symbol = 'BCDA';
+                    else if (name.includes('BMA')) symbol = 'BMA';
+                    else if (name.includes('BAI')) symbol = 'BAI';
+                    else if (name.includes('BPG')) symbol = 'BPG';
+                    else if (name.includes('BCM')) symbol = 'BCM';
+                    else if (name.includes('BIC')) symbol = 'BIC';
+                    else if (name.includes('BF')) symbol = 'BF';
+                    else symbol = name.substring(0, 3);
+                }
+            }
+
+            console.log('DEBUG symbol:', symbol);
+            const history = historicalPrices[symbol];
+            console.log('DEBUG history:', history);
+
+            if (history && history.length > 0 && investment.start_date) {
+                // EXATAMENTE como o simulador: encontrar o preço na data de investimento
+                const investmentDate = investment.start_date.split('T')[0]; // Garantir formato YYYY-MM-DD
+
+                console.log('DEBUG investmentDate:', investmentDate);
+
+                // Procurar o primeiro registo com data >= data de investimento
+                const startData = history.find(d => d.data_date >= investmentDate);
+                console.log('DEBUG startData:', startData);
+
+                if (startData && startData.price > 0) {
+                    const startPrice = startData.price;
+                    // O último preço no histórico é o preço atual
+                    const currentData = history[history.length - 1];
+                    const currentPrice = currentData.price;
+
+                    console.log('DEBUG prices:', { startPrice, currentPrice });
+
+                    // Calcular variação EXATAMENTE como o simulador
+                    const priceChangePercent = ((currentPrice - startPrice) / startPrice) * 100;
+                    const profit = investment.amount * (priceChangePercent / 100);
+
+                    console.log('DEBUG result:', { priceChangePercent, profit, final: investment.amount + profit });
+
+                    // Retornar valor atual com base na variação do mercado
+                    return investment.amount + profit;
+                }
+            }
+
+            // Fallback: se não tem histórico ou data, usa preço atual
+            if (marketPrices && marketPrices[symbol]) {
+                const marketPrice = marketPrices[symbol];
+                if (marketPrice && marketPrice.currentPrice > 0) {
+                    const purchaseValue = investment.current_value || investment.amount;
+                    const changePercent = marketPrice.changePercent / 100;
+                    console.log('DEBUG fallback market price:', { purchaseValue, changePercent });
+                    return purchaseValue * (1 + changePercent);
+                }
             }
         }
 
         // Fall back to expected return calculation
-        if (!investment.start_date || !investment.expected_return) return investment.current_value || investment.amount;
+        // If no expected_return, use default returns based on investment type
+        const getDefaultReturn = (type: string): number => {
+            const t = type?.toLowerCase() || '';
+            if (t === 'acoes' || t === 'fundos_acoes' || t === 'ações') return 15; // 15% for stocks
+            if (t === 'fundos' || t === 'fundos_mistos' || t === 'fundos acoes') return 12; // 12% for mixed funds
+            if (t === 'obrigacoes' || t === 'obrigações' || t === 'obrigacoes_corp') return 10; // 10% for bonds
+            if (t === 'deposito_prazo' || t === 'depósito a prazo') return 8; // 8% for term deposits
+            return 10; // Default 10%
+        };
+
+        const returnRate = investment.expected_return || getDefaultReturn(investment.type);
+
+        if (!investment.start_date) return investment.current_value || investment.amount;
         const start = parseISO(investment.start_date);
         const now = new Date();
         const totalDays = differenceInDays(now, start);
-        const dailyRate = (investment.expected_return / 100) / 365;
+        const dailyRate = (returnRate / 100) / 365;
         return investment.amount * Math.pow(1 + dailyRate, totalDays);
     };
 
@@ -716,7 +829,7 @@ export default function Investments() {
 
     // Stats
     // Fetch market prices for investments
-    const { prices: marketPrices, loading: pricesLoading } = useInvestmentPrices(investments);
+    const { prices: marketPrices, historicalPrices, loading: pricesLoading } = useInvestmentPrices(investments);
 
     // Calculate projected values based on expected return and time elapsed
     const totalInvested = investments.reduce((sum, i) => sum + i.amount, 0);
@@ -846,7 +959,7 @@ export default function Investments() {
             <ModuleGuard
                 moduleKey="basic"
                 title={t("Investimentos & Portfolio")}
-                description={t("Acompanhe o crescimento do seu patrimÃ³nio...")}
+                description={t("Acompanhe o crescimento do seu patrimônio...")}
             >
                 <div className="space-y-6 animate-fade-in">
                     {/* View Toggle - Always show Market option, others based on investments */}
@@ -857,7 +970,7 @@ export default function Investments() {
                             onClick={() => setActiveView("home")}
                         >
                             <Wallet className="h-4 w-4 mr-2" />
-                            {t("VisÃ£o Geral")}
+                            {t("Visão Geral")}
                         </Button>
                         {investments.length > 0 && (
                             <>
@@ -928,26 +1041,26 @@ export default function Investments() {
                                     onSelectProduct={(productId) => {
                                         // Pre-fill investment based on product
                                         const productMap: Record<string, { type: string; name: string; risk: string }> = {
-                                            "deposito": { type: "deposito_prazo", name: "DepÃ³sito a Prazo", risk: "low" },
+                                            "deposito": { type: "deposito_prazo", name: "Depósito a Prazo", risk: "low" },
                                             // Dynamic products from Livro de Ordens
-                                            "otnr-OI2029": { type: "obrigacoes", name: "OI2029 - OT-NR", risk: "low" },
-                                            "otnr-OJ2031": { type: "obrigacoes", name: "OJ2031 - OT-NR", risk: "low" },
-                                            "bond-OI2029": { type: "obrigacoes", name: "OI2029 - OT-NR", risk: "low" },
-                                            "bond-OJ2031": { type: "obrigacoes", name: "OJ2031 - OT-NR", risk: "low" },
-                                            "bt-BT91": { type: "obrigacoes", name: "BT91 - Bilhete do Tesouro", risk: "low" },
-                                            "bond-BT91": { type: "obrigacoes", name: "BT91 - Bilhete do Tesouro", risk: "low" },
-                                            "bond-BMA": { type: "obrigacoes", name: "BMA - ObrigaÃ§Ã£o", risk: "medium" },
-                                            // AÃ§Ãµes
+                                            "otnr-OI2029": { type: "Obrigações", name: "OI2029 - OT-NR", risk: "low" },
+                                            "otnr-OJ2031": { type: "Obrigações", name: "OJ2031 - OT-NR", risk: "low" },
+                                            "bond-OI2029": { type: "Obrigações", name: "OI2029 - OT-NR", risk: "low" },
+                                            "bond-OJ2031": { type: "Obrigações", name: "OJ2031 - OT-NR", risk: "low" },
+                                            "bt-BT91": { type: "Obrigações", name: "BT91 - Bilhete do Tesouro", risk: "low" },
+                                            "bond-BT91": { type: "Obrigações", name: "BT91 - Bilhete do Tesouro", risk: "low" },
+                                            "bond-BMA": { type: "Obrigações", name: "BMA - Obrigação", risk: "medium" },
+                                            // Ações
                                             "acao-BAY": { type: "acoes", name: "BAY", risk: "high" },
                                             "acao-SGC": { type: "acoes", name: "SGC", risk: "high" },
                                             "acao-ENL": { type: "acoes", name: "ENL", risk: "high" },
                                             // Static products
                                             "fundos-conservadores": { type: "fundos", name: "Fundo Conservador", risk: "low" },
-                                            "obrigacoes-corp": { type: "obrigacoes", name: "ObrigaÃ§Ãµes Corporativas", risk: "medium" },
+                                            "Obrigações-corp": { type: "Obrigações", name: "Obrigações Corporativas", risk: "medium" },
                                             "fundos-mistos": { type: "fundos", name: "Fundo Misto", risk: "medium" },
                                             "carteira-equilibrada": { type: "fundos", name: "Carteira Equilibrada", risk: "medium" },
-                                            "acoes-bodiva": { type: "acoes", name: "AÃ§Ãµes BODIVA", risk: "high" },
-                                            "fundos-acoes": { type: "fundos", name: "Fundo de AÃ§Ãµes", risk: "high" },
+                                            "acoes-bodiva": { type: "acoes", name: "Ações BODIVA", risk: "high" },
+                                            "fundos-acoes": { type: "fundos", name: "Fundo de Ações", risk: "high" },
                                             "carteira-agressiva": { type: "fundos", name: "Carteira Personalizada", risk: "high" },
                                         };
                                         const product = productMap[productId];
@@ -970,9 +1083,9 @@ export default function Investments() {
                                             let name = symbol;
 
                                             if (prefix === 'otnr' || prefix === 'bt' || prefix === 'bond') {
-                                                type = 'obrigacoes';
+                                                type = 'Obrigações';
                                                 risk = prefix === 'bt' ? 'low' : 'medium';
-                                                name = `${symbol} - ObrigaÃ§Ã£o`;
+                                                name = `${symbol} - ObrigAção`;
                                             } else if (prefix === 'acao') {
                                                 type = 'acoes';
                                                 risk = 'high';
@@ -1005,7 +1118,7 @@ export default function Investments() {
                         <div className="space-y-6">
                             {/* Back Button */}
                             <Button variant="ghost" onClick={() => setActiveView("home")}>
-                                â† {t("Voltar Ã  VisÃ£o Geral")}
+                                ← {t("Voltar à Visão Geral")}
                             </Button>
 
                             {/* Portfolio Distribution */}
@@ -1013,7 +1126,7 @@ export default function Investments() {
                                 <div className="grid lg:grid-cols-2 gap-6">
                                     <Card>
                                         <CardHeader>
-                                            <CardTitle className="text-lg">{t("DistribuiÃ§Ã£o por Tipo")}</CardTitle>
+                                            <CardTitle className="text-lg">{t("Distribuição por Tipo")}</CardTitle>
                                         </CardHeader>
                                         <CardContent>
                                             <div className="flex items-center gap-6">
@@ -1055,7 +1168,7 @@ export default function Investments() {
 
                                     <Card>
                                         <CardHeader>
-                                            <CardTitle className="text-lg">{t("Resumo RÃ¡pido")}</CardTitle>
+                                            <CardTitle className="text-lg">{t("Resumo Rápido")}</CardTitle>
                                         </CardHeader>
                                         <CardContent className="space-y-4">
                                             <div className="flex justify-between">
@@ -1084,7 +1197,7 @@ export default function Investments() {
                             {/* Investment List - Recent 5 */}
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between">
-                                    <CardTitle className="text-lg">{t("Ãšltimos Investimentos")}</CardTitle>
+                                    <CardTitle className="text-lg">{t("Últimos Investimentos")}</CardTitle>
                                     <div className="flex gap-2">
                                         {investments.length > 5 && (
                                             <Button variant="outline" size="sm" onClick={() => setActiveView("details")}>
@@ -1104,7 +1217,7 @@ export default function Investments() {
                                             <Wallet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                                             <h3 className="text-lg font-semibold mb-2">{t("Nenhum investimento ainda")}</h3>
                                             <p className="text-muted-foreground mb-4">
-                                                {t("Comece a investir e acompanhe seu patrimÃ´nio crescer")}
+                                                {t("Comece a investir e acompanhe seu patrimônio crescer")}
                                             </p>
                                             <Button variant="accent" onClick={() => setDialogOpen(true)}>
                                                 <Plus className="h-4 w-4 mr-2" />
@@ -1163,7 +1276,7 @@ export default function Investments() {
                                                                         className="text-xs"
                                                                     >
                                                                         <Plus className="h-3 w-3 mr-1" />
-                                                                        {t("ReforÃ§ar")}
+                                                                        {t("Reforçar")}
                                                                     </Button>
                                                                     <Button
                                                                         variant="ghost"
@@ -1225,21 +1338,21 @@ export default function Investments() {
                         <DialogContent className="sm:max-w-lg">
                             <DialogHeader>
                                 <DialogTitle>
-                                    {reinforcingInvestment ? `${t("ReforÃ§ar")}: ${reinforcingInvestment.name}` : editingInvestment ? t("Editar Investimento") : t("Registrar Investimento")}
+                                    {reinforcingInvestment ? `${t("Reforçar")}: ${reinforcingInvestment.name}` : editingInvestment ? t("Editar Investimento") : t("Registrar Investimento")}
                                 </DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto pr-2">
                                 {reinforcingInvestment && (
                                     <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
                                         <p className="text-sm font-medium">{t("Valor atual")}: {formatPrice((reinforcingInvestment.current_value || reinforcingInvestment.amount) + (parseFloat(newInvestment.amount) || 0))}</p>
-                                        <p className="text-xs text-muted-foreground mt-1">{t("Original")}: {formatPrice(reinforcingInvestment.amount)} + {t("ReforÃ§o")}: {formatPrice(parseFloat(newInvestment.amount) || 0)}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">{t("Original")}: {formatPrice(reinforcingInvestment.amount)} + {t("Reforço")}: {formatPrice(parseFloat(newInvestment.amount) || 0)}</p>
                                     </div>
                                 )}
                                 {!reinforcingInvestment && (
                                     <div className="space-y-2">
                                         <Label>{t("Nome do Investimento")}</Label>
                                         <Input
-                                            placeholder={t("Ex: PoupanÃ§a BFA, ObrigaÃ§Ãµes 2027...")}
+                                            placeholder={t("Ex: Poupança BFA, Obrigações 2027...")}
                                             value={newInvestment.name}
                                             onChange={(e) => setNewInvestment({ ...newInvestment, name: e.target.value })}
                                         />
@@ -1304,7 +1417,7 @@ export default function Investments() {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>{t("FrequÃªncia")}</Label>
+                                            <Label>{t("Frequência")}</Label>
                                             <Select
                                                 value={newInvestment.return_frequency}
                                                 onValueChange={(value: 'monthly' | 'annual') => setNewInvestment({ ...newInvestment, return_frequency: value })}
@@ -1333,15 +1446,15 @@ export default function Investments() {
                                                 <SelectContent>
                                                     <SelectItem value="savings">
                                                         <div className="flex items-center gap-2">
-                                                            <span>ðŸ¦</span>
-                                                            <span>{t("PoupanÃ§a")}</span>
+                                                            <span>🏦¦</span>
+                                                            <span>{t("Poupança")}</span>
                                                             <span className="text-muted-foreground text-xs">({formatPrice(savingsBalance)})</span>
                                                         </div>
                                                     </SelectItem>
                                                     <SelectItem value="budget">
                                                         <div className="flex items-center gap-2">
-                                                            <span>ðŸ’°</span>
-                                                            <span>{t("OrÃ§amento")}</span>
+                                                            <span>🏦’°</span>
+                                                            <span>{t("Orçamento")}</span>
                                                             <span className="text-muted-foreground text-xs">({formatPrice(budgetBalance)})</span>
                                                         </div>
                                                     </SelectItem>
@@ -1349,7 +1462,7 @@ export default function Investments() {
                                             </Select>
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>{t("NÃ­vel de Risco")}</Label>
+                                            <Label>{t("Nível de Risco")}</Label>
                                             <Select
                                                 value={newInvestment.risk_level}
                                                 onValueChange={(value) => setNewInvestment({ ...newInvestment, risk_level: value })}
@@ -1380,7 +1493,7 @@ export default function Investments() {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label>{t("Data de InÃ­cio")}</Label>
+                                        <Label>{t("Data de Início")}</Label>
                                         <Input
                                             type="date"
                                             value={newInvestment.start_date}
@@ -1400,7 +1513,7 @@ export default function Investments() {
                                 <div className="space-y-2">
                                     <Label>{t("Notas (opcional)")}</Label>
                                     <Textarea
-                                        placeholder="ObservaÃ§Ãµes sobre este investimento..."
+                                        placeholder="Observações sobre este investimento..."
                                         value={newInvestment.notes}
                                         onChange={(e) => setNewInvestment({ ...newInvestment, notes: e.target.value })}
                                         rows={3}
@@ -1412,13 +1525,30 @@ export default function Investments() {
                                         {t("Cancelar")}
                                     </Button>
                                     <Button variant="accent" onClick={createOrUpdateInvestment}>
-                                        {reinforcingInvestment ? t("ReforÃ§ar Investimento") : editingInvestment ? t("Atualizar") : t("Registrar")}
+                                        {reinforcingInvestment ? t("Reforçar Investimento") : editingInvestment ? t("Atualizar") : t("Registrar")}
                                     </Button>
                                 </div>
                             </div>
                         </DialogContent>
                     </Dialog>
                 </div>
+
+                {/* AI Chatbot Assistant */}
+                <InvestmentChatbot
+                    investmentData={{
+                        totalInvested,
+                        totalCurrentValue,
+                        totalReturn,
+                        returnPercentage,
+                        investments: investments.map(inv => ({
+                            name: inv.name,
+                            type: inv.type,
+                            amount: inv.amount,
+                            currentValue: calculateProjectedValue(inv),
+                            returnPercent: calculateReturnPercentage(inv)
+                        }))
+                    }}
+                />
             </ModuleGuard>
         </AppLayout>
     );
