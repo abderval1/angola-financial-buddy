@@ -28,8 +28,6 @@ import { useInvestmentPrices } from "@/hooks/useInvestmentPrices";
 // Import new components
 import { InvestmentPortfolioSummary } from "@/components/investments/InvestmentPortfolioSummary";
 import { InvestmentQuickActions } from "@/components/investments/InvestmentQuickActions";
-import { InvestmentChatbot } from "@/components/investments/InvestmentChatbot";
-import { AIInsights } from "@/components/AIInsights";
 import { InvestmentProducts } from "@/components/investments/InvestmentProducts";
 import { InvestmentEducation } from "@/components/investments/InvestmentEducation";
 import { VirtualCoach } from "@/components/goals/VirtualCoach";
@@ -1532,23 +1530,6 @@ export default function Investments() {
                         </DialogContent>
                     </Dialog>
                 </div>
-
-                {/* AI Chatbot Assistant */}
-                <InvestmentChatbot
-                    investmentData={{
-                        totalInvested,
-                        totalCurrentValue,
-                        totalReturn,
-                        returnPercentage,
-                        investments: investments.map(inv => ({
-                            name: inv.name,
-                            type: inv.type,
-                            amount: inv.amount,
-                            currentValue: calculateProjectedValue(inv),
-                            returnPercent: calculateReturnPercentage(inv)
-                        }))
-                    }}
-                />
             </ModuleGuard>
         </AppLayout>
     );
