@@ -72,46 +72,7 @@ export function VirtualCoach({
         };
 
         // Step 2: Starter Emergency Fund (1 Month)
-        // Only show if they have LESS than 1 month of expenses saved
-        if (monthsCovered < 1) {
-            const hasPartial = existingSavings > 0;
-
-            // If they already have savings but less than 1 month, calculate remaining
-            if (hasPartial) {
-                const target = Math.max(0, monthlyExpenses - existingSavings);
-                return {
-                    step: 2,
-                    title: "Fundo de Segurança Inicial",
-                    desc: `Você já tem ${existingSavings.toLocaleString()} Kz guardados. Falta apenas ${target.toLocaleString()} Kz para atingir 1 mês de despesas.`,
-                    targetParams: { months: 1 },
-                    action: target > 0 ? "Completar Meta" : "Ver Meta",
-                    route: "/savings",
-                    isGoalAction: true,
-                    goalData: {
-                        name: "Fundo de Emergência Inicial",
-                        target: target,
-                        icon: "🛡️"
-                    },
-                    icon: <ShieldCheck className="h-5 w-5 text-destructive" />
-                };
-            } else {
-                return {
-                    step: 2,
-                    title: "Fundo de Segurança Inicial",
-                    desc: "Antes de investir, guarde pelo menos 1 mês de despesas para pequenos imprevistos.",
-                    targetParams: { months: 1 },
-                    action: "Criar Meta Agora",
-                    route: "/savings",
-                    isGoalAction: true,
-                    goalData: {
-                        name: "Fundo de Emergência Inicial",
-                        target: monthlyExpenses,
-                        icon: "🛡️"
-                    },
-                    icon: <ShieldCheck className="h-5 w-5 text-destructive" />
-                };
-            }
-        }
+        // REMOVED: User already has savings, skip this step
 
         // Step 3: Full Emergency Fund (3-6 Months)
         if (monthsCovered < 6) {

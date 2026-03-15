@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { TrendingUp, TrendingDown, RefreshCw, BarChart3, Calendar, Lightbulb, Users, Shield, Zap, Info, PieChart as PieChartIcon, ExternalLink, LineChart, Activity, Target, Percent, Search, ChevronDown, Filter, Settings2, Eye, EyeOff, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, BarChart3, Calendar, Lightbulb, Users, Shield, Zap, Info, PieChart as PieChartIcon, ExternalLink, LineChart, Activity, Target, Percent, Search, ChevronDown, Filter, Settings2, Eye, EyeOff, Clock, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useBodivaLastUpdate } from '@/hooks/useBodivaLastUpdate';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -50,6 +50,8 @@ export default function BodivaMarketData() {
     const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
     const [historicalData, setHistoricalData] = useState<BodivaMarketData[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [tipologiaFilter, setTipologiaFilter] = useState<string>('all');
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'amount', direction: 'desc' });
     const [indicators, setIndicators] = useState({
         sma5: true,
         ema9: false,
@@ -59,6 +61,9 @@ export default function BodivaMarketData() {
         forecast: true
     });
     const [timeRange, setTimeRange] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | 'ALL'>('1M');
+    const [investmentAmount, setInvestmentAmount] = useState<number>(100000); // Default 100,000 KZS
+    const [investmentDate, setInvestmentDate] = useState<string>('');
+    const [selectedSimStocks, setSelectedSimStocks] = useState<string[]>([]);
     const { toast } = useToast();
     const { lastUpdate, loading: lastUpdateLoading, timeAgo, refresh: refreshLastUpdate } = useBodivaLastUpdate();
 
@@ -163,14 +168,232 @@ export default function BodivaMarketData() {
 
     const avgTradeSize = totalTrades > 0 ? totalVolume / totalTrades : 0;
 
-    // Filter by search term
+    // Get unique tipologias for filter
+    const uniqueTipologias = useMemo(() => {
+        const types = new Set(selectedData.map(item => item.title_type));
+        return Array.from(types).sort();
+    }, [selectedData]);
+
+    // Filter by search term and tipologia
     const filteredData = useMemo(() => {
-        if (!searchTerm.trim()) return selectedData;
-        return selectedData.filter(item =>
-            item.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.title_type.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [selectedData, searchTerm]);
+        let data = selectedData;
+
+        // Filter by tipologia
+        if (tipologiaFilter !== 'all') {
+            data = data.filter(item => item.title_type === tipologiaFilter);
+        }
+
+        // Filter by search term
+        if (searchTerm.trim()) {
+            data = data.filter(item =>
+                item.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.title_type.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+
+        // Sort data
+        if (sortConfig) {
+            data = [...data].sort((a, b) => {
+                let aVal: any = a[sortConfig.key as keyof BodivaMarketData];
+                let bVal: any = b[sortConfig.key as keyof BodivaMarketData];
+
+                if (typeof aVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+
+                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        return data;
+    }, [selectedData, searchTerm, tipologiaFilter, sortConfig]);
+
+    // Handle sort
+    const handleSort = (key: string) => {
+        setSortConfig(prev => {
+            if (prev?.key === key) {
+                if (prev.direction === 'desc') return { key, direction: 'asc' };
+                return null;
+            }
+            return { key, direction: 'desc' };
+        });
+    };
+
+    // Group all market data by symbol for historical analysis
+    const historicalBySymbol = useMemo(() => {
+        const grouped: Record<string, BodivaMarketData[]> = {};
+        marketData.forEach(item => {
+            if (!grouped[item.symbol]) {
+                grouped[item.symbol] = [];
+            }
+            grouped[item.symbol].push(item);
+        });
+        // Sort each symbol's data by date (ascending for trend analysis)
+        Object.keys(grouped).forEach(symbol => {
+            grouped[symbol].sort((a, b) => new Date(a.data_date).getTime() - new Date(b.data_date).getTime());
+        });
+        return grouped;
+    }, [marketData]);
+
+    // PROFESSIONAL STOCK ANALYSIS - Returns JSON format
+    const analyzeStock = (symbol: string): {
+        score: number;
+        recomendacao: string;
+        tendencia: string;
+        principais_pontos_positivos: string[];
+        principais_riscos: string[];
+        resumo_analise: string;
+    } | null => {
+        const history = historicalBySymbol[symbol] || [];
+        const currentData = history[history.length - 1];
+
+        if (!currentData || history.length < 5) {
+            return null; // Insufficient data
+        }
+
+        const positives: string[] = [];
+        const risks: string[] = [];
+        let score = 50; // Start neutral
+        const now = new Date();
+
+        // Helper: get data within time period
+        const getDataInPeriod = (days: number) => {
+            const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+            return history.filter(d => new Date(d.data_date) >= cutoff);
+        };
+
+        // 1. Price Momentum (3, 6, 12 months)
+        const getPriceChange = (data: BodivaMarketData[]) => {
+            if (data.length < 2) return 0;
+            return ((data[data.length - 1].price - data[0].price) / data[0].price) * 100;
+        };
+
+        const change3m = getPriceChange(getDataInPeriod(90));
+        const change6m = getPriceChange(getDataInPeriod(180));
+        const change12m = getPriceChange(getDataInPeriod(365));
+
+        // Momentum scoring
+        if (change12m > 10) { score += 15; positives.push(`Momentum 12m: +${change12m.toFixed(1)}%`); }
+        else if (change12m > 0) { score += 5; positives.push(`Momentum 12m: +${change12m.toFixed(1)}%`); }
+        else if (change12m < -10) { score -= 15; risks.push(`Momentum 12m: ${change12m.toFixed(1)}%`); }
+        else { score -= 5; risks.push(`Momentum 12m: ${change12m.toFixed(1)}%`); }
+
+        // 2. Moving Averages (Trend)
+        const getSMA = (period: number) => {
+            if (history.length < period) return null;
+            const slice = history.slice(-period);
+            return slice.reduce((sum, d) => sum + d.price, 0) / slice.length;
+        };
+
+        const sma20 = getSMA(Math.min(20, history.length));
+        const sma50 = getSMA(Math.min(50, history.length));
+        const currentPrice = currentData.price;
+
+        let tendencia: 'Alta' | 'Neutra' | 'Baixa' = 'Neutra';
+
+        if (sma20 && sma50) {
+            if (sma20 > sma50) { score += 10; positives.push('MMA20>MMA50: Alta'); tendencia = 'Alta'; }
+            else { score -= 10; risks.push('MMA20<MMA50: Baixa'); tendencia = 'Baixa'; }
+        }
+
+        // 3. RSI
+        const calculateRSI = (period: number = 14) => {
+            if (history.length < period + 1) return 50;
+            let gains = 0, losses = 0;
+            for (let i = history.length - period; i < history.length; i++) {
+                const change = history[i].price - history[i - 1].price;
+                if (change > 0) gains += change; else losses -= change;
+            }
+            const rs = (gains / period) / (losses / period || 1);
+            return 100 - (100 / (1 + rs));
+        };
+
+        const rsi = calculateRSI();
+        if (rsi < 30) { score += 10; positives.push(`RSI ${rsi.toFixed(0)}: Sobrevendido`); }
+        else if (rsi > 70) { score -= 10; risks.push(`RSI ${rsi.toFixed(0)}: Sobrecomprado`); }
+        else { positives.push(`RSI ${rsi.toFixed(0)}: Neutro`); }
+
+        // 4. Volatility
+        const returns = [];
+        for (let i = 1; i < history.length; i++) {
+            returns.push((history[i].price - history[i - 1].price) / history[i - 1].price);
+        }
+        const volatility = returns.length > 0 ? Math.sqrt(returns.reduce((s, v) => s + Math.pow(v - returns.reduce((a, b) => a + b, 0) / returns.length, 2), 0) / returns.length) * 100 : 0;
+
+        if (volatility < 15) { score += 5; positives.push(`Volatilidade ${volatility.toFixed(1)}%: Estável`); }
+        else if (volatility > 40) { score -= 5; risks.push(`Volatilidade ${volatility.toFixed(1)}%: Arriscado`); }
+
+        // 5. Volume Analysis
+        const avgVolume = history.reduce((s, d) => s + d.amount, 0) / history.length;
+        const recentVolume = history.slice(-10).reduce((s, d) => s + d.amount, 0) / Math.min(10, history.length);
+        if (recentVolume > avgVolume * 1.2) { score += 5; positives.push('Volume em crescimento'); }
+        else if (recentVolume < avgVolume * 0.5) { score -= 5; risks.push('Volume em queda'); }
+
+        // 6. Today's Performance
+        if (currentData.variation > 3) { score += 5; positives.push(`Hoje: +${currentData.variation.toFixed(2)}%`); }
+        else if (currentData.variation < -3) { score -= 5; risks.push(`Hoje: ${currentData.variation.toFixed(2)}%`); }
+
+        // 7. Liquidity
+        const totalVolume = marketData.filter(d => d.data_date === currentData.data_date).reduce((s, d) => s + d.amount, 0);
+        const quota = totalVolume > 0 ? (currentData.amount / totalVolume) * 100 : 0;
+        if (quota > 3) { score += 5; positives.push(`Liquidez: ${quota.toFixed(1)}%`); }
+        else if (quota < 0.5) { score -= 5; risks.push(`Liquidez: ${quota.toFixed(1)}%`); }
+
+        // Clamp score
+        score = Math.max(0, Math.min(100, score));
+
+        // Recommendation
+        const recomendacao = score >= 75 ? 'COMPRAR' : score >= 50 ? 'MANTER' : 'VENDER';
+
+        return {
+            score,
+            recomendacao,
+            tendencia,
+            principais_pontos_positivos: positives.slice(0, 4),
+            principais_riscos: risks.slice(0, 4),
+            resumo_analise: `${recomendacao} - Score: ${score}/100. ${tendencia}. RSI: ${rsi.toFixed(0)}. ${positives[0] || ''}`
+        };
+    };
+
+    // Generate recommendations using professional analysis
+    const recommendations = useMemo(() => {
+        if (!selectedData || selectedData.length === 0) return { buy: [], sell: [], hold: [] };
+
+        const totalVolume = selectedData.reduce((sum, item) => sum + item.amount, 0);
+
+        const analyzed = selectedData
+            .filter(item => item.title_type && item.title_type.toLowerCase().includes('acções'))
+            .map(item => {
+                const analysis = analyzeStock(item.symbol);
+                const quota = totalVolume > 0 ? (item.amount / totalVolume) * 100 : 0;
+                return {
+                    ...item,
+                    reasons: analysis ? [...analysis.principais_pontos_positivos, ...analysis.principais_riscos].slice(0, 2) : ['Análise em progresso'],
+                    quota,
+                    analysis
+                };
+            });
+
+        const buy: (BodivaMarketData & { reasons: string[]; quota: number; analysis: ReturnType<typeof analyzeStock> })[] = [];
+        const sell: (BodivaMarketData & { reasons: string[]; quota: number; analysis: ReturnType<typeof analyzeStock> })[] = [];
+        const hold: (BodivaMarketData & { reasons: string[]; quota: number; analysis: ReturnType<typeof analyzeStock> })[] = [];
+
+        analyzed.forEach(item => {
+            const score = item.analysis?.score ?? 50;
+            if (score >= 75) buy.push(item);
+            else if (score < 50) sell.push(item);
+            else hold.push(item);
+        });
+
+        buy.sort((a, b) => (b.analysis?.score ?? 0) - (a.analysis?.score ?? 0));
+        sell.sort((a, b) => (a.analysis?.score ?? 0) - (b.analysis?.score ?? 0));
+        hold.sort((a, b) => (b.analysis?.score ?? 0) - (a.analysis?.score ?? 0));
+
+        return { buy: buy.slice(0, 5), sell: sell.slice(0, 5), hold: hold.slice(0, 5) };
+    }, [selectedData, historicalBySymbol]);
 
     // Market history for the "Histórico" tab
     const marketHistory = useMemo(() => {
@@ -193,6 +416,57 @@ export default function BodivaMarketData() {
         const top3Sum = sorted.slice(0, 3).reduce((sum, item) => sum + item.amount, 0);
         return (top3Sum / totalVolume) * 100;
     }, [selectedData, totalVolume]);
+
+    // Investment Simulation
+    const simulationResults = useMemo(() => {
+        if (!investmentDate || selectedSimStocks.length === 0 || investmentAmount <= 0) {
+            return null;
+        }
+
+        const results = selectedSimStocks.map(symbol => {
+            const history = historicalBySymbol[symbol] || [];
+            const startData = history.find(d => d.data_date >= investmentDate);
+            const currentData = history[history.length - 1];
+
+            if (!startData || !currentData) return null;
+
+            const startPrice = startData.price;
+            const currentPrice = currentData.price;
+            const priceChange = ((currentPrice - startPrice) / startPrice) * 100;
+            const profit = investmentAmount * (priceChange / 100);
+            const finalValue = investmentAmount + profit;
+            const daysHeld = Math.floor((new Date(currentData.data_date).getTime() - new Date(startData.data_date).getTime()) / (1000 * 60 * 60 * 24));
+
+            return {
+                symbol,
+                startDate: startData.data_date,
+                endDate: currentData.data_date,
+                startPrice,
+                currentPrice,
+                priceChange,
+                initialInvestment: investmentAmount,
+                finalValue,
+                profit,
+                daysHeld,
+                annualizedReturn: daysHeld > 0 ? (Math.pow(finalValue / investmentAmount, 365 / daysHeld) - 1) * 100 : 0
+            };
+        }).filter(Boolean);
+
+        if (results.length === 0) return null;
+
+        const totalInitial = investmentAmount * results.length;
+        const totalFinal = results.reduce((sum, r) => sum + (r?.finalValue || 0), 0);
+        const totalProfit = totalFinal - totalInitial;
+        const overallReturn = (totalProfit / totalInitial) * 100;
+
+        return {
+            individual: results,
+            totalInitial,
+            totalFinal,
+            totalProfit,
+            overallReturn
+        };
+    }, [investmentDate, selectedSimStocks, investmentAmount, historicalBySymbol]);
 
     const summaryChartData = useMemo(() => {
         return [...selectedData]
@@ -447,7 +721,7 @@ export default function BodivaMarketData() {
                 </div>
             </CardHeader>
             <CardContent className="space-y-6">
-                {/* Header Controls: Date Picker & Search */}
+                {/* Header Controls: Date Picker & Search & Filter */}
                 <div className="flex flex-col md:flex-row gap-4 mb-4">
                     <div className="flex-1 relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -457,6 +731,22 @@ export default function BodivaMarketData() {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+                    </div>
+
+                    {/* Tipologia Filter */}
+                    <div className="w-full md:w-[200px]">
+                        <Select value={tipologiaFilter} onValueChange={setTipologiaFilter}>
+                            <SelectTrigger className="h-10 bg-white border-azul_bodiva-1/30">
+                                <Filter className="h-4 w-4 mr-2 text-azul_bodiva-1" />
+                                <SelectValue placeholder="Todas as Tipologias" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todas as Tipologias</SelectItem>
+                                {uniqueTipologias.map(type => (
+                                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <div className="w-full md:w-[220px]">
@@ -593,6 +883,113 @@ export default function BodivaMarketData() {
                                 </CardContent>
                             </Card>
                         </div>
+
+                        {/* Recommendations Section */}
+                        <div className="mt-6">
+                            <Card className="border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50">
+                                <CardHeader className="py-3 bg-amber-50/50 border-b border-amber-100">
+                                    <CardTitle className="text-sm font-bold uppercase tracking-widest text-amber-800 flex items-center gap-2">
+                                        <Target className="h-4 w-4" /> Recomendações de Investimento
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {/* BUY Recommendations */}
+                                        <div className="bg-green-50 rounded-xl p-4 border border-green-100">
+                                            <h4 className="font-bold text-green-800 flex items-center gap-2 mb-3">
+                                                <TrendingUp className="h-4 w-4" /> COMPRAR
+                                            </h4>
+                                            {recommendations.buy.length > 0 ? (
+                                                <div className="space-y-3">
+                                                    {recommendations.buy.slice(0, 3).map((item, idx) => (
+                                                        <div
+                                                            key={item.id}
+                                                            className="cursor-pointer hover:bg-green-100 p-2 rounded-lg transition-colors"
+                                                            onClick={() => handleSymbolClick(item.symbol)}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="font-bold text-green-900">{item.symbol}</span>
+                                                                <span className="text-green-700 text-sm">+{item.variation.toFixed(2)}%</span>
+                                                            </div>
+                                                            <p className="text-[10px] text-green-600 mt-1 line-clamp-2">
+                                                                {item.reasons?.[0] || 'Análise: Tendência positiva'}
+                                                            </p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-green-700/70">Nenhuma recomendação de compra no momento</p>
+                                            )}
+                                            <p className="text-[10px] text-green-600 mt-2">
+                                                Baseado em análise histórica: tendências, volume e liquidez
+                                            </p>
+                                        </div>
+
+                                        {/* SELL Recommendations */}
+                                        <div className="bg-red-50 rounded-xl p-4 border border-red-100">
+                                            <h4 className="font-bold text-red-800 flex items-center gap-2 mb-3">
+                                                <TrendingDown className="h-4 w-4" /> VENDER
+                                            </h4>
+                                            {recommendations.sell.length > 0 ? (
+                                                <div className="space-y-3">
+                                                    {recommendations.sell.slice(0, 3).map((item, idx) => (
+                                                        <div
+                                                            key={item.id}
+                                                            className="cursor-pointer hover:bg-red-100 p-2 rounded-lg transition-colors"
+                                                            onClick={() => handleSymbolClick(item.symbol)}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="font-bold text-red-900">{item.symbol}</span>
+                                                                <span className="text-red-700 text-sm">{item.variation.toFixed(2)}%</span>
+                                                            </div>
+                                                            <p className="text-[10px] text-red-600 mt-1 line-clamp-2">
+                                                                {item.reasons?.[0] || 'Análise: Tendência negativa'}
+                                                            </p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-red-700/70">Nenhuma ação para vender no momento</p>
+                                            )}
+                                            <p className="text-[10px] text-red-600 mt-2">
+                                                Sinais de queda: análise de tendências e volume
+                                            </p>
+                                        </div>
+
+                                        {/* HOLD / OBSERVE */}
+                                        <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                                            <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-3">
+                                                <Eye className="h-4 w-4" /> OBSERVAR
+                                            </h4>
+                                            {recommendations.hold.length > 0 ? (
+                                                <div className="space-y-3">
+                                                    {recommendations.hold.slice(0, 3).map((item, idx) => (
+                                                        <div
+                                                            key={item.id}
+                                                            className="cursor-pointer hover:bg-blue-100 p-2 rounded-lg transition-colors"
+                                                            onClick={() => handleSymbolClick(item.symbol)}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="font-bold text-blue-900">{item.symbol}</span>
+                                                                <span className="text-blue-700 text-sm">{item.variation >= 0 ? '+' : ''}{item.variation.toFixed(2)}%</span>
+                                                            </div>
+                                                            <p className="text-[10px] text-blue-600 mt-1 line-clamp-2">
+                                                                {item.reasons?.[0] || 'Desempenho estável'}
+                                                            </p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-blue-700/70">Nenhuma ação para observar</p>
+                                            )}
+                                            <p className="text-[10px] text-blue-600 mt-2">
+                                                Mercado estávelaguarde melhores oportunidades
+                                            </p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
                     </div>
                 )}
 
@@ -612,7 +1009,7 @@ export default function BodivaMarketData() {
                         </div>
 
                         <Tabs defaultValue="layman" className="w-full">
-                            <TabsList className="grid grid-cols-4 mb-4">
+                            <TabsList className="grid grid-cols-6 mb-4">
                                 <TabsTrigger value="layman" className="text-xs flex items-center gap-1">
                                     <Info className="h-3 w-3" /> Leigo
                                 </TabsTrigger>
@@ -624,6 +1021,9 @@ export default function BodivaMarketData() {
                                 </TabsTrigger>
                                 <TabsTrigger value="segments" className="text-xs flex items-center gap-1">
                                     <BarChart3 className="h-3 w-3" /> Segmentos
+                                </TabsTrigger>
+                                <TabsTrigger value="simulator" className="text-xs flex items-center gap-1">
+                                    <Target className="h-3 w-3" /> Simulador
                                 </TabsTrigger>
                                 <TabsTrigger value="history" className="text-xs flex items-center gap-1">
                                     <LineChart className="h-3 w-3 text-azul_bodiva-1" /> Mercado Pro
@@ -713,6 +1113,123 @@ export default function BodivaMarketData() {
                                         ))}
                                     </TableBody>
                                 </Table>
+                            </TabsContent>
+
+                            <TabsContent value="simulator" className="bg-gradient-to-br from-slate-900 to-slate-800 p-4 rounded-xl text-white border-none shadow-xl">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-azul_bodiva-1">Simulador de Investimento</h4>
+                                    <Badge variant="outline" className="bg-azul_bodiva-1/20 text-[10px] text-azul_bodiva-1 border-azul_bodiva-1/30">Backtesting</Badge>
+                                </div>
+
+                                {/* Simulation Controls */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                                    <div>
+                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Valor do Investimento (KZS)</label>
+                                        <Input
+                                            type="number"
+                                            value={investmentAmount}
+                                            onChange={(e) => setInvestmentAmount(Number(e.target.value))}
+                                            className="bg-white/10 border-white/20 text-white text-sm h-10"
+                                            placeholder="100.000"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Data de Investimento</label>
+                                        <Select value={investmentDate} onValueChange={setInvestmentDate}>
+                                            <SelectTrigger className="bg-white/10 border-white/20 text-white text-sm h-10">
+                                                <SelectValue placeholder="Selecionar data" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {dates.map(date => (
+                                                    <SelectItem key={date} value={date}>
+                                                        {new Date(date).toLocaleDateString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Ações para Simular</label>
+                                        <Select value={selectedSimStocks[0] || ''} onValueChange={(v) => setSelectedSimStocks(v ? [v] : [])}>
+                                            <SelectTrigger className="bg-white/10 border-white/20 text-white text-sm h-10">
+                                                <SelectValue placeholder="Selecionar ação" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {selectedData.filter(d => d.title_type?.toLowerCase().includes('acções')).slice(0, 20).map(d => (
+                                                    <SelectItem key={d.symbol} value={d.symbol}>{d.symbol} - {d.price.toFixed(2)} KZS</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                {/* Simulation Results */}
+                                {simulationResults ? (
+                                    <div className="space-y-4">
+                                        {/* Summary Cards */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                            <div className="bg-white/10 p-3 rounded-lg border border-white/10">
+                                                <p className="text-[10px] uppercase font-bold text-slate-400">Investimento Inicial</p>
+                                                <p className="text-lg font-black text-white">{simulationResults.totalInitial.toLocaleString('pt-AO')} KZS</p>
+                                            </div>
+                                            <div className="bg-white/10 p-3 rounded-lg border border-white/10">
+                                                <p className="text-[10px] uppercase font-bold text-slate-400">Valor Atual</p>
+                                                <p className="text-lg font-black text-white">{simulationResults.totalFinal.toLocaleString('pt-AO')} KZS</p>
+                                            </div>
+                                            <div className={`p-3 rounded-lg border ${simulationResults.totalProfit >= 0 ? 'bg-green-500/20 border-green-500/30' : 'bg-red-500/20 border-red-500/30'}`}>
+                                                <p className="text-[10px] uppercase font-bold text-slate-300">Lucro/Perda</p>
+                                                <p className={`text-lg font-black ${simulationResults.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                    {simulationResults.totalProfit >= 0 ? '+' : ''}{simulationResults.totalProfit.toLocaleString('pt-AO')} KZS
+                                                </p>
+                                            </div>
+                                            <div className={`p-3 rounded-lg border ${simulationResults.overallReturn >= 0 ? 'bg-green-500/20 border-green-500/30' : 'bg-red-500/20 border-red-500/30'}`}>
+                                                <p className="text-[10px] uppercase font-bold text-slate-300">Rentabilidade</p>
+                                                <p className={`text-lg font-black ${simulationResults.overallReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                    {simulationResults.overallReturn >= 0 ? '+' : ''}{simulationResults.overallReturn.toFixed(2)}%
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Individual Stock Results */}
+                                        <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
+                                            <Table>
+                                                <TableHeader className="bg-white/10">
+                                                    <TableRow className="hover:bg-transparent">
+                                                        <TableHead className="text-[10px] text-slate-400 py-2">Ação</TableHead>
+                                                        <TableHead className="text-[10px] text-slate-400 py-2 text-right">Data Ini.</TableHead>
+                                                        <TableHead className="text-[10px] text-slate-400 py-2 text-right">Preço Ini.</TableHead>
+                                                        <TableHead className="text-[10px] text-slate-400 py-2 text-right">Preço Atual</TableHead>
+                                                        <TableHead className="text-[10px] text-slate-400 py-2 text-right">Variação</TableHead>
+                                                        <TableHead className="text-[10px] text-slate-400 py-2 text-right">Dias</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {simulationResults.individual.map((result: any) => (
+                                                        <TableRow key={result.symbol} className="hover:bg-white/5">
+                                                            <TableCell className="py-2 font-bold text-white">{result.symbol}</TableCell>
+                                                            <TableCell className="py-2 text-right text-slate-300 text-xs">{new Date(result.startDate).toLocaleDateString('pt-AO')}</TableCell>
+                                                            <TableCell className="py-2 text-right text-slate-300 text-xs">{result.startPrice.toFixed(2)}</TableCell>
+                                                            <TableCell className="py-2 text-right text-slate-300 text-xs">{result.currentPrice.toFixed(2)}</TableCell>
+                                                            <TableCell className={`py-2 text-right font-bold ${result.priceChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                                {result.priceChange >= 0 ? '+' : ''}{result.priceChange.toFixed(2)}%
+                                                            </TableCell>
+                                                            <TableCell className="py-2 text-right text-slate-300 text-xs">{result.daysHeld}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+
+                                        <p className="text-[10px] text-slate-500 italic">
+                                            * Simulação baseada em dados históricos reais. Rentabilidade passada não garante resultados futuros.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-slate-400">
+                                        <Target className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                        <p className="text-sm">Selecione a data de investimento e uma ação para simular</p>
+                                    </div>
+                                )}
                             </TabsContent>
 
                             <TabsContent value="history" className="bg-slate-900 p-4 rounded-xl text-white space-y-4 border-none shadow-xl">
@@ -829,14 +1346,94 @@ export default function BodivaMarketData() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Symbol</TableHead>
-                                <TableHead>Tipologia</TableHead>
-                                <TableHead className="text-right">Preço</TableHead>
-                                <TableHead className="text-right">Variação</TableHead>
-                                <TableHead className="text-right">Nº Neg.</TableHead>
-                                <TableHead className="text-right">Quantidade</TableHead>
-                                <TableHead className="text-right">Montante</TableHead>
-                                <TableHead className="text-right">Quota</TableHead>
+                                <TableHead
+                                    className="cursor-pointer hover:bg-slate-100"
+                                    onClick={() => handleSort('symbol')}
+                                >
+                                    <span className="flex items-center gap-1">
+                                        Symbol
+                                        {sortConfig?.key === 'symbol' ? (
+                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                        ) : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+                                    </span>
+                                </TableHead>
+                                <TableHead
+                                    className="cursor-pointer hover:bg-slate-100"
+                                    onClick={() => handleSort('title_type')}
+                                >
+                                    <span className="flex items-center gap-1">
+                                        Tipologia
+                                        {sortConfig?.key === 'title_type' ? (
+                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                        ) : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+                                    </span>
+                                </TableHead>
+                                <TableHead
+                                    className="text-right cursor-pointer hover:bg-slate-100"
+                                    onClick={() => handleSort('price')}
+                                >
+                                    <span className="flex items-center justify-end gap-1">
+                                        Preço
+                                        {sortConfig?.key === 'price' ? (
+                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                        ) : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+                                    </span>
+                                </TableHead>
+                                <TableHead
+                                    className="text-right cursor-pointer hover:bg-slate-100"
+                                    onClick={() => handleSort('variation')}
+                                >
+                                    <span className="flex items-center justify-end gap-1">
+                                        Variação
+                                        {sortConfig?.key === 'variation' ? (
+                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                        ) : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+                                    </span>
+                                </TableHead>
+                                <TableHead
+                                    className="text-right cursor-pointer hover:bg-slate-100"
+                                    onClick={() => handleSort('num_trades')}
+                                >
+                                    <span className="flex items-center justify-end gap-1">
+                                        Nº Neg.
+                                        {sortConfig?.key === 'num_trades' ? (
+                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                        ) : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+                                    </span>
+                                </TableHead>
+                                <TableHead
+                                    className="text-right cursor-pointer hover:bg-slate-100"
+                                    onClick={() => handleSort('quantity')}
+                                >
+                                    <span className="flex items-center justify-end gap-1">
+                                        Quantidade
+                                        {sortConfig?.key === 'quantity' ? (
+                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                        ) : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+                                    </span>
+                                </TableHead>
+                                <TableHead
+                                    className="text-right cursor-pointer hover:bg-slate-100"
+                                    onClick={() => handleSort('amount')}
+                                >
+                                    <span className="flex items-center justify-end gap-1">
+                                        Montante
+                                        {sortConfig?.key === 'amount' ? (
+                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                        ) : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+                                    </span>
+                                </TableHead>
+                                <TableHead
+                                    className="text-right cursor-pointer hover:bg-slate-100"
+                                    onClick={() => handleSort('amount')}
+                                >
+                                    <span className="flex items-center justify-end gap-1">
+                                        Quota
+                                        {sortConfig?.key === 'amount' ? (
+                                            sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                        ) : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+                                    </span>
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
