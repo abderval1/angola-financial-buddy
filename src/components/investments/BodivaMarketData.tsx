@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { ReferenceLine, Label } from 'recharts';
 import { Checkbox } from '@/components/ui/checkbox';
+import { CandlestickChart } from '@/components/ui/CandlestickChart';
 import {
     BarChart,
     Bar,
@@ -1550,152 +1551,19 @@ export default function BodivaMarketData() {
                             </div>
 
                             <Card className="border-none shadow-none bg-transparent">
-                                <div className="h-[450px] w-full pt-4">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <ComposedChart data={historicalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
-                                            <defs>
-                                                <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#0284c7" stopOpacity={0.3} />
-                                                    <stop offset="95%" stopColor="#0284c7" stopOpacity={0} />
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
-                                            <XAxis
-                                                dataKey="date"
-                                                fontSize={10}
-                                                axisLine={false}
-                                                tickLine={false}
-                                                minTickGap={30}
-                                            />
-                                            <YAxis
-                                                yAxisId="price"
-                                                orientation="right"
-                                                fontSize={10}
-                                                axisLine={false}
-                                                tickLine={false}
-                                                domain={['auto', 'auto']}
-                                                tickFormatter={(value) => value.toLocaleString('pt-AO')}
-                                            />
-                                            <YAxis
-                                                yAxisId="volume"
-                                                orientation="left"
-                                                fontSize={10}
-                                                axisLine={false}
-                                                tickLine={false}
-                                                hide
-                                            />
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                                formatter={(value: any, name: string, props: any) => {
-                                                    const isForecast = props.payload.isForecast;
-                                                    const prefix = isForecast ? '[PREVISÃO] ' : '';
-                                                    const titleType = props.payload.title_type || '';
-
-                                                    if (name === 'price') {
-                                                        const isShare = titleType.toLowerCase().includes('acções') || titleType.toLowerCase().includes('acces');
-                                                        return [value.toLocaleString('pt-AO') + (isShare ? ' AOA' : ' %'), prefix + 'Preço'];
-                                                    }
-                                                    if (name === 'forecast') return [value.toLocaleString('pt-AO') + ' AOA', 'Projecção IA'];
-                                                    if (name === 'sma5') return [value?.toFixed(2) + ' AOA', 'SMA (5)'];
-                                                    if (name === 'ema9') return [value?.toFixed(2) + ' AOA', 'EMA (9)'];
-                                                    if (name === 'ema21') return [value?.toFixed(2) + ' AOA', 'EMA (21)'];
-                                                    if (name === 'volume') return [value ? value.toLocaleString('pt-AO') + ' AOA' : '---', 'Volume'];
-                                                    return [value, name];
-                                                }}
-                                            />
-                                            <Legend verticalAlign="top" height={36} iconType="circle" />
-
-                                            {indicators.supportResistance && levels.resistance && (
-                                                <ReferenceLine
-                                                    yAxisId="price"
-                                                    y={levels.resistance}
-                                                    stroke="#ef4444"
-                                                    strokeDasharray="3 3"
-                                                    label={{ value: 'RESISTÊNCIA', position: 'insideTopRight', fill: '#ef4444', fontSize: 10, fontWeight: 'bold' }}
-                                                />
-                                            )}
-                                            {indicators.supportResistance && levels.support && (
-                                                <ReferenceLine
-                                                    yAxisId="price"
-                                                    y={levels.support}
-                                                    stroke="#22c55e"
-                                                    strokeDasharray="3 3"
-                                                    label={{ value: 'SUPORTE', position: 'insideBottomRight', fill: '#22c55e', fontSize: 10, fontWeight: 'bold' }}
-                                                />
-                                            )}
-
-                                            <Bar
-                                                yAxisId="volume"
-                                                dataKey="volume"
-                                                fill="#94a3b8"
-                                                opacity={0.2}
-                                                barSize={30}
-                                                name="volume"
-                                            />
-
-                                            <Area
-                                                yAxisId="price"
-                                                type="monotone"
-                                                dataKey="price"
-                                                stroke="#0284c7"
-                                                strokeWidth={2}
-                                                fillOpacity={1}
-                                                fill="url(#colorPrice)"
-                                                name="price"
-                                            />
-
-                                            {indicators.sma5 && (
-                                                <Line
-                                                    yAxisId="price"
-                                                    type="monotone"
-                                                    dataKey="sma5"
-                                                    stroke="#f59e0b"
-                                                    strokeWidth={2}
-                                                    dot={false}
-                                                    strokeDasharray="5 5"
-                                                    name="sma5"
-                                                />
-                                            )}
-
-                                            {indicators.ema9 && (
-                                                <Line
-                                                    yAxisId="price"
-                                                    type="monotone"
-                                                    dataKey="ema9"
-                                                    stroke="#0284c7"
-                                                    strokeWidth={2}
-                                                    dot={false}
-                                                    name="ema9"
-                                                />
-                                            )}
-
-                                            {indicators.ema21 && (
-                                                <Line
-                                                    yAxisId="price"
-                                                    type="monotone"
-                                                    dataKey="ema21"
-                                                    stroke="#7c3aed"
-                                                    strokeWidth={2}
-                                                    dot={false}
-                                                    name="ema21"
-                                                />
-                                            )}
-
-                                            {indicators.forecast && (
-                                                <Line
-                                                    yAxisId="price"
-                                                    type="monotone"
-                                                    dataKey="forecast"
-                                                    stroke="#0072CE"
-                                                    strokeWidth={3}
-                                                    strokeDasharray="5 5"
-                                                    dot={false}
-                                                    name="forecast"
-                                                    connectNulls
-                                                />
-                                            )}
-                                        </ComposedChart>
-                                    </ResponsiveContainer>
+                                <div className="h-[500px] w-full pt-4">
+                                    <CandlestickChart
+                                        data={filteredHistoricalData.map(d => ({
+                                            time: d.data_date,
+                                            open: d.open,
+                                            high: d.high,
+                                            low: d.low,
+                                            close: d.close,
+                                            volume: d.num_trades
+                                        }))}
+                                        symbol={selectedSymbol || ''}
+                                        indicators={indicators}
+                                    />
                                 </div>
                             </Card>
 
@@ -1736,7 +1604,7 @@ export default function BodivaMarketData() {
                                     </p>
                                 </div>
                             </div>
-                        </div>
+                        </div >
                     ) : selectedSymbol ? (
                         <div className="p-8 text-center bg-muted/20 rounded-xl border border-dashed mt-6">
                             <p className="text-muted-foreground">A carregar dados históricos para {selectedSymbol}...</p>
@@ -1748,9 +1616,10 @@ export default function BodivaMarketData() {
                                 Clique num título na tabela acima para abrir a **Análise Técnica Pro**
                             </p>
                         </div>
-                    )}
-                </div>
-            </CardContent>
-        </Card>
+                    )
+                    }
+                </div >
+            </CardContent >
+        </Card >
     );
 }
