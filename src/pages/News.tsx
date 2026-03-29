@@ -532,23 +532,35 @@ export default function News() {
         description="Fique por dentro do mercado angolano com notícias exclusivas, análises de bancos e atualizações de impostos em tempo real."
       >
         <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
-            <TabsTrigger value="news" className="gap-2">
-              <Newspaper className="h-4 w-4" /> Notícias
-            </TabsTrigger>
-            <TabsTrigger value="indicators" className="gap-2">
-              <BarChart3 className="h-4 w-4" /> Indicadores
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="gap-2">
-              <FileText className="h-4 w-4" /> Relatórios
-            </TabsTrigger>
-            <TabsTrigger value="orderbook" className="gap-2">
-              <FileSpreadsheet className="h-4 w-4" /> Livro de Ordens
-            </TabsTrigger>
-            <TabsTrigger value="bodiva" className="gap-2">
-              <BarChart3 className="h-4 w-4" /> Dados Mercado
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-4 px-4 mb-6 sm:mb-8">
+            <TabsList className="flex w-max min-w-full sm:w-full sm:grid sm:grid-cols-5 gap-1">
+              <TabsTrigger value="news" className="gap-1.5 whitespace-nowrap rounded-lg">
+                <Newspaper className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Notícias</span>
+                <span className="sm:hidden">Notícias</span>
+              </TabsTrigger>
+              <TabsTrigger value="indicators" className="gap-1.5 whitespace-nowrap rounded-lg">
+                <BarChart3 className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Indicadores</span>
+                <span className="sm:hidden">Índices</span>
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="gap-1.5 whitespace-nowrap rounded-lg">
+                <FileText className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Relatórios</span>
+                <span className="sm:hidden">Relatórios</span>
+              </TabsTrigger>
+              <TabsTrigger value="orderbook" className="gap-1.5 whitespace-nowrap rounded-lg">
+                <FileSpreadsheet className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Livro de Ordens</span>
+                <span className="sm:hidden">Ordens</span>
+              </TabsTrigger>
+              <TabsTrigger value="bodiva" className="gap-1.5 whitespace-nowrap rounded-lg">
+                <BarChart3 className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Dados Mercado</span>
+                <span className="sm:hidden">Mercado</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="news" className="space-y-6">
             <div className="flex flex-col sm:flex-row gap-4">

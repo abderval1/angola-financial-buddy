@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { TrendingUp, TrendingDown, RefreshCw, BarChart3, Calendar, Lightbulb, Users, Shield, Zap, Info, PieChart as PieChartIcon, ExternalLink, LineChart, Activity, Target, Percent, Search, ChevronDown, Filter, Settings2, Eye, EyeOff, Clock, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, RefreshCw, BarChart3, Calendar, Lightbulb, Users, Shield, Zap, Info, PieChart as PieChartIcon, ExternalLink, LineChart, Activity, Target, Percent, Search, ChevronDown, Filter, Settings2, Eye, EyeOff, Clock, ArrowUpDown, ArrowUp, ArrowDown, Newspaper, Image } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useBodivaLastUpdate } from '@/hooks/useBodivaLastUpdate';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { ReferenceLine, Label } from 'recharts';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CandlestickChart } from '@/components/ui/CandlestickChart';
 import {
     BarChart,
     Bar,
@@ -42,6 +41,7 @@ interface BodivaMarketData {
     quantity: number;
     amount: number;
     created_at: string;
+    image_url?: string;
 }
 
 export default function BodivaMarketData() {
@@ -129,47 +129,8 @@ export default function BodivaMarketData() {
 
     // Calculate summary for selected date
     const selectedData = selectedDate ? groupedByDate[selectedDate] || [] : [];
-    const totalVolume = selectedData.reduce((sum, item) => sum + item.amount, 0);
-    const totalTrades = selectedData.reduce((sum, item) => sum + item.num_trades, 0);
-    const totalQuantity = selectedData.reduce((sum, item) => sum + item.quantity, 0);
-    const gainers = selectedData.filter(item => item.variation > 0).length;
-    const losers = selectedData.filter(item => item.variation < 0).length;
 
-    // Top Lists
-    const top5Gainers = [...selectedData]
-        .filter(item => item.variation > 0)
-        .sort((a, b) => b.variation - a.variation)
-        .slice(0, 5);
-
-    const top5Losers = [...selectedData]
-        .filter(item => item.variation < 0)
-        .sort((a, b) => a.variation - b.variation)
-        .slice(0, 5);
-
-    const top5Volume = [...selectedData]
-        .sort((a, b) => b.amount - a.amount)
-        .slice(0, 5);
-
-    // Segment Analysis
-    const segments = useMemo(() => {
-        const grouped = selectedData.reduce((acc, item) => {
-            const type = item.title_type;
-            if (!acc[type]) {
-                acc[type] = { name: type, amount: 0, trades: 0, quantity: 0, count: 0 };
-            }
-            acc[type].amount += item.amount;
-            acc[type].trades += item.num_trades;
-            acc[type].quantity += item.quantity;
-            acc[type].count += 1;
-            return acc;
-        }, {} as Record<string, { name: string, amount: number, trades: number, quantity: number, count: number }>);
-
-        return Object.values(grouped).sort((a, b) => b.amount - a.amount);
-    }, [selectedData]);
-
-    const avgTradeSize = totalTrades > 0 ? totalVolume / totalTrades : 0;
-
-    // Get unique tipologias for filter
+    // Get unique tipologias for filter (from selectedData, not filteredData)
     const uniqueTipologias = useMemo(() => {
         const types = new Set(selectedData.map(item => item.title_type));
         return Array.from(types).sort();
@@ -211,6 +172,47 @@ export default function BodivaMarketData() {
 
         return data;
     }, [selectedData, searchTerm, tipologiaFilter, sortConfig]);
+
+    // Calculate summary from filtered data
+    const totalVolume = filteredData.reduce((sum, item) => sum + item.amount, 0);
+    const totalTrades = filteredData.reduce((sum, item) => sum + item.num_trades, 0);
+    const totalQuantity = filteredData.reduce((sum, item) => sum + item.quantity, 0);
+    const gainers = filteredData.filter(item => item.variation > 0).length;
+    const losers = filteredData.filter(item => item.variation < 0).length;
+
+    // Top Lists
+    const top5Gainers = [...filteredData]
+        .filter(item => item.variation > 0)
+        .sort((a, b) => b.variation - a.variation)
+        .slice(0, 5);
+
+    const top5Losers = [...filteredData]
+        .filter(item => item.variation < 0)
+        .sort((a, b) => a.variation - b.variation)
+        .slice(0, 5);
+
+    const top5Volume = [...filteredData]
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 5);
+
+    // Segment Analysis
+    const segments = useMemo(() => {
+        const grouped = filteredData.reduce((acc, item) => {
+            const type = item.title_type;
+            if (!acc[type]) {
+                acc[type] = { name: type, amount: 0, trades: 0, quantity: 0, count: 0 };
+            }
+            acc[type].amount += item.amount;
+            acc[type].trades += item.num_trades;
+            acc[type].quantity += item.quantity;
+            acc[type].count += 1;
+            return acc;
+        }, {} as Record<string, { name: string, amount: number, trades: number, quantity: number, count: number }>);
+
+        return Object.values(grouped).sort((a, b) => b.amount - a.amount);
+    }, [filteredData]);
+
+    const avgTradeSize = totalTrades > 0 ? totalVolume / totalTrades : 0;
 
     // Handle sort
     const handleSort = (key: string) => {
@@ -790,7 +792,7 @@ export default function BodivaMarketData() {
                 </div>
 
                 {/* Summary Stats */}
-                {selectedData.length > 0 && (
+                {filteredData.length > 0 && (
                     <div className="space-y-6">
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                             <div className="bg-azul_bodiva-1/5 border border-azul_bodiva-1/10 rounded-xl p-4 shadow-sm">
@@ -805,26 +807,22 @@ export default function BodivaMarketData() {
                             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm">
                                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-1">Nº Negócios</p>
                                 <p className="text-xl font-black text-slate-800">{totalTrades.toLocaleString('pt-AO')}</p>
-                                <p className="text-[10px] text-muted-foreground mt-1">Ticket Médio: {avgTradeSize.toLocaleString('pt-AO', { maximumFractionDigits: 0 })} AOA</p>
                             </div>
                             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm">
                                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-1">Quantidade</p>
                                 <p className="text-xl font-black text-slate-800">{totalQuantity.toLocaleString('pt-AO')}</p>
-                                <p className="text-[10px] text-muted-foreground mt-1">{selectedData.length} Títulos Activos</p>
                             </div>
-                            <div className="bg-green-50 border border-green-100 rounded-xl p-4 shadow-sm">
-                                <p className="text-[10px] uppercase tracking-wider text-green-700 font-bold mb-1 flex items-center gap-1">
-                                    <TrendingUp className="h-3 w-3" /> Altas
-                                </p>
+                            <div className="bg-green-50 border border-green-200 rounded-xl p-4 shadow-sm">
+                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-1">Altas</p>
                                 <p className="text-xl font-black text-green-600">{gainers}</p>
-                                <p className="text-[10px] text-green-600/70 mt-1">{((gainers / selectedData.length) * 100).toFixed(0)}% do Mercado</p>
+                                <p className="text-[10px] text-green-600/70 mt-1">{((gainers / filteredData.length) * 100).toFixed(0)}% do Mercado</p>
                             </div>
                             <div className="bg-red-50 border border-red-100 rounded-xl p-4 shadow-sm">
                                 <p className="text-[10px] uppercase tracking-wider text-red-700 font-bold mb-1 flex items-center gap-1">
                                     <TrendingDown className="h-3 w-3" /> Baixas
                                 </p>
                                 <p className="text-xl font-black text-red-600">{losers}</p>
-                                <p className="text-[10px] text-red-600/70 mt-1">{((losers / selectedData.length) * 100).toFixed(0)}% do Mercado</p>
+                                <p className="text-[10px] text-red-600/70 mt-1">{((losers / filteredData.length) * 100).toFixed(0)}% do Mercado</p>
                             </div>
                         </div>
 
@@ -995,41 +993,43 @@ export default function BodivaMarketData() {
                 )}
 
                 {/* Market Insights Section */}
-                {selectedData.length > 0 && (
+                {filteredData.length > 0 && (
                     <div className="space-y-4 pt-4 border-t">
-                        <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                             <div className="flex items-center gap-2">
                                 <Lightbulb className="h-5 w-5 text-amber-500" />
                                 <h3 className="font-bold text-lg">Análise de Mercado Exploratória</h3>
                             </div>
-                            <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-1 flex items-center gap-2">
+                            <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5 flex items-center gap-2">
                                 <Target className="h-4 w-4 text-amber-600" />
                                 <span className="text-xs font-bold text-amber-800">Concentração: {marketConcentration.toFixed(1)}%</span>
-                                <span className="text-[10px] text-amber-600 hidden md:block">(Top 3 Títulos)</span>
+                                <span className="text-[10px] text-amber-600 hidden sm:inline">(Top 3 Títulos)</span>
                             </div>
                         </div>
 
                         <Tabs defaultValue="layman" className="w-full">
-                            <TabsList className="grid grid-cols-6 mb-4">
-                                <TabsTrigger value="layman" className="text-xs flex items-center gap-1">
-                                    <Info className="h-3 w-3" /> Leigo
-                                </TabsTrigger>
-                                <TabsTrigger value="conservative" className="text-xs flex items-center gap-1">
-                                    <Shield className="h-3 w-3" /> Conservador
-                                </TabsTrigger>
-                                <TabsTrigger value="aggressive" className="text-xs flex items-center gap-1">
-                                    <Zap className="h-3 w-3" /> Agressivo
-                                </TabsTrigger>
-                                <TabsTrigger value="segments" className="text-xs flex items-center gap-1">
-                                    <BarChart3 className="h-3 w-3" /> Segmentos
-                                </TabsTrigger>
-                                <TabsTrigger value="simulator" className="text-xs flex items-center gap-1">
-                                    <Target className="h-3 w-3" /> Simulador
-                                </TabsTrigger>
-                                <TabsTrigger value="history" className="text-xs flex items-center gap-1">
-                                    <LineChart className="h-3 w-3 text-azul_bodiva-1" /> Mercado Pro
-                                </TabsTrigger>
-                            </TabsList>
+                            <div className="overflow-x-auto -mx-2 px-2 mb-4">
+                                <TabsList className="flex w-max min-w-full gap-1">
+                                    <TabsTrigger value="layman" className="text-xs flex items-center gap-1 px-3 py-2 whitespace-nowrap rounded-lg">
+                                        <Info className="h-3 w-3 shrink-0" /> Leigo
+                                    </TabsTrigger>
+                                    <TabsTrigger value="conservative" className="text-xs flex items-center gap-1 px-3 py-2 whitespace-nowrap rounded-lg">
+                                        <Shield className="h-3 w-3 shrink-0" /> Conservador
+                                    </TabsTrigger>
+                                    <TabsTrigger value="aggressive" className="text-xs flex items-center gap-1 px-3 py-2 whitespace-nowrap rounded-lg">
+                                        <Zap className="h-3 w-3 shrink-0" /> Agressivo
+                                    </TabsTrigger>
+                                    <TabsTrigger value="segments" className="text-xs flex items-center gap-1 px-3 py-2 whitespace-nowrap rounded-lg">
+                                        <BarChart3 className="h-3 w-3 shrink-0" /> Segmentos
+                                    </TabsTrigger>
+                                    <TabsTrigger value="simulator" className="text-xs flex items-center gap-1 px-3 py-2 whitespace-nowrap rounded-lg">
+                                        <Target className="h-3 w-3 shrink-0" /> Simulador
+                                    </TabsTrigger>
+                                    <TabsTrigger value="history" className="text-xs flex items-center gap-1 px-3 py-2 whitespace-nowrap rounded-lg">
+                                        <LineChart className="h-3 w-3 shrink-0 text-azul_bodiva-1" /> Mercado Pro
+                                    </TabsTrigger>
+                                </TabsList>
+                            </div>
 
                             <TabsContent value="layman" className="bg-slate-50 p-4 rounded-xl text-sm space-y-3 border border-slate-200">
                                 <p className="font-black text-azul_bodiva-1 flex items-center gap-2">
@@ -1079,7 +1079,7 @@ export default function BodivaMarketData() {
                                 <div className="grid grid-cols-2 gap-3 mt-2">
                                     <div className="bg-green-50 p-3 rounded-lg border border-green-100">
                                         <p className="text-[10px] uppercase font-bold text-green-700">Breadth (Largura)</p>
-                                        <p className="text-lg font-black text-green-800">{(gainers / selectedData.length * 100).toFixed(0)}% Altas</p>
+                                        <p className="text-lg font-black text-green-800">{(gainers / filteredData.length * 100).toFixed(0)}% Altas</p>
                                     </div>
                                     <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
                                         <p className="text-[10px] uppercase font-bold text-blue-700">Ticket Médio</p>
@@ -1275,7 +1275,7 @@ export default function BodivaMarketData() {
                 )}
 
                 {/* Visualizations Section */}
-                {selectedData.length > 0 && (
+                {filteredData.length > 0 && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-6 border-t">
                         <Card className="border-slate-200">
                             <CardHeader className="py-4">
@@ -1347,6 +1347,11 @@ export default function BodivaMarketData() {
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="text-center p-0 w-16">
+                                    <span className="flex items-center justify-center">
+                                        <Image className="h-4 w-4 text-muted-foreground" />
+                                    </span>
+                                </TableHead>
                                 <TableHead
                                     className="cursor-pointer hover:bg-slate-100"
                                     onClick={() => handleSort('symbol')}
@@ -1444,6 +1449,115 @@ export default function BodivaMarketData() {
                                     className="cursor-pointer hover:bg-primary/5 transition-colors group"
                                     onClick={() => handleSymbolClick(item.symbol)}
                                 >
+                                    <TableCell className="p-0 w-16">
+                                        {item.image_url ? (
+                                            <img
+                                                src={item.image_url}
+                                                alt={item.symbol}
+                                                className="w-14 h-10 rounded object-contain"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : item.symbol.toUpperCase().startsWith('BFA') ? (
+                                            <img
+                                                src="https://www.bfa.ao/images/logos/logo-mobile.svg"
+                                                alt="BFA"
+                                                className="w-14 h-10 rounded object-contain"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : item.symbol.toUpperCase().startsWith('BAI') ? (
+                                            <img
+                                                src="/logos/bai.svg"
+                                                alt="BAI"
+                                                className="w-14 h-10 rounded object-contain"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : item.symbol.toUpperCase().startsWith('BCGA') ? (
+                                            <img
+                                                src="https://www.caixaangola.ao/images/logo-horizontal.svg"
+                                                alt="BCGA"
+                                                className="w-14 h-10 rounded object-contain"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : item.symbol.toUpperCase().startsWith('ENS') ? (
+                                            <img
+                                                src="https://cms.minfin.gov.ao/api/assets/portal-minfin/dcd97baa-bdf2-43ac-ad83-8732b923349b/"
+                                                alt="ENSA"
+                                                className="w-14 h-10 rounded object-contain"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : item.symbol.toUpperCase().startsWith('BDV') ? (
+                                            <img
+                                                src="https://www.bodiva.ao/_next/image?url=%2Fmedia%2Fgaleria-de-fotos%2Fca%2Fpasta3%2FLOGO%20PNG.png&w=1920&q=75"
+                                                alt="BODIVA"
+                                                className="w-14 h-10 rounded object-contain"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : item.symbol.toUpperCase().startsWith('SNL') ? (
+                                            <img
+                                                src="https://www.sonangol.co.ao/wp-content/uploads/2022/06/Sonangol_Logo_Horizontal_Preto4_Footer-2.png"
+                                                alt="Sonangol"
+                                                className="w-14 h-10 rounded object-contain"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : item.symbol.toUpperCase().startsWith('STD') ? (
+                                            <img
+                                                src="https://www.africa-energy.com/storage/55729/conversions/Standard-Bank-sponsor-max_width.jpg"
+                                                alt="Standard Bank"
+                                                className="w-14 h-10 rounded object-contain"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : item.title_type && item.title_type.toUpperCase().startsWith('OT-') ? (
+                                            <img
+                                                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRhkP0fOfJSEr6pAfKwNcxxrA5IBrHadCEVrg&s"
+                                                alt="OT"
+                                                className="w-14 h-10 rounded object-contain"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : item.title_type && item.title_type.toUpperCase().startsWith('BT-') ? (
+                                            <img
+                                                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpg_ZX44NGgtqFRaX3y-30n8gdeMgBl8Zg1A&s"
+                                                alt="BT"
+                                                className="w-14 h-10 rounded object-contain"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : (
+                                            <div className="w-14 h-10 rounded bg-slate-200 flex items-center justify-center">
+                                                <span className="text-[8px] font-bold text-slate-500">
+                                                    {item.symbol.substring(0, 2)}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </TableCell>
                                     <TableCell className="font-medium flex items-center gap-2">
                                         {item.symbol}
                                         <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
@@ -1551,19 +1665,152 @@ export default function BodivaMarketData() {
                             </div>
 
                             <Card className="border-none shadow-none bg-transparent">
-                                <div className="h-[500px] w-full pt-4">
-                                    <CandlestickChart
-                                        data={filteredHistoricalData.map(d => ({
-                                            time: d.data_date,
-                                            open: d.open,
-                                            high: d.high,
-                                            low: d.low,
-                                            close: d.close,
-                                            volume: d.num_trades
-                                        }))}
-                                        symbol={selectedSymbol || ''}
-                                        indicators={indicators}
-                                    />
+                                <div className="h-[450px] w-full pt-4">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <ComposedChart data={historicalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                                            <defs>
+                                                <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#0284c7" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="#0284c7" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
+                                            <XAxis
+                                                dataKey="date"
+                                                fontSize={10}
+                                                axisLine={false}
+                                                tickLine={false}
+                                                minTickGap={30}
+                                            />
+                                            <YAxis
+                                                yAxisId="price"
+                                                orientation="right"
+                                                fontSize={10}
+                                                axisLine={false}
+                                                tickLine={false}
+                                                domain={['auto', 'auto']}
+                                                tickFormatter={(value) => value.toLocaleString('pt-AO')}
+                                            />
+                                            <YAxis
+                                                yAxisId="volume"
+                                                orientation="left"
+                                                fontSize={10}
+                                                axisLine={false}
+                                                tickLine={false}
+                                                hide
+                                            />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                                formatter={(value: any, name: string, props: any) => {
+                                                    const isForecast = props.payload.isForecast;
+                                                    const prefix = isForecast ? '[PREVISÃO] ' : '';
+                                                    const titleType = props.payload.title_type || '';
+
+                                                    if (name === 'price') {
+                                                        const isShare = titleType.toLowerCase().includes('acções') || titleType.toLowerCase().includes('acces');
+                                                        return [value.toLocaleString('pt-AO') + (isShare ? ' AOA' : ' %'), prefix + 'Preço'];
+                                                    }
+                                                    if (name === 'forecast') return [value.toLocaleString('pt-AO') + ' AOA', 'Projecção IA'];
+                                                    if (name === 'sma5') return [value?.toFixed(2) + ' AOA', 'SMA (5)'];
+                                                    if (name === 'ema9') return [value?.toFixed(2) + ' AOA', 'EMA (9)'];
+                                                    if (name === 'ema21') return [value?.toFixed(2) + ' AOA', 'EMA (21)'];
+                                                    if (name === 'volume') return [value ? value.toLocaleString('pt-AO') + ' AOA' : '---', 'Volume'];
+                                                    return [value, name];
+                                                }}
+                                            />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+
+                                            {indicators.supportResistance && levels.resistance && (
+                                                <ReferenceLine
+                                                    yAxisId="price"
+                                                    y={levels.resistance}
+                                                    stroke="#ef4444"
+                                                    strokeDasharray="3 3"
+                                                    label={{ value: 'RESISTÊNCIA', position: 'insideTopRight', fill: '#ef4444', fontSize: 10, fontWeight: 'bold' }}
+                                                />
+                                            )}
+                                            {indicators.supportResistance && levels.support && (
+                                                <ReferenceLine
+                                                    yAxisId="price"
+                                                    y={levels.support}
+                                                    stroke="#22c55e"
+                                                    strokeDasharray="3 3"
+                                                    label={{ value: 'SUPORTE', position: 'insideBottomRight', fill: '#22c55e', fontSize: 10, fontWeight: 'bold' }}
+                                                />
+                                            )}
+
+                                            <Bar
+                                                yAxisId="volume"
+                                                dataKey="volume"
+                                                fill="#94a3b8"
+                                                opacity={0.2}
+                                                barSize={30}
+                                                name="volume"
+                                            />
+
+                                            <Area
+                                                yAxisId="price"
+                                                type="monotone"
+                                                dataKey="price"
+                                                stroke="#0284c7"
+                                                strokeWidth={2}
+                                                fillOpacity={1}
+                                                fill="url(#colorPrice)"
+                                                name="price"
+                                            />
+
+                                            {indicators.sma5 && (
+                                                <Line
+                                                    yAxisId="price"
+                                                    type="monotone"
+                                                    dataKey="sma5"
+                                                    stroke="#f59e0b"
+                                                    strokeWidth={2}
+                                                    dot={false}
+                                                    strokeDasharray="5 5"
+                                                    name="sma5"
+                                                />
+                                            )}
+
+                                            {indicators.ema9 && (
+                                                <Line
+                                                    yAxisId="price"
+                                                    type="monotone"
+                                                    dataKey="ema9"
+                                                    stroke="#0284c7"
+                                                    strokeWidth={2}
+                                                    dot={false}
+                                                    name="ema9"
+                                                />
+                                            )}
+
+                                            {indicators.ema21 && (
+                                                <Line
+                                                    yAxisId="price"
+                                                    type="monotone"
+                                                    dataKey="ema21"
+                                                    stroke="#7c3aed"
+                                                    strokeWidth={2}
+                                                    dot={false}
+                                                    name="ema21"
+                                                />
+                                            )}
+
+                                            {indicators.forecast && (
+                                                <Line
+                                                    yAxisId="price"
+                                                    type="monotone"
+                                                    dataKey="forecast"
+                                                    stroke="#0072CE"
+                                                    strokeWidth={3}
+                                                    strokeDasharray="5 5"
+                                                    dot={false}
+                                                    name="forecast"
+                                                    connectNulls
+                                                />
+                                            )}
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
                                 </div>
                             </Card>
 
@@ -1604,7 +1851,7 @@ export default function BodivaMarketData() {
                                     </p>
                                 </div>
                             </div>
-                        </div >
+                        </div>
                     ) : selectedSymbol ? (
                         <div className="p-8 text-center bg-muted/20 rounded-xl border border-dashed mt-6">
                             <p className="text-muted-foreground">A carregar dados históricos para {selectedSymbol}...</p>
@@ -1616,10 +1863,9 @@ export default function BodivaMarketData() {
                                 Clique num título na tabela acima para abrir a **Análise Técnica Pro**
                             </p>
                         </div>
-                    )
-                    }
-                </div >
-            </CardContent >
-        </Card >
+                    )}
+                </div>
+            </CardContent>
+        </Card>
     );
 }
