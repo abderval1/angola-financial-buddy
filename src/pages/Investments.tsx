@@ -53,14 +53,14 @@ interface Investment {
 }
 
 const INVESTMENT_TYPES = [
-    { value: 'Poupança', label: 'Poupança', icon: '🏦', color: 'hsl(160 84% 39%)' },
-    { value: 'deposito_prazo', label: 'Depósito a Prazo', icon: '💰', color: 'hsl(200 90% 45%)' },
-    { value: 'Obrigações', label: 'Obrigações', icon: '📋', color: 'hsl(270 60% 55%)' },
-    { value: 'acoes', label: 'Ações', icon: '📈', color: 'hsl(25 95% 53%)' },
-    { value: 'fundos', label: 'Fundos', icon: '📊', color: 'hsl(340 75% 55%)' },
-    { value: 'Imobiliário', label: 'Imobiliário', icon: '🏠', color: 'hsl(45 93% 47%)' },
-    { value: 'cripto', label: 'Cripto', icon: '₿', color: 'hsl(30 100% 50%)' },
-    { value: 'outro', label: 'Outro', icon: '📁', color: 'hsl(220 10% 45%)' },
+    { value: 'Poupança', label: 'Poupança', color: 'hsl(160 84% 39%)' },
+    { value: 'deposito_prazo', label: 'Depósito a Prazo', color: 'hsl(200 90% 45%)' },
+    { value: 'Obrigações', label: 'Obrigações', color: 'hsl(270 60% 55%)' },
+    { value: 'acoes', label: 'Ações', color: 'hsl(25 95% 53%)' },
+    { value: 'fundos', label: 'Fundos', color: 'hsl(340 75% 55%)' },
+    { value: 'Imobiliário', label: 'Imobiliário', color: 'hsl(45 93% 47%)' },
+    { value: 'cripto', label: 'Cripto', color: 'hsl(30 100% 50%)' },
+    { value: 'outro', label: 'Outro', color: 'hsl(220 10% 45%)' },
 ];
 
 const RISK_LEVELS = [
