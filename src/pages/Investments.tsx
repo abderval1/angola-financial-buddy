@@ -1194,15 +1194,20 @@ export default function Investments() {
                                 </div>
                             )}
 
-                            {/* Investment List - Recent 5 */}
+                            {/* Investment List - Recent 5 or All */}
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between">
-                                    <CardTitle className="text-lg">{t("Últimos Investimentos")}</CardTitle>
+                                    <CardTitle className="text-lg">{activeView === "details" ? t("Todos os Investimentos") : t("Últimos Investimentos")}</CardTitle>
                                     <div className="flex gap-2">
-                                        {investments.length > 5 && (
+                                        {activeView === "home" && investments.length > 5 && (
                                             <Button variant="outline" size="sm" onClick={() => setActiveView("details")}>
                                                 {t("Ver todos")}
                                                 <ChevronRight className="h-4 w-4 ml-1" />
+                                            </Button>
+                                        )}
+                                        {activeView === "details" && (
+                                            <Button variant="outline" size="sm" onClick={() => setActiveView("home")}>
+                                                {t("Voltar")}
                                             </Button>
                                         )}
                                         <Button variant="accent" size="sm" onClick={() => setDialogOpen(true)}>
@@ -1232,7 +1237,7 @@ export default function Investments() {
                                                     const dateB = b.start_date ? new Date(b.start_date).getTime() : 0;
                                                     return dateB - dateA;
                                                 })
-                                                .slice(0, 5)
+                                                .slice(0, activeView === "details" ? investments.length : 5)
                                                 .map((investment) => {
                                                     const typeInfo = getTypeInfo(investment.type);
                                                     const riskInfo = getRiskInfo(investment.risk_level);
