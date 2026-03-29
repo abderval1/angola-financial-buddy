@@ -534,6 +534,11 @@ export default function News() {
         <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
           <div className="overflow-x-auto -mx-4 px-4 mb-6 sm:mb-8">
             <TabsList className="flex w-max min-w-full sm:w-full sm:grid sm:grid-cols-5 gap-1">
+              <TabsTrigger value="bodiva" className="gap-1.5 whitespace-nowrap rounded-lg">
+                <BarChart3 className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Dados Mercado</span>
+                <span className="sm:hidden">Mercado</span>
+              </TabsTrigger>
               <TabsTrigger value="news" className="gap-1.5 whitespace-nowrap rounded-lg">
                 <Newspaper className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">Notícias</span>
@@ -553,11 +558,6 @@ export default function News() {
                 <FileSpreadsheet className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">Livro de Ordens</span>
                 <span className="sm:hidden">Ordens</span>
-              </TabsTrigger>
-              <TabsTrigger value="bodiva" className="gap-1.5 whitespace-nowrap rounded-lg">
-                <BarChart3 className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">Dados Mercado</span>
-                <span className="sm:hidden">Mercado</span>
               </TabsTrigger>
             </TabsList>
           </div>
