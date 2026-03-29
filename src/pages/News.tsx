@@ -98,7 +98,7 @@ export default function News() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [mainTab, setMainTab] = useState("news");
+  const [mainTab, setMainTab] = useState("bodiva");
   const [apiNews, setApiNews] = useState<NewsItem[]>([]);
   const [isFetchingApi, setIsFetchingApi] = useState(false);
 
