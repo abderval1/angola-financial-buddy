@@ -978,7 +978,7 @@ export default function Investments() {
                                     onClick={() => setActiveView("details")}
                                 >
                                     <Eye className="h-4 w-4 mr-2" />
-                                    {t("Meus Investimentos")}
+                                    {t("Carteira de Investimentos")}
                                 </Button>
                             </>
                         )}
@@ -1002,6 +1002,8 @@ export default function Investments() {
                                 returnPercentage={returnPercentage}
                                 monthlyReturn={monthlyReturn}
                                 riskProfile={riskProfile}
+                                portfolioByType={portfolioByType}
+                                investments={investments}
                             />
 
 
